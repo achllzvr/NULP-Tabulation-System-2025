@@ -25,6 +25,6 @@ if ($class) {
 }
 ?>
 
-<span class="<?= Util::escape($finalClass) ?>">
-    <?= Util::escape($text) ?>
+<span class="<?= esc($finalClass) ?>">
+    <?= esc($text) ?>
 </span>

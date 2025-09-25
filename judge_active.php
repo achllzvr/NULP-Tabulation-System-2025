@@ -1,30 +1,44 @@
 <?php
-/**
- * Judge Active Round - Scoring Interface
- * Converted from: components/judge/JudgeActiveRound.tsx
- * Preserves exact Tailwind classes and layout structure
- */
+// Judge Active Round (procedural refactor)
+require __DIR__.'/includes/bootstrap.php';
+auth_require_login();
+$user = auth_user();
 
-require_once 'classes/SessionManager.php';
+// Guard: only judges/admins allowed
+if (!in_array($user['role'], ['JUDGE','ADMIN'], true)) { http_response_code(403); echo 'Forbidden'; exit; }
 
-// Require login - judges and admins can access
-SessionManager::requireLogin();
+pageant_ensure_session();
+$pageant = pageant_get_current();
+$activeRound = $pageant ? rounds_get_active($pageant['id']) : null;
 
-require_once 'classes/Util.php';
-require_once 'classes/AuthService.php';
-require_once 'classes/PageantService.php';
-require_once 'classes/ParticipantService.php';
-require_once 'classes/Services.php';
+// Stub participants & criteria retrieval (future: replace with real queries)
+$participants = [];
+if ($pageant) {
+    // Basic participant list (id, division, number_label, full_name, advocacy, is_active)
+    $pdo = Database::get();
+    $stmt = $pdo->prepare("SELECT id, 'Division' as division, number_label, full_name, advocacy, 1 as is_active FROM participants WHERE pageant_id=? ORDER BY number_label");
+    $stmt->execute([$pageant['id']]);
+    $participants = $stmt->fetchAll();
+}
+$criteria = $activeRound ? rounds_list_criteria($activeRound['id'], true) : [];
 
-// Initialize services
-$authService = new AuthService();
-$pageantService = new PageantService();
-$participantService = new ParticipantService();
-$roundService = new RoundService();
-$scoreService = new ScoreService();
+// Map fetched criteria to expected simplified structure for existing markup (weight)
+foreach ($criteria as &$c) { if (!isset($c['weight'])) $c['weight']=0; }
+unset($c);
 
-// Get current user
-$currentUser = $authService->currentUser();
+// Handle score submission (placeholder wires to unified API soon)
+if (($_POST['action'] ?? '') === 'save_scores' && $activeRound) {
+    $participantId = (int)($_POST['participant'] ?? 0);
+    // Iterate posted score_* values
+    foreach ($_POST as $k=>$v) {
+        if (str_starts_with($k,'score_')) {
+            $criterionId = (int)substr($k,6);
+            $val = (float)$v;
+            try { scores_save($activeRound['id'],$criterionId,$participantId,$user['id'],$val); $message='Scores saved successfully'; }
+            catch (Throwable $e) { $error='Failed to save: '.$e->getMessage(); }
+        }
+    }
+}
 
 // Handle score submission
 if ($_POST && isset($_POST['action']) && $_POST['action'] === 'save_scores') {
@@ -87,12 +101,13 @@ if ($selectedParticipant) {
 }
 
 $pageTitle = 'Judge Portal - Active Round';
-include 'partials/head.php';
-include 'partials/nav_judge.php';
+include __DIR__.'/partials/head.php';
+// (nav_judge still legacy-aligned; keep include if exists)
+@include __DIR__.'/partials/nav_judge.php';
 ?>
 
 <div class="p-6 max-w-4xl mx-auto">
-    <?php if (!$activeRound || $activeRound['status'] !== 'OPEN'): ?>
+    <?php if (!$activeRound || $activeRound['state'] !== 'OPEN'): ?>
         <!-- No Active Round -->
         <div class="bg-white shadow rounded-lg">
             <div class="p-8 text-center">
@@ -116,7 +131,7 @@ include 'partials/nav_judge.php';
                             <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
                         </svg>
                         <div class="ml-3">
-                            <p class="text-sm text-green-700"><?= Util::escape($message) ?></p>
+                            <p class="text-sm text-green-700"><?= esc($message) ?></p>
                         </div>
                     </div>
                 </div>
@@ -144,8 +159,8 @@ include 'partials/nav_judge.php';
                                 if (!$participant['is_active']) continue;
                                 $selected = $participant['id'] === $selectedParticipant ? 'selected' : '';
                             ?>
-                                <option value="<?= Util::escape($participant['id']) ?>" <?= $selected ?>>
-                                    <?= Util::escape($participant['division']) ?> - #<?= Util::escape($participant['number_label']) ?> <?= Util::escape($participant['full_name']) ?>
+                                <option value="<?= esc($participant['id']) ?>" <?= $selected ?>>
+                                    <?= esc($participant['division']) ?> - #<?= esc($participant['number_label']) ?> <?= esc($participant['full_name']) ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
@@ -153,13 +168,13 @@ include 'partials/nav_judge.php';
 
                     <?php if ($selectedParticipantData): ?>
                         <div class="mt-4 p-4 bg-blue-50 rounded-lg">
-                            <h4 class="font-medium">#<?= Util::escape($selectedParticipantData['number_label']) ?> <?= Util::escape($selectedParticipantData['full_name']) ?></h4>
+                            <h4 class="font-medium">#<?= esc($selectedParticipantData['number_label']) ?> <?= esc($selectedParticipantData['full_name']) ?></h4>
                             <p class="text-sm text-gray-600 mt-1">
-                                <strong>Division:</strong> <?= Util::escape($selectedParticipantData['division']) ?>
+                                <strong>Division:</strong> <?= esc($selectedParticipantData['division']) ?>
                             </p>
                             <?php if (!empty($selectedParticipantData['advocacy'])): ?>
                                 <p class="text-sm text-gray-600 mt-1">
-                                    <strong>Advocacy:</strong> <?= Util::escape($selectedParticipantData['advocacy']) ?>
+                                    <strong>Advocacy:</strong> <?= esc($selectedParticipantData['advocacy']) ?>
                                 </p>
                             <?php endif; ?>
                         </div>
@@ -181,15 +196,15 @@ include 'partials/nav_judge.php';
                     <div class="px-6 py-4">
                         <form method="POST" id="scoringForm">
                             <input type="hidden" name="action" value="save_scores">
-                            <input type="hidden" name="participant" value="<?= Util::escape($selectedParticipant) ?>">
+                            <input type="hidden" name="participant" value="<?= esc($selectedParticipant) ?>">
                             
                             <div class="space-y-6">
                                 <?php foreach ($criteria as $criterion): ?>
                                     <div class="space-y-3">
                                         <div class="flex items-center justify-between">
                                             <div>
-                                                <h4 class="font-medium"><?= Util::escape($criterion['name']) ?></h4>
-                                                <p class="text-sm text-gray-600">Weight: <?= $criterion['weight'] ?>%</p>
+                                                <h4 class="font-medium"><?= esc($criterion['name']) ?></h4>
+                                                <p class="text-sm text-gray-600">Weight: <?= esc($criterion['weight']) ?>%</p>
                                             </div>
                                             <div class="text-right">
                                                 <span class="text-2xl font-bold text-blue-600" id="score-display-<?= $criterion['id'] ?>">5.0</span>
@@ -198,7 +213,7 @@ include 'partials/nav_judge.php';
                                         </div>
                                         
                                         <input type="range" 
-                                               name="score_<?= Util::escape($criterion['id']) ?>"
+                                               name="score_<?= esc($criterion['id']) ?>"
                                                min="1" 
                                                max="10" 
                                                step="0.1" 
@@ -251,7 +266,7 @@ include 'partials/nav_judge.php';
                                 </div>
                                 <div>
                                     <p class="text-gray-600">Current Round:</p>
-                                    <p class="font-semibold"><?= Util::escape($activeRound['name']) ?></p>
+                                    <p class="font-semibold"><?= esc($activeRound['name']) ?></p>
                                 </div>
                             </div>
                         </div>
@@ -307,4 +322,4 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
-<?php include 'partials/footer.php'; ?>
+<?php include __DIR__.'/partials/footer.php'; ?>

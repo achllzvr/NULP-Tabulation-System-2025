@@ -1,56 +1,38 @@
 <?php
-/**
- * Login Page
- * Real authentication using AuthService and database
- */
+// Refactored login page using procedural auth helpers & bootstrap
+require __DIR__.'/includes/bootstrap.php';
 
-require_once 'classes/Util.php';
-require_once 'classes/SessionManager.php';
-require_once 'classes/AuthService.php';
+// If already logged in, redirect to dashboard
+if (auth_user()) { header('Location: dashboard.php'); exit; }
 
-// Redirect if already logged in
-SessionManager::redirectIfLoggedIn();
-
-$authService = new AuthService();
-
-// Handle logout
-if (isset($_GET['logout'])) {
-    SessionManager::logout();
+// Handle messages (logout handled by separate logout.php now)
+if (isset($_GET['logged_out'])) {
     $message = 'You have been logged out successfully.';
 }
 
-// Handle login form submission
-if ($_POST && isset($_POST['action']) && $_POST['action'] === 'login') {
-    $email = $_POST['email'] ?? '';
+if (($_POST['action'] ?? '') === 'login') {
+    $email = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
-    
-    if (!empty($email) && !empty($password)) {
+    if ($email === '' || $password === '') {
+        $error = 'Please enter both email and password';
+    } else {
         try {
-            $user = $authService->login($email, $password);
-            
-            if ($user) {
-                // Redirect based on user role
-                $globalRole = SessionManager::getUserRole();
-                if ($globalRole === 'SUPERADMIN') {
-                    header('Location: dashboard.php');
-                    exit;
-                } else {
-                    header('Location: index.php');
-                    exit;
-                }
+            if (auth_login($email,$password)) {
+                // Ensure pageant context in session (fallback to active/default)
+                pageant_ensure_session();
+                header('Location: dashboard.php');
+                exit;
             } else {
                 $error = 'Invalid email or password';
             }
-        } catch (Exception $e) {
-            $error = 'Login failed: ' . $e->getMessage();
+        } catch (Throwable $e) {
+            $error = 'Login failed: '.$e->getMessage();
         }
-    } else {
-        $error = 'Please enter both email and password';
     }
 }
 
 $pageTitle = 'Login - Pageant Tabulation System';
-include 'partials/head.php';
+include __DIR__.'/partials/head.php';
 ?>
 
 <div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
@@ -77,7 +59,7 @@ include 'partials/head.php';
                                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
                             </svg>
                             <div class="ml-3">
-                                <p class="text-sm text-red-700"><?= Util::escape($error) ?></p>
+                                <p class="text-sm text-red-700"><?= esc($error) ?></p>
                             </div>
                         </div>
                     </div>
@@ -90,7 +72,7 @@ include 'partials/head.php';
                                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
                             </svg>
                             <div class="ml-3">
-                                <p class="text-sm text-green-700"><?= Util::escape($message) ?></p>
+                                <p class="text-sm text-green-700"><?= esc($message) ?></p>
                             </div>
                         </div>
                     </div>
@@ -107,7 +89,7 @@ include 'partials/head.php';
                                required
                                class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                                placeholder="Enter your email"
-                               value="<?= Util::escape($_POST['email'] ?? '') ?>">
+                               value="<?= esc($_POST['email'] ?? '') ?>">
                     </div>
 
                     <div>
@@ -137,4 +119,4 @@ include 'partials/head.php';
     </div>
 </div>
 
-<?php include 'partials/footer.php'; ?>
+<?php include __DIR__.'/partials/footer.php'; ?>

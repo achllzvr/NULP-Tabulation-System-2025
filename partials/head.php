@@ -5,14 +5,7 @@
  * Expected vars: $pageTitle (optional), $additionalCSS (optional), $additionalJS (optional)
  */
 
-// Enable error reporting for debugging
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
-
-// Ensure Util class is available
-if (!class_exists('Util')) {
-    require_once __DIR__ . '/../classes/Util.php';
-}
+// (Error reporting now centralized in includes/bootstrap.php; keep file slim.)
 
 $pageTitle = $pageTitle ?? 'Pageant Tabulation System';
 $additionalCSS = $additionalCSS ?? '';
@@ -23,7 +16,7 @@ $additionalJS = $additionalJS ?? '';
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title><?= Util::escape($pageTitle) ?></title>
+    <title><?= esc($pageTitle) ?></title>
     
     <!-- Tailwind CSS - Static version for better performance -->
     <link href="https://unpkg.com/tailwindcss@^3.0/dist/tailwind.min.css" rel="stylesheet">

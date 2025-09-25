@@ -14,16 +14,16 @@ $showHeader = !empty($title) || !empty($description);
 
 <div class="bg-white shadow rounded-lg border border-gray-200">
     <?php if ($showHeader): ?>
-        <div class="px-6 py-4 border-b border-gray-200 <?= Util::escape($headerClass) ?>">
+    <div class="px-6 py-4 border-b border-gray-200 <?= esc($headerClass) ?>">
             <?php if ($title): ?>
-                <h3 class="text-lg font-medium text-gray-900"><?= Util::escape($title) ?></h3>
+                <h3 class="text-lg font-medium text-gray-900"><?= esc($title) ?></h3>
             <?php endif; ?>
             <?php if ($description): ?>
-                <p class="mt-1 text-sm text-gray-600"><?= Util::escape($description) ?></p>
+                <p class="mt-1 text-sm text-gray-600"><?= esc($description) ?></p>
             <?php endif; ?>
         </div>
     <?php endif; ?>
-    <div class="px-6 py-4 <?= Util::escape($contentClass) ?>">
+    <div class="px-6 py-4 <?= esc($contentClass) ?>">
         <?php if (isset($cardContent)): ?>
             <?= $cardContent ?>
         <?php endif; ?>

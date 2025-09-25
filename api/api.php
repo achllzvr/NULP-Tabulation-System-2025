@@ -1,139 +1,21 @@
 <?php
-/**
- * Pageant Tabulation System API (Scaffold)
- * ---------------------------------------
- * IMPORTANT:
- * - Secure this file (do not expose publicly without authentication hardening).
- * - Replace DB credentials & consider environment variables.
- * - Add rate limiting + stronger CSRF for production.
- */
-
+require __DIR__.'/../includes/bootstrap.php';
 header('Content-Type: application/json');
-session_start();
-
-// ---------------------- CONFIG / DB CONNECTION ----------------------
-require_once '../classes/Database.php';
-
+$action = $_GET['action'] ?? ($_POST['action'] ?? '');
 try {
-  $db = Database::getInstance();
-  $pdo = $db->getConnection();
-} catch (Throwable $e) {
-  http_response_code(500);
-  echo json_encode(['success' => false, 'message' => 'DB connection failed']);
-  exit;
-}
-
-// ---------------------- HELPERS ----------------------
-function respond($data, $code = 200) {
-  http_response_code($code);
-  echo json_encode($data);
-  exit;
-}
-
-function require_auth() {
-  if (empty($_SESSION['user_id'])) {
-    respond(['success' => false, 'message' => 'Not authenticated'], 401);
+  switch ($action) {
+    case 'open_round':
+      auth_require_login(); $rid=(int)($_POST['round_id']??0); $ok=rounds_open($rid); echo json_encode(['success'=>$ok]); break;
+    case 'close_round':
+      auth_require_login(); $rid=(int)($_POST['round_id']??0); $ok=rounds_close($rid); echo json_encode(['success'=>$ok]); break;
+    case 'submit_score':
+      auth_require_login(); $roundId=(int)($_POST['round_id']??0); $criterionId=(int)($_POST['criterion_id']??0); $participantId=(int)($_POST['participant_id']??0); $value=(float)($_POST['value']??0); $u=auth_user(); $ok=scores_save($roundId,$criterionId,$participantId,$u['id'],$value); echo json_encode(['success'=>$ok]); break;
+    case 'leaderboard':
+      $roundId=(int)($_GET['round_id']??0); $rows=scores_aggregate_round($roundId); echo json_encode(['success'=>true,'data'=>$rows]); break;
+    default: echo json_encode(['success'=>false,'error'=>'Unknown action']);
   }
-}
+} catch (Throwable $e) { http_response_code(500); echo json_encode(['success'=>false,'error'=>$e->getMessage()]); }
 
-function require_role($pageantId, $roles, $pdo) {
-  require_auth();
-  $roles = (array)$roles;
-  $stmt = $pdo->prepare("SELECT role FROM pageant_users WHERE pageant_id=? AND user_id=? LIMIT 1");
-  $stmt->execute([$pageantId, $_SESSION['user_id']]);
-  $r = $stmt->fetch();
-  if (!$r || !in_array($r['role'], $roles, true)) {
-    respond(['success'=>false,'message'=>'Forbidden'],403);
-  }
-}
-
-function random_code($len=8) {
-  return strtoupper(substr(bin2hex(random_bytes($len)),0,$len));
-}
-
-function hash_password($plain) { return password_hash($plain, PASSWORD_BCRYPT); }
-
-function sanitize_int($v) { return (int)$v; }
-
-// ---------------------- AUTH ENDPOINTS ----------------------
-function register_user($pdo) {
-  $input = json_decode(file_get_contents('php://input'), true);
-  $email = trim($input['email'] ?? '');
-  $full_name = trim($input['full_name'] ?? '');
-  $password = trim($input['password'] ?? '');
-  if ($email==='' || $full_name==='' || $password==='') {
-    respond(['success'=>false,'message'=>'Missing fields'],400);
-  }
-  $stmt = $pdo->prepare("SELECT id FROM users WHERE email=? LIMIT 1");
-  $stmt->execute([$email]);
-  if ($stmt->fetch()) respond(['success'=>false,'message'=>'Email already used'],409);
-
-  $stmt = $pdo->prepare("INSERT INTO users (email, full_name, password_hash, global_role) VALUES (?,?,?,?)");
-  $stmt->execute([$email, $full_name, hash_password($password), 'STANDARD']);
-  respond(['success'=>true,'user_id'=>$pdo->lastInsertId()]);
-}
-
-function login($pdo) {
-  $input = json_decode(file_get_contents('php://input'), true);
-  $email = trim($input['email'] ?? '');
-  $password = trim($input['password'] ?? '');
-  if ($email===''||$password==='') respond(['success'=>false,'message'=>'Missing credentials'],400);
-
-  // Support both email and username login
-  $stmt = $pdo->prepare("SELECT id, password_hash, full_name, global_role, email, username FROM users WHERE (email=? OR username=?) AND is_active=1 LIMIT 1");
-  $stmt->execute([$email, $email]);
-  $u = $stmt->fetch();
-  if (!$u || !password_verify($password, $u['password_hash'])) {
-    respond(['success'=>false,'message'=>'Invalid credentials'],401);
-  }
-  session_regenerate_id(true);
-  $_SESSION['user_id'] = (int)$u['id'];
-  $_SESSION['user_email'] = $u['email'];
-  $_SESSION['user_username'] = $u['username'];
-  $_SESSION['user_name'] = $u['full_name'];
-  $_SESSION['user_role'] = $u['global_role'];
-  $_SESSION['full_name'] = $u['full_name'];
-  $_SESSION['global_role'] = $u['global_role'];
-  respond(['success'=>true,'user_id'=>$u['id'],'full_name'=>$u['full_name'],'global_role'=>$u['global_role']]);
-}
-
-function logout() {
-  $_SESSION = [];
-  session_destroy();
-  respond(['success'=>true,'message'=>'Logged out']);
-}
-
-// ---------------------- PAGEANT SETUP ----------------------
-function create_pageant($pdo) {
-  require_auth();
-  $input = json_decode(file_get_contents('php://input'), true);
-  $name = trim($input['name'] ?? '');
-  $year = (int)($input['year'] ?? date('Y'));
-  if ($name==='') respond(['success'=>false,'message'=>'Name required'],400);
-
-  $code = random_code(6);
-  $pdo->beginTransaction();
-  try {
-    $stmt = $pdo->prepare("INSERT INTO pageants (code,name,year) VALUES (?,?,?)");
-    $stmt->execute([$code,$name,$year]);
-    $pageantId = $pdo->lastInsertId();
-
-    // Add creator as ADMIN
-    $stmt = $pdo->prepare("INSERT INTO pageant_users (pageant_id,user_id,role) VALUES (?,?,?)");
-    $stmt->execute([$pageantId,$_SESSION['user_id'],'ADMIN']);
-
-    // Insert default divisions
-    $stmt = $pdo->prepare("INSERT INTO divisions (pageant_id,name,sort_order) VALUES (?,?,?)");
-    $stmt->execute([$pageantId,'Mr',1]);
-    $stmt->execute([$pageantId,'Ms',2]);
-
-    $pdo->commit();
-    respond(['success'=>true,'pageant_id'=>$pageantId,'code'=>$code]);
-  } catch (Throwable $e) {
-    $pdo->rollBack();
-    respond(['success'=>false,'message'=>'Create failed','error'=>$e->getMessage()],500);
-  }
-}
 
 function join_pageant_as_admin($pdo) {
   require_auth();

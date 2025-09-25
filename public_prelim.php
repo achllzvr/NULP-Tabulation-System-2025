@@ -106,7 +106,7 @@ include 'partials/head.php';
                     </svg>
                     <div>
                         <h1 class="text-2xl font-bold text-gray-900">Preliminary Standings</h1>
-                        <p class="text-gray-600">Pageant Code: <?= Util::escape($code) ?></p>
+                        <p class="text-gray-600">Pageant Code: <?= esc($code) ?></p>
                     </div>
                 </div>
                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
@@ -162,8 +162,8 @@ include 'partials/head.php';
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div>
-                                            <p class="text-lg font-semibold text-gray-900">#<?= Util::escape($result['number_label']) ?></p>
-                                            <p class="text-gray-600"><?= Util::escape($result['display_name']) ?></p>
+                                            <p class="text-lg font-semibold text-gray-900">#<?= esc($result['number_label']) ?></p>
+                                            <p class="text-gray-600"><?= esc($result['display_name']) ?></p>
                                         </div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-right">
@@ -220,8 +220,8 @@ include 'partials/head.php';
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div>
-                                            <p class="text-lg font-semibold text-gray-900">#<?= Util::escape($result['number_label']) ?></p>
-                                            <p class="text-gray-600"><?= Util::escape($result['display_name']) ?></p>
+                                            <p class="text-lg font-semibold text-gray-900">#<?= esc($result['number_label']) ?></p>
+                                            <p class="text-gray-600"><?= esc($result['display_name']) ?></p>
                                         </div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-right">
@@ -238,7 +238,7 @@ include 'partials/head.php';
         <!-- Status -->
         <div class="mt-8 bg-white shadow rounded-lg">
             <div class="p-6 text-center">
-                <h3 class="text-xl font-semibold mb-2"><?= Util::escape($resultsMessage) ?></h3>
+                <h3 class="text-xl font-semibold mb-2"><?= esc($resultsMessage) ?></h3>
                 <?php if (!empty($preliminaryResults)): ?>
                     <p class="text-gray-600">
                         Top contestants from each division have qualified for the final round.

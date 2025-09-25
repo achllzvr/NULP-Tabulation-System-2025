@@ -39,12 +39,12 @@ if ($disabled) {
 }
 
 $tag = $href ? 'a' : 'button';
-$hrefAttr = $href ? 'href="' . Util::escape($href) . '"' : '';
-$onclickAttr = $onclick ? 'onclick="' . Util::escape($onclick) . '"' : '';
-$typeAttr = ($tag === 'button') ? 'type="' . Util::escape($type) . '"' : '';
+$hrefAttr = $href ? 'href="' . esc($href) . '"' : '';
+$onclickAttr = $onclick ? 'onclick="' . esc($onclick) . '"' : '';
+$typeAttr = ($tag === 'button') ? 'type="' . esc($type) . '"' : '';
 $disabledAttr = ($disabled && $tag === 'button') ? 'disabled' : '';
 ?>
 
-<<?= $tag ?> class="<?= Util::escape($finalClass) ?>" <?= $hrefAttr ?> <?= $onclickAttr ?> <?= $typeAttr ?> <?= $disabledAttr ?>>
-    <?= Util::escape($text) ?>
+<<?= $tag ?> class="<?= esc($finalClass) ?>" <?= $hrefAttr ?> <?= $onclickAttr ?> <?= $typeAttr ?> <?= $disabledAttr ?>>
+    <?= esc($text) ?>
 </<?= $tag ?>>

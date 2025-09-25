@@ -1,81 +1,50 @@
 <?php
-/**
- * Admin Dashboard
- * Converted from: components/admin/AdminDashboard.tsx
- * Preserves exact Tailwind classes and layout structure
- */
-
-require_once 'classes/SessionManager.php';
-
-// Require admin access
-SessionManager::requireAdmin();
-
-require_once 'classes/Util.php';
-require_once 'classes/AuthService.php';
-require_once 'classes/PageantService.php';
-require_once 'classes/ParticipantService.php';
-require_once 'classes/JudgeService.php';
-require_once 'classes/RoundService.php';
-require_once 'classes/Services.php';
-
-// Initialize services
-$authService = new AuthService();
-$pageantService = new PageantService();
-$participantService = new ParticipantService();
-$judgeService = new JudgeService();
-$roundService = new RoundService();
-
-// Get current user
-$currentUser = $authService->currentUser();
-
-try {
-    // For now, use a default pageant - in production this would come from user session or selection
-    $pageantCode = 'NU2025AB'; // Updated to match the actual code from database
-    $pageant = $pageantService->getByCode($pageantCode);
-    
-    if (!$pageant) {
-        // Fallback to get the default pageant
-        $pageant = $pageantService->getDefaultPageant();
-    }
-    
-    $pageantId = $pageant ? $pageant['id'] : 1; // Fallback to ID 1
-    
-    // Get real data from services
-    $participants = $participantService->list($pageantId);
-    $judges = $judgeService->list($pageantId);
-    $rounds = $roundService->listForPageant($pageantId);
-    
-    $state = [
-        'currentUser' => $currentUser,
-        'pageantCode' => $pageant['code'] ?? $pageantCode,
-        'pageant' => $pageant,
-        'participants' => $participants,
-        'judges' => $judges,
-        'rounds' => $rounds
-    ];
-    
-} catch (Exception $e) {
-    // Fallback to empty data if database issues
-    $error = 'Database error: ' . $e->getMessage();
-    $state = [
-        'currentUser' => $currentUser,
-        'pageantCode' => 'NULP2025',
-        'participants' => [],
-        'judges' => [],
-        'rounds' => []
-    ];
-}
-
-// Calculate stats
-$stats = [
-    'participants' => count($state['participants']),
-    'activeParticipants' => count(array_filter($state['participants'], fn($p) => $p['is_active'])),
-    'judges' => count($state['judges']),
-    'roundsCompleted' => count(array_filter($state['rounds'], fn($r) => $r['status'] === 'CLOSED')),
-    'totalRounds' => count($state['rounds'])
-];
-
-$prelimRound = array_values(array_filter($state['rounds'], fn($r) => $r['type'] === 'PRELIMINARY'))[0] ?? null;
+require __DIR__.'/includes/bootstrap.php';
+auth_require_login();
+$pageant = pageant_get_current();
+$pageTitle = 'Admin Dashboard';
+require __DIR__.'/includes/head.php';
+?>
+<div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
+    <div class="max-w-6xl mx-auto space-y-6">
+        <h1 class="text-2xl font-bold text-gray-900">Dashboard</h1>
+        <?php if(!$pageant): ?>
+            <div class="p-4 bg-yellow-100 border rounded">No pageant selected (session has no pageant_id).</div>
+        <?php else: ?>
+            <div class="bg-white shadow rounded p-4">
+                <h2 class="text-lg font-medium text-gray-900"><?= esc($pageant['name'] ?? 'Pageant') ?></h2>
+                <p class="text-sm text-gray-600 mt-1">Code: <?= esc($pageant['code'] ?? '') ?></p>
+            </div>
+            <?php $rounds = pageant_list_rounds((int)$pageant['id']); ?>
+            <div class="bg-white shadow rounded p-4">
+                <h3 class="font-medium mb-2">Rounds</h3>
+                <ul class="divide-y divide-gray-200">
+                    <?php foreach($rounds as $r): ?>
+                    <li class="py-2 flex items-center justify-between">
+                        <span><?= esc($r['name']) ?> (<?= esc($r['state']) ?>)</span>
+                        <div class="space-x-2 text-sm">
+                            <?php if ($r['state']==='PENDING'): ?>
+                            <form method="post" action="api/api.php?action=open_round" class="inline">
+                                <input type="hidden" name="round_id" value="<?= (int)$r['id'] ?>" />
+                                <button class="px-2 py-1 bg-blue-600 text-white rounded">Open</button>
+                            </form>
+                            <?php elseif ($r['state']==='OPEN'): ?>
+                            <form method="post" action="api/api.php?action=close_round" class="inline">
+                                <input type="hidden" name="round_id" value="<?= (int)$r['id'] ?>" />
+                                <button class="px-2 py-1 bg-red-600 text-white rounded">Close</button>
+                            </form>
+                            <?php else: ?>
+                            <span class="text-gray-500">Closed</span>
+                            <?php endif; ?>
+                        </div>
+                    </li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+        <?php endif; ?>
+    </div>
+</div>
+<?php require __DIR__.'/includes/footer.php'; ?>
 $finalRound = array_values(array_filter($state['rounds'], fn($r) => $r['type'] === 'FINAL'))[0] ?? null;
 
 // Setup progress
@@ -156,7 +125,7 @@ include 'partials/nav_admin.php';
                         
                         <div class="grid md:grid-cols-2 gap-4 mt-6">
                             <?php foreach ($setupProgress as $step): ?>
-                                <a href="<?= Util::escape($step['href']) ?>" class="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 transition-colors">
+                                <a href="<?= esc($step['href']) ?>" class="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 transition-colors">
                                     <div class="flex items-center gap-3">
                                         <?php if ($step['completed']): ?>
                                             <!-- CheckCircle SVG Icon -->
@@ -170,7 +139,7 @@ include 'partials/nav_admin.php';
                                             </svg>
                                         <?php endif; ?>
                                         <div>
-                                            <p class="font-medium"><?= Util::escape($step['step']) ?></p>
+                                            <p class="font-medium"><?= esc($step['step']) ?></p>
                                             <?php if (isset($step['count'])): ?>
                                                 <p class="text-sm text-gray-600"><?= $step['count'] ?> added</p>
                                             <?php endif; ?>
@@ -179,7 +148,7 @@ include 'partials/nav_admin.php';
                                                 $badgeClass = $step['status'] === 'CLOSED' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800';
                                                 ?>
                                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium <?= $badgeClass ?>">
-                                                    <?= Util::escape($step['status']) ?>
+                                                    <?= esc($step['status']) ?>
                                                 </span>
                                             <?php endif; ?>
                                         </div>
@@ -308,8 +277,8 @@ include 'partials/nav_admin.php';
                                 <div class="flex items-start gap-3">
                                     <div class="w-2 h-2 rounded-full mt-2 <?= $activity['type'] === 'success' ? 'bg-green-500' : 'bg-blue-500' ?>"></div>
                                     <div class="flex-1">
-                                        <p class="text-sm font-medium"><?= Util::escape($activity['action']) ?></p>
-                                        <p class="text-xs text-gray-500"><?= Util::escape($activity['time']) ?></p>
+                                        <p class="text-sm font-medium"><?= esc($activity['action']) ?></p>
+                                        <p class="text-xs text-gray-500"><?= esc($activity['time']) ?></p>
                                     </div>
                                 </div>
                             <?php endforeach; ?>
