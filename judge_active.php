@@ -9,11 +9,13 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
 }
 
-// Simple auth check for demo
-if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'judge') {
+// Auth check - user must be logged in
+if (!isset($_SESSION['user_id'])) {
     header('Location: index.php');
     exit;
 }
+
+// TODO: Add pageant-specific judge role check when pageant context is available
 
 require_once 'classes/Util.php';
 require_once 'classes/AuthService.php';

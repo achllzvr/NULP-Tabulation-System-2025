@@ -29,15 +29,14 @@ if ($_POST && isset($_POST['action']) && $_POST['action'] === 'login') {
             $user = $authService->login($email, $password);
             
             if ($user) {
-                // Redirect based on user role
-                $role = $user['role'] ?? 'user';
-                if ($role === 'admin') {
+                // Redirect based on user role - check global_role first
+                $globalRole = $_SESSION['user_role'] ?? '';
+                if ($globalRole === 'SUPERADMIN') {
                     header('Location: dashboard.php');
                     exit;
-                } elseif ($role === 'judge') {
-                    header('Location: judge_active.php');
-                    exit;
                 } else {
+                    // For STANDARD users, check if they have specific pageant roles
+                    // For now, redirect to index where they can choose their role
                     header('Location: index.php');
                     exit;
                 }
@@ -54,12 +53,12 @@ if ($_POST && isset($_POST['action']) && $_POST['action'] === 'login') {
 
 // Redirect if already logged in
 if (isset($_SESSION['user_id'])) {
-    $role = $_SESSION['user_role'] ?? '';
-    if ($role === 'admin') {
+    $globalRole = $_SESSION['user_role'] ?? '';
+    if ($globalRole === 'SUPERADMIN') {
         header('Location: dashboard.php');
         exit;
-    } elseif ($role === 'judge') {
-        header('Location: judge_active.php');
+    } else {
+        header('Location: index.php');
         exit;
     }
 }

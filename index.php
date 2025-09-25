@@ -16,30 +16,23 @@ if ($_POST) {
     if (isset($_POST['action'])) {
         switch ($_POST['action']) {
             case 'admin':
-                // In production, this would authenticate properly
-                $_SESSION['user_id'] = 'admin_001';
-                $_SESSION['user_role'] = 'admin';
-                $_SESSION['user_name'] = 'System Administrator';
-                header('Location: dashboard.php');
+                // Redirect to login for admin access
+                header('Location: login.php');
                 exit;
                 
             case 'judge':
-                // In production, this would authenticate properly
-                $_SESSION['user_id'] = 'judge_001';
-                $_SESSION['user_role'] = 'judge';
-                $_SESSION['user_name'] = 'Dr. Sarah Mitchell';
-                header('Location: judge_active.php');
+                // Redirect to login for judge access
+                header('Location: login.php');
                 exit;
                 
             case 'public':
                 $publicCode = $_POST['pageant_code'] ?? '';
                 if (empty(trim($publicCode))) {
                     $error = 'Please enter a pageant code';
-                } elseif (strtoupper($publicCode) === 'DEMO2025') {
+                } else {
+                    // TODO: Validate pageant code against database
                     header('Location: public_prelim.php?code=' . urlencode(strtoupper($publicCode)));
                     exit;
-                } else {
-                    $error = 'Invalid pageant code';
                 }
                 break;
         }
@@ -172,18 +165,17 @@ include 'partials/head.php';
                 </div>
             </div>
 
-            <!-- Demo Access -->
+            <!-- System Status -->
             <div class="bg-white shadow rounded-lg">
                 <div class="px-6 py-4 border-b border-gray-200">
-                    <h3 class="text-lg font-medium text-gray-900">Demo Access</h3>
+                    <h3 class="text-lg font-medium text-gray-900">System Status</h3>
                 </div>
                 <div class="px-6 py-4">
                     <div class="space-y-2 text-gray-600">
-                        <p><strong>Pageant Code:</strong> DEMO2025</p>
-                        <p><strong>Admin:</strong> Full access (no password required)</p>
-                        <p><strong>Judge:</strong> Dr. Sarah Mitchell (demo login)</p>
+                        <p><strong>Status:</strong> <span class="text-green-600">Active</span></p>
+                        <p><strong>Access:</strong> Login required for all functions</p>
                         <p class="text-sm text-gray-500 mt-3">
-                            This is a demonstration system with sample data pre-loaded.
+                            All features require proper authentication. Contact your administrator for access.
                         </p>
                     </div>
                 </div>
@@ -209,7 +201,7 @@ include 'partials/head.php';
                 <input type="text" 
                        id="pageant-code" 
                        name="pageant_code"
-                       placeholder="e.g., DEMO2025"
+                       placeholder="Enter pageant code"
                        class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500 sm:text-sm uppercase"
                        style="text-transform: uppercase;">
             </div>

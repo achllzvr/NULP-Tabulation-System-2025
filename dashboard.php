@@ -9,9 +9,9 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
 }
 
-// Simple auth check for demo
-if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'admin') {
-    header('Location: index.php');
+// Simple auth check - only SUPERADMIN can access dashboard
+if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'SUPERADMIN') {
+    header('Location: login.php');
     exit;
 }
 
@@ -20,6 +20,7 @@ require_once 'classes/AuthService.php';
 require_once 'classes/PageantService.php';
 require_once 'classes/ParticipantService.php';
 require_once 'classes/JudgeService.php';
+require_once 'classes/RoundService.php';
 require_once 'classes/Services.php';
 
 // Initialize services
@@ -34,19 +35,20 @@ $currentUser = $authService->currentUser();
 
 try {
     // For now, use a default pageant - in production this would come from user session or selection
-    $pageantCode = 'NULP2025';
+    $pageantCode = 'NU2025AB'; // Updated to match the actual code from database
     $pageant = $pageantService->getByCode($pageantCode);
     
     if (!$pageant) {
-        $pageant = $pageantService->getById($pageantId);
-    } else {
-        $pageantId = $pageant['id'];
+        // Fallback to get the default pageant
+        $pageant = $pageantService->getDefaultPageant();
     }
+    
+    $pageantId = $pageant ? $pageant['id'] : 1; // Fallback to ID 1
     
     // Get real data from services
     $participants = $participantService->list($pageantId);
     $judges = $judgeService->list($pageantId);
-    $rounds = $roundService->list($pageantId);
+    $rounds = $roundService->listForPageant($pageantId);
     
     $state = [
         'currentUser' => $currentUser,
