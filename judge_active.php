@@ -5,17 +5,10 @@
  * Preserves exact Tailwind classes and layout structure
  */
 
-if (session_status() !== PHP_SESSION_ACTIVE) {
-    session_start();
-}
+require_once 'classes/SessionManager.php';
 
-// Auth check - user must be logged in
-if (!isset($_SESSION['user_id'])) {
-    header('Location: index.php');
-    exit;
-}
-
-// TODO: Add pageant-specific judge role check when pageant context is available
+// Require login - judges and admins can access
+SessionManager::requireLogin();
 
 require_once 'classes/Util.php';
 require_once 'classes/AuthService.php';
@@ -42,7 +35,7 @@ if ($_POST && isset($_POST['action']) && $_POST['action'] === 'save_scores') {
         
         if ($roundId && $participantId && !empty($scores)) {
             foreach ($scores as $criterionId => $score) {
-                $scoreService->saveScore($roundId, $criterionId, $participantId, $currentUser['id'], floatval($score));
+                $scoreService->submitScore($roundId, $criterionId, $participantId, $currentUser['id'], floatval($score));
             }
             $message = 'Scores saved successfully';
         } else {
@@ -62,7 +55,7 @@ try {
         $pageantId = $pageant['id'];
         
         // Get active round
-        $activeRound = $roundService->currentOpen($pageantId);
+        $activeRound = $roundService->getActiveRound($pageantId);
         
         // Get participants for this pageant
         $participants = $participantService->list($pageantId);

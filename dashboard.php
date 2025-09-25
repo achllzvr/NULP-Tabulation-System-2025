@@ -5,15 +5,10 @@
  * Preserves exact Tailwind classes and layout structure
  */
 
-if (session_status() !== PHP_SESSION_ACTIVE) {
-    session_start();
-}
+require_once 'classes/SessionManager.php';
 
-// Simple auth check - only SUPERADMIN can access dashboard
-if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'SUPERADMIN') {
-    header('Location: login.php');
-    exit;
-}
+// Require admin access
+SessionManager::requireAdmin();
 
 require_once 'classes/Util.php';
 require_once 'classes/AuthService.php';

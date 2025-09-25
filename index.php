@@ -5,11 +5,9 @@
  * Preserves exact Tailwind classes and layout structure
  */
 
-if (session_status() !== PHP_SESSION_ACTIVE) {
-    session_start();
-}
-
 require_once 'classes/Util.php';
+require_once 'classes/SessionManager.php';
+require_once 'classes/PublicService.php';
 
 // Handle role selection and redirects
 if ($_POST) {
@@ -30,9 +28,15 @@ if ($_POST) {
                 if (empty(trim($publicCode))) {
                     $error = 'Please enter a pageant code';
                 } else {
-                    // TODO: Validate pageant code against database
-                    header('Location: public_prelim.php?code=' . urlencode(strtoupper($publicCode)));
-                    exit;
+                    $publicService = new PublicService();
+                    $cleanCode = strtoupper(trim($publicCode));
+                    
+                    if ($publicService->validatePageantCode($cleanCode)) {
+                        header('Location: public_prelim.php?code=' . urlencode($cleanCode));
+                        exit;
+                    } else {
+                        $error = 'Invalid pageant code. Please check and try again.';
+                    }
                 }
                 break;
         }

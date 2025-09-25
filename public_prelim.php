@@ -5,18 +5,86 @@
  * Preserves exact Tailwind classes and layout structure
  */
 
-$code = $_GET['code'] ?? 'DEMO2025';
+require_once 'classes/Database.php';
 
-// Mock preliminary results for public display
-$preliminaryResults = [
-    // Mr Division
-    ['rank' => 1, 'division' => 'Mr', 'number_label' => '01', 'display_name' => 'Alexander Johnson', 'score' => 87.5],
-    ['rank' => 2, 'division' => 'Mr', 'number_label' => '03', 'display_name' => 'Marcus Thompson', 'score' => 85.1],
-    // Ms Division
-    ['rank' => 1, 'division' => 'Ms', 'number_label' => '02', 'display_name' => 'Isabella Rodriguez', 'score' => 89.2],
-    ['rank' => 2, 'division' => 'Ms', 'number_label' => '04', 'display_name' => 'Sophia Chen', 'score' => 86.7]
-];
+$code = $_GET['code'] ?? '';
 
+// Initialize results arrays
+$preliminaryResults = [];
+$showParticipantNames = false;
+$resultsMessage = 'No preliminary results available';
+
+if (!empty($code)) {
+    try {
+        $pdo = Database::getInstance()->getConnection();
+        
+        // Get pageant info
+        $stmt = $pdo->prepare("SELECT id, show_participant_names, prelim_results_revealed FROM pageants WHERE code = ?");
+        $stmt->execute([$code]);
+        $pageant = $stmt->fetch();
+        
+        if ($pageant && $pageant['prelim_results_revealed']) {
+            $showParticipantNames = (bool)$pageant['show_participant_names'];
+            
+            // Get preliminary round
+            $stmt = $pdo->prepare("SELECT id, name FROM rounds WHERE pageant_id = ? AND scoring_mode = 'PRELIM' ORDER BY sequence ASC LIMIT 1");
+            $stmt->execute([$pageant['id']]);
+            $round = $stmt->fetch();
+            
+            if ($round) {
+                // Get preliminary results with ranking
+                $sql = "
+                    SELECT 
+                        p.id AS participant_id,
+                        p.number_label,
+                        CASE WHEN ? = 1 THEN p.full_name ELSE CONCAT('Contestant ', p.number_label) END AS display_name,
+                        d.name AS division,
+                        ROUND(AVG((COALESCE(s.override_score, s.raw_score) / rc.max_score) * 100 * (rc.weight / 100)), 1) AS total_score
+                    FROM participants p
+                    JOIN divisions d ON d.id = p.division_id
+                    LEFT JOIN scores s ON s.participant_id = p.id AND s.round_id = ?
+                    LEFT JOIN round_criteria rc ON rc.round_id = ? AND rc.criterion_id = s.criterion_id
+                    WHERE p.pageant_id = ?
+                    GROUP BY p.id
+                    HAVING total_score IS NOT NULL
+                    ORDER BY d.name, total_score DESC
+                ";
+                
+                $stmt = $pdo->prepare($sql);
+                $stmt->execute([$showParticipantNames, $round['id'], $round['id'], $pageant['id']]);
+                $results = $stmt->fetchAll();
+                
+                // Add ranking within each division
+                $currentDivision = '';
+                $rank = 0;
+                foreach ($results as $key => &$result) {
+                    if ($result['division'] !== $currentDivision) {
+                        $currentDivision = $result['division'];
+                        $rank = 1;
+                    } else {
+                        $rank++;
+                    }
+                    $result['rank'] = $rank;
+                }
+                unset($result);
+                
+                $preliminaryResults = $results;
+                $resultsMessage = 'Preliminary Round Complete';
+            }
+        } elseif ($pageant) {
+            $resultsMessage = 'Preliminary results not yet revealed';
+        } else {
+            $resultsMessage = 'Pageant not found';
+        }
+    } catch (Exception $e) {
+        error_log("Error fetching preliminary results: " . $e->getMessage());
+        $resultsMessage = 'Error loading results';
+    }
+} else {
+    $resultsMessage = 'Please provide a valid pageant code';
+}
+
+// Filter results by division
 $mrResults = array_filter($preliminaryResults, fn($r) => $r['division'] === 'Mr');
 $msResults = array_filter($preliminaryResults, fn($r) => $r['division'] === 'Ms');
 
@@ -99,7 +167,7 @@ include 'partials/head.php';
                                         </div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-right">
-                                        <span class="text-xl font-bold text-gray-900"><?= number_format($result['score'], 1) ?></span>
+                                        <span class="text-xl font-bold text-gray-900"><?= number_format($result['total_score'], 1) ?></span>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
@@ -157,7 +225,7 @@ include 'partials/head.php';
                                         </div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-right">
-                                        <span class="text-xl font-bold text-gray-900"><?= number_format($result['score'], 1) ?></span>
+                                        <span class="text-xl font-bold text-gray-900"><?= number_format($result['total_score'], 1) ?></span>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
@@ -170,13 +238,19 @@ include 'partials/head.php';
         <!-- Status -->
         <div class="mt-8 bg-white shadow rounded-lg">
             <div class="p-6 text-center">
-                <h3 class="text-xl font-semibold mb-2">Preliminary Round Complete</h3>
-                <p class="text-gray-600">
-                    Top 2 contestants from each division have qualified for the final round.
-                </p>
-                <p class="text-sm text-gray-500 mt-2">
-                    Final round results will be announced upon completion.
-                </p>
+                <h3 class="text-xl font-semibold mb-2"><?= Util::escape($resultsMessage) ?></h3>
+                <?php if (!empty($preliminaryResults)): ?>
+                    <p class="text-gray-600">
+                        Top contestants from each division have qualified for the final round.
+                    </p>
+                    <p class="text-sm text-gray-500 mt-2">
+                        Final round results will be announced upon completion.
+                    </p>
+                <?php else: ?>
+                    <p class="text-gray-600">
+                        Please check back later for preliminary results.
+                    </p>
+                <?php endif; ?>
             </div>
         </div>
     </div>

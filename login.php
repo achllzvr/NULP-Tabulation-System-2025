@@ -4,18 +4,18 @@
  * Real authentication using AuthService and database
  */
 
-if (session_status() !== PHP_SESSION_ACTIVE) {
-    session_start();
-}
-
 require_once 'classes/Util.php';
+require_once 'classes/SessionManager.php';
 require_once 'classes/AuthService.php';
+
+// Redirect if already logged in
+SessionManager::redirectIfLoggedIn();
 
 $authService = new AuthService();
 
 // Handle logout
 if (isset($_GET['logout'])) {
-    $authService->logout();
+    SessionManager::logout();
     $message = 'You have been logged out successfully.';
 }
 
@@ -29,14 +29,12 @@ if ($_POST && isset($_POST['action']) && $_POST['action'] === 'login') {
             $user = $authService->login($email, $password);
             
             if ($user) {
-                // Redirect based on user role - check global_role first
-                $globalRole = $_SESSION['user_role'] ?? '';
+                // Redirect based on user role
+                $globalRole = SessionManager::getUserRole();
                 if ($globalRole === 'SUPERADMIN') {
                     header('Location: dashboard.php');
                     exit;
                 } else {
-                    // For STANDARD users, check if they have specific pageant roles
-                    // For now, redirect to index where they can choose their role
                     header('Location: index.php');
                     exit;
                 }
@@ -48,18 +46,6 @@ if ($_POST && isset($_POST['action']) && $_POST['action'] === 'login') {
         }
     } else {
         $error = 'Please enter both email and password';
-    }
-}
-
-// Redirect if already logged in
-if (isset($_SESSION['user_id'])) {
-    $globalRole = $_SESSION['user_role'] ?? '';
-    if ($globalRole === 'SUPERADMIN') {
-        header('Location: dashboard.php');
-        exit;
-    } else {
-        header('Location: index.php');
-        exit;
     }
 }
 
