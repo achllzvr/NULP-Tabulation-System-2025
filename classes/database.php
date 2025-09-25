@@ -11,8 +11,8 @@ class Database {
     private $connection;
     
     // Database configuration - Update these for your environment
-    private const HOST = 'localhost';
-    private const DB = 'pageant_tabulation';
+    private const HOST = '127.0.0.1';
+    private const DB = 'NULP-Tabulation-DB';
     private const USER = 'root';
     private const PASS = '';
     private const CHARSET = 'utf8mb4';
@@ -25,6 +25,7 @@ class Database {
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_EMULATE_PREPARES => false,
+            PDO::MYSQL_ATTR_USE_BUFFERED_QUERY => true,
         ];
         
         try {

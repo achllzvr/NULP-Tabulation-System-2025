@@ -84,7 +84,7 @@ class ParticipantService {
      */
     public function updateStatus(int $participantId, bool $isActive): void {
         $this->db->execute(
-            "UPDATE participants SET is_active = ?, updated_at = NOW() WHERE id = ?",
+            "UPDATE participants SET is_active = ? WHERE id = ?",
             [$isActive ? 1 : 0, $participantId]
         );
     }
@@ -108,15 +108,14 @@ class ParticipantService {
      */
     private function addSingle(int $pageantId, array $data): int {
         $this->db->execute(
-            "INSERT INTO participants (pageant_id, division_id, number_label, full_name, advocacy, advocacy_short, is_active, created_at) 
-             VALUES (?, ?, ?, ?, ?, ?, 1, NOW())",
+            "INSERT INTO participants (pageant_id, division_id, number_label, full_name, advocacy, is_active, created_at) 
+             VALUES (?, ?, ?, ?, ?, 1, NOW())",
             [
                 $pageantId,
                 $data['division_id'],
                 $data['number_label'],
                 $data['full_name'],
-                $data['advocacy'] ?? '',
-                $data['advocacy_short'] ?? '',
+                $data['advocacy'] ?? ''
             ]
         );
         

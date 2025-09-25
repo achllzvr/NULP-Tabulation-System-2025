@@ -16,39 +16,74 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'judge') {
 }
 
 require_once 'classes/Util.php';
+require_once 'classes/AuthService.php';
+require_once 'classes/PageantService.php';
+require_once 'classes/ParticipantService.php';
+require_once 'classes/Services.php';
+
+// Initialize services
+$authService = new AuthService();
+$pageantService = new PageantService();
+$participantService = new ParticipantService();
+$roundService = new RoundService();
+$scoreService = new ScoreService();
+
+// Get current user
+$currentUser = $authService->currentUser();
 
 // Handle score submission
 if ($_POST && isset($_POST['action']) && $_POST['action'] === 'save_scores') {
-    // In production, this would save to database via ScoreService
-    $_SESSION['scores_saved'] = true;
-    $message = 'Scores saved successfully';
+    try {
+        $roundId = $_POST['round_id'] ?? null;
+        $participantId = $_POST['participant_id'] ?? null;
+        $scores = $_POST['scores'] ?? [];
+        
+        if ($roundId && $participantId && !empty($scores)) {
+            foreach ($scores as $criterionId => $score) {
+                $scoreService->saveScore($roundId, $criterionId, $participantId, $currentUser['id'], floatval($score));
+            }
+            $message = 'Scores saved successfully';
+        } else {
+            $error = 'Invalid score data provided';
+        }
+    } catch (Exception $e) {
+        $error = 'Failed to save scores: ' . $e->getMessage();
+    }
 }
 
-// Mock data for demonstration
-$currentUser = [
-    'id' => $_SESSION['user_id'],
-    'full_name' => $_SESSION['user_name']
-];
-
-$activeRound = [
-    'id' => 'prelim',
-    'name' => 'Preliminary Round',
-    'status' => 'OPEN',
-    'type' => 'PRELIMINARY'
-];
-
-$participants = [
-    ['id' => '1', 'number_label' => '01', 'division' => 'Mr', 'full_name' => 'Alexander Johnson', 'advocacy' => 'Promoting youth education and mentorship programs in underserved communities.', 'is_active' => true],
-    ['id' => '2', 'number_label' => '02', 'division' => 'Ms', 'full_name' => 'Isabella Rodriguez', 'advocacy' => 'Environmental sustainability and climate change awareness initiatives.', 'is_active' => true],
-    ['id' => '3', 'number_label' => '03', 'division' => 'Mr', 'full_name' => 'Marcus Thompson', 'advocacy' => 'Mental health awareness and support for young adults.', 'is_active' => true],
-    ['id' => '4', 'number_label' => '04', 'division' => 'Ms', 'full_name' => 'Sophia Chen', 'advocacy' => 'Technology access and digital literacy for elderly populations.', 'is_active' => true]
-];
-
-$criteria = [
-    ['id' => 'appearance', 'name' => 'Appearance', 'weight' => 30],
-    ['id' => 'poise', 'name' => 'Poise & Confidence', 'weight' => 35],
-    ['id' => 'communication', 'name' => 'Communication Skills', 'weight' => 35]
-];
+try {
+    // Get pageant data
+    $pageantCode = 'NULP2025';
+    $pageant = $pageantService->getByCode($pageantCode);
+    
+    if ($pageant) {
+        $pageantId = $pageant['id'];
+        
+        // Get active round
+        $activeRound = $roundService->currentOpen($pageantId);
+        
+        // Get participants for this pageant
+        $participants = $participantService->list($pageantId);
+        
+        // Get criteria for the active round (stub - implement as needed)
+        $criteria = [
+            ['id' => 1, 'name' => 'Appearance', 'weight' => 30],
+            ['id' => 2, 'name' => 'Poise & Confidence', 'weight' => 35],
+            ['id' => 3, 'name' => 'Communication Skills', 'weight' => 35]
+        ];
+    } else {
+        $error = 'No active pageant found';
+        $activeRound = null;
+        $participants = [];
+        $criteria = [];
+    }
+    
+} catch (Exception $e) {
+    $error = 'Database error: ' . $e->getMessage();
+    $activeRound = null;
+    $participants = [];
+    $criteria = [];
+}
 
 $selectedParticipant = $_GET['participant'] ?? ($_POST['participant'] ?? '');
 $selectedParticipantData = null;

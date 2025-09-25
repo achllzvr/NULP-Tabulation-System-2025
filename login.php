@@ -1,7 +1,7 @@
 <?php
 /**
  * Login Page
- * Simple authentication page for the converted system
+ * Real authentication using AuthService and database
  */
 
 if (session_status() !== PHP_SESSION_ACTIVE) {
@@ -9,12 +9,13 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 }
 
 require_once 'classes/Util.php';
+require_once 'classes/AuthService.php';
+
+$authService = new AuthService();
 
 // Handle logout
 if (isset($_GET['logout'])) {
-    session_unset();
-    session_destroy();
-    session_start();
+    $authService->logout();
     $message = 'You have been logged out successfully.';
 }
 
@@ -23,23 +24,28 @@ if ($_POST && isset($_POST['action']) && $_POST['action'] === 'login') {
     $email = $_POST['email'] ?? '';
     $password = $_POST['password'] ?? '';
     
-    // Simple demo authentication (in production, use AuthService)
     if (!empty($email) && !empty($password)) {
-        // Demo credentials
-        if ($email === 'admin@demo.com' && $password === 'admin123') {
-            $_SESSION['user_id'] = 'admin_001';
-            $_SESSION['user_role'] = 'admin';
-            $_SESSION['user_name'] = 'System Administrator';
-            header('Location: dashboard.php');
-            exit;
-        } elseif ($email === 'judge@demo.com' && $password === 'judge123') {
-            $_SESSION['user_id'] = 'judge_001';
-            $_SESSION['user_role'] = 'judge';
-            $_SESSION['user_name'] = 'Dr. Sarah Mitchell';
-            header('Location: judge_active.php');
-            exit;
-        } else {
-            $error = 'Invalid email or password';
+        try {
+            $user = $authService->login($email, $password);
+            
+            if ($user) {
+                // Redirect based on user role
+                $role = $user['role'] ?? 'user';
+                if ($role === 'admin') {
+                    header('Location: dashboard.php');
+                    exit;
+                } elseif ($role === 'judge') {
+                    header('Location: judge_active.php');
+                    exit;
+                } else {
+                    header('Location: index.php');
+                    exit;
+                }
+            } else {
+                $error = 'Invalid email or password';
+            }
+        } catch (Exception $e) {
+            $error = 'Login failed: ' . $e->getMessage();
         }
     } else {
         $error = 'Please enter both email and password';
@@ -134,23 +140,6 @@ include 'partials/head.php';
                         Sign In
                     </button>
                 </form>
-            </div>
-        </div>
-
-        <!-- Demo Credentials -->
-        <div class="mt-6 bg-white shadow rounded-lg">
-            <div class="px-6 py-4">
-                <h3 class="text-sm font-medium text-gray-900 mb-3">Demo Credentials</h3>
-                <div class="space-y-2 text-sm">
-                    <div class="flex justify-between">
-                        <span class="text-gray-600">Admin:</span>
-                        <span class="font-mono">admin@demo.com / admin123</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-gray-600">Judge:</span>
-                        <span class="font-mono">judge@demo.com / judge123</span>
-                    </div>
-                </div>
             </div>
         </div>
 

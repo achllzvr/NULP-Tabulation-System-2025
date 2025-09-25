@@ -15,19 +15,48 @@ class AuthService {
     /**
      * Authenticate user with email and password
      */
-    public function login(string $email, string $password): ?array {
+    public function login(string $email, string $password): array
+    {
+        // Find user by email or username
         $user = $this->db->fetch(
-            "SELECT * FROM users WHERE email = ? AND is_active = 1", 
-            [$email]
+            "SELECT id, email, username, password_hash, full_name, global_role, is_active FROM users WHERE (email = ? OR username = ?) AND is_active = 1",
+            [$email, $email]
         );
         
-        if ($user && password_verify($password, $user['password_hash'])) {
-            $this->setUserSession($user);
-            session_regenerate_id(true);
-            return $user;
+        if (!$user) {
+            throw new Exception('Invalid credentials or account disabled');
         }
         
-        return null;
+        // Verify password
+        if (!password_verify($password, $user['password_hash'])) {
+            throw new Exception('Invalid credentials');
+        }
+        
+        // Start session and store user data
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            session_start();
+        }
+        
+        $_SESSION['user_id'] = $user['id'];
+        $_SESSION['user_email'] = $user['email'];
+        $_SESSION['user_username'] = $user['username'];
+        $_SESSION['user_name'] = $user['full_name'];
+        $_SESSION['user_role'] = $user['global_role']; // SUPERADMIN or STANDARD
+        $_SESSION['login_time'] = time();
+        
+        // Update last login
+        $this->db->execute(
+            "UPDATE users SET updated_at = NOW() WHERE id = ?",
+            [$user['id']]
+        );
+        
+        return [
+            'id' => $user['id'],
+            'email' => $user['email'],
+            'username' => $user['username'],
+            'name' => $user['full_name'],
+            'role' => $user['global_role']
+        ];
     }
     
     /**

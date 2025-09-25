@@ -16,31 +16,58 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'admin') {
 }
 
 require_once 'classes/Util.php';
+require_once 'classes/AuthService.php';
+require_once 'classes/PageantService.php';
+require_once 'classes/ParticipantService.php';
+require_once 'classes/JudgeService.php';
+require_once 'classes/Services.php';
 
-// Mock data for demonstration (in production, this would come from services)
-$state = [
-    'currentUser' => [
-        'id' => $_SESSION['user_id'],
-        'full_name' => $_SESSION['user_name'],
-        'role' => $_SESSION['user_role']
-    ],
-    'pageantCode' => 'DEMO2025',
-    'participants' => [
-        ['id' => '1', 'number_label' => '01', 'division' => 'Mr', 'full_name' => 'Alexander Johnson', 'is_active' => true],
-        ['id' => '2', 'number_label' => '02', 'division' => 'Ms', 'full_name' => 'Isabella Rodriguez', 'is_active' => true],
-        ['id' => '3', 'number_label' => '03', 'division' => 'Mr', 'full_name' => 'Marcus Thompson', 'is_active' => true],
-        ['id' => '4', 'number_label' => '04', 'division' => 'Ms', 'full_name' => 'Sophia Chen', 'is_active' => true]
-    ],
-    'judges' => [
-        ['id' => '1', 'full_name' => 'Dr. Sarah Mitchell', 'email' => 'sarah.mitchell@email.com'],
-        ['id' => '2', 'full_name' => 'Prof. Michael Davis', 'email' => 'michael.davis@email.com'],
-        ['id' => '3', 'full_name' => 'Ms. Jennifer Adams', 'email' => 'jennifer.adams@email.com']
-    ],
-    'rounds' => [
-        ['id' => 'prelim', 'name' => 'Preliminary Round', 'status' => 'CLOSED', 'type' => 'PRELIMINARY'],
-        ['id' => 'final', 'name' => 'Final Round', 'status' => 'PENDING', 'type' => 'FINAL']
-    ]
-];
+// Initialize services
+$authService = new AuthService();
+$pageantService = new PageantService();
+$participantService = new ParticipantService();
+$judgeService = new JudgeService();
+$roundService = new RoundService();
+
+// Get current user
+$currentUser = $authService->currentUser();
+
+try {
+    // For now, use a default pageant - in production this would come from user session or selection
+    $pageantCode = 'NULP2025';
+    $pageant = $pageantService->getByCode($pageantCode);
+    
+    if (!$pageant) {
+        $pageant = $pageantService->getById($pageantId);
+    } else {
+        $pageantId = $pageant['id'];
+    }
+    
+    // Get real data from services
+    $participants = $participantService->list($pageantId);
+    $judges = $judgeService->list($pageantId);
+    $rounds = $roundService->list($pageantId);
+    
+    $state = [
+        'currentUser' => $currentUser,
+        'pageantCode' => $pageant['code'] ?? $pageantCode,
+        'pageant' => $pageant,
+        'participants' => $participants,
+        'judges' => $judges,
+        'rounds' => $rounds
+    ];
+    
+} catch (Exception $e) {
+    // Fallback to empty data if database issues
+    $error = 'Database error: ' . $e->getMessage();
+    $state = [
+        'currentUser' => $currentUser,
+        'pageantCode' => 'NULP2025',
+        'participants' => [],
+        'judges' => [],
+        'rounds' => []
+    ];
+}
 
 // Calculate stats
 $stats = [

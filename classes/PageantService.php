@@ -17,7 +17,7 @@ class PageantService {
      */
     public function getByCode(string $code): ?array {
         return $this->db->fetch(
-            "SELECT * FROM pageants WHERE code = ? AND is_active = 1", 
+            "SELECT * FROM pageants WHERE code = ?", 
             [$code]
         );
     }
@@ -27,9 +27,16 @@ class PageantService {
      */
     public function getById(int $id): ?array {
         return $this->db->fetch(
-            "SELECT * FROM pageants WHERE id = ? AND is_active = 1", 
+            "SELECT * FROM pageants WHERE id = ?", 
             [$id]
         );
+    }
+    
+    /**
+     * Get pageant by ID (alias for compatibility)
+     */
+    public function getPageant(int $id): ?array {
+        return $this->getById($id);
     }
     
     /**
@@ -45,20 +52,32 @@ class PageantService {
     /**
      * Create new pageant
      */
-    public function create(string $name, int $year, int $creatorUserId): int {
-        $code = strtoupper(substr($name, 0, 4)) . $year;
+    public function getActivePageant(): ?array
+    {
+        return $this->db->fetch(
+            "SELECT * FROM pageants WHERE status IN ('PRELIM_RUNNING', 'FINAL_RUNNING') ORDER BY created_at DESC LIMIT 1"
+        );
+    }
+    
+    public function getDefaultPageant(): ?array
+    {
+        return $this->db->fetch(
+            "SELECT * FROM pageants ORDER BY created_at DESC LIMIT 1"
+        );
+    }
+    
+    public function createPageant(string $name, string $code, int $year = null): array
+    {
+        if ($year === null) {
+            $year = date('Y');
+        }
         
         $this->db->execute(
-            "INSERT INTO pageants (name, year, code, creator_user_id, created_at) VALUES (?, ?, ?, ?, NOW())",
-            [$name, $year, $code, $creatorUserId]
+            "INSERT INTO pageants (name, code, year, status, created_at) VALUES (?, ?, ?, 'DRAFT', NOW())",
+            [$name, $code, $year]
         );
         
-        $pageantId = (int)$this->db->lastInsertId();
-        
-        // Assign creator as admin
-        $this->assignAdmin($pageantId, $creatorUserId);
-        
-        return $pageantId;
+        return $this->getPageant($this->db->lastInsertId());
     }
     
     /**
@@ -66,38 +85,39 @@ class PageantService {
      */
     public function assignAdmin(int $pageantId, int $userId): void {
         $this->db->execute(
-            "INSERT INTO pageant_users (pageant_id, user_id, role, created_at) VALUES (?, ?, 'admin', NOW()) 
-             ON DUPLICATE KEY UPDATE role = 'admin'",
+            "INSERT INTO pageant_users (pageant_id, user_id, role) VALUES (?, ?, 'ADMIN') 
+             ON DUPLICATE KEY UPDATE role = 'ADMIN'",
             [$pageantId, $userId]
         );
     }
     
     /**
-     * Get pageant settings
+     * Assign judge role to user for pageant
      */
-    public function getSettings(int $pageantId): array {
-        $settings = $this->db->fetchAll(
-            "SELECT setting_key, setting_value FROM pageant_settings WHERE pageant_id = ?",
-            [$pageantId]
+    public function assignJudge(int $pageantId, int $userId): void {
+        $this->db->execute(
+            "INSERT INTO pageant_users (pageant_id, user_id, role) VALUES (?, ?, 'JUDGE') 
+             ON DUPLICATE KEY UPDATE role = 'JUDGE'",
+            [$pageantId, $userId]
         );
-        
-        $result = [];
-        foreach ($settings as $setting) {
-            $result[$setting['setting_key']] = $setting['setting_value'];
-        }
-        
-        return $result;
     }
     
     /**
-     * Update pageant setting
+     * List all pageants
      */
-    public function updateSetting(int $pageantId, string $key, string $value): void {
+    public function listPageants(): array {
+        return $this->db->fetchAll(
+            "SELECT * FROM pageants ORDER BY created_at DESC"
+        );
+    }
+    
+    /**
+     * Update pageant status
+     */
+    public function updateStatus(int $pageantId, string $status): void {
         $this->db->execute(
-            "INSERT INTO pageant_settings (pageant_id, setting_key, setting_value, updated_at) 
-             VALUES (?, ?, ?, NOW()) 
-             ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value), updated_at = NOW()",
-            [$pageantId, $key, $value]
+            "UPDATE pageants SET status = ?, updated_at = NOW() WHERE id = ?",
+            [$status, $pageantId]
         );
     }
 }
