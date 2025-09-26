@@ -4,8 +4,8 @@ require_once __DIR__ . '/includes/bootstrap.php';
 ensure_logged_in();
 ensure_pageant_selected();
 
-$current_user = get_current_user();
-$current_pageant = get_current_pageant();
+$current_user = get_current_app_user();
+$current_pageant = get_current_app_pageant();
 
 $round_list = $pageant->list_pageant_rounds($current_pageant['id']);
 $active_round = $rounds->get_active_round($current_pageant['id']);

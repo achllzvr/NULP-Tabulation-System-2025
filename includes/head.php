@@ -40,6 +40,6 @@
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen"><?php
-$current_user = get_current_user();
-$current_pageant = get_current_pageant();
+$current_user = get_current_app_user();
+$current_pageant = get_current_app_pageant();
 ?>

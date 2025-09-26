@@ -3,8 +3,8 @@ require_once __DIR__ . '/includes/bootstrap.php';
 
 ensure_logged_in();
 
-$current_user = get_current_user();
-$current_pageant = get_current_pageant();
+$current_user = get_current_app_user();
+$current_pageant = get_current_app_pageant();
 
 // Handle pageant selection
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['select_pageant'])) {

@@ -1,6 +1,6 @@
 <?php
-$current_user = get_current_user();
-$current_pageant = get_current_pageant();
+$current_user = get_current_app_user();
+$current_pageant = get_current_app_pageant();
 ?>
 
 <nav class="bg-white shadow-sm border-b border-gray-200">

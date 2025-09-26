@@ -86,7 +86,7 @@ try {
         case 'get_pageant_participants':
             ensure_logged_in();
             ensure_pageant_selected();
-            $currentPageant = get_current_pageant();
+            $currentPageant = get_current_app_pageant();
             $participants = $pageant->get_pageant_participants($currentPageant['id']);
             success_response($participants);
             break;
@@ -94,7 +94,7 @@ try {
         case 'get_rounds':
             ensure_logged_in();
             ensure_pageant_selected();
-            $currentPageant = get_current_pageant();
+            $currentPageant = get_current_app_pageant();
             $roundList = $pageant->list_pageant_rounds($currentPageant['id']);
             success_response($roundList);
             break;
@@ -130,7 +130,7 @@ try {
             $error = validate_required(['round_id', 'criteria_id', 'participant_id', 'score'], $_POST);
             if ($error) error_response($error);
             
-            $currentUser = get_current_user();
+            $currentUser = get_current_app_user();
             $success = $scores->upsert_score(
                 (int)$_POST['round_id'],
                 (int)$_POST['criteria_id'],
@@ -158,7 +158,7 @@ try {
         case 'get_awards':
             ensure_logged_in();
             ensure_pageant_selected();
-            $currentPageant = get_current_pageant();
+            $currentPageant = get_current_app_pageant();
             $awardsList = $awards->list_awards($currentPageant['id']);
             success_response($awardsList);
             break;

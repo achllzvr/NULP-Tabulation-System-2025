@@ -41,12 +41,12 @@ function ensure_pageant_selected(): void {
     $pageant->ensure_pageant_selected();
 }
 
-function get_current_user(): ?array {
+function get_current_app_user(): ?array {
     global $auth;
     return $auth->get_current_user();
 }
 
-function get_current_pageant(): ?array {
+function get_current_app_pageant(): ?array {
     global $pageant;
     return $pageant->get_current_pageant();
 }
