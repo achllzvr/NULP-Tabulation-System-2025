@@ -13,10 +13,10 @@ if (!isset($pageTitle)) { $pageTitle = 'Pageant Tabulation System'; }
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-window.APP_API_BASE='api.php';
 window.APP_DEBUG = <?= (getenv('APP_DEBUG') === 'true' || ini_get('display_errors')) ? 'true' : 'false' ?>;
 </script>
 <?php include __DIR__ . '/../components/loading.php'; ?>
 </head>
 <body class="min-h-full font-[Inter] text-slate-800">
+<div id="toast-root" class="fixed top-4 right-4 z-50 space-y-2"></div>
 <div id="app" class="min-h-full flex flex-col">
