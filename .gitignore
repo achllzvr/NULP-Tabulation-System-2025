@@ -1,0 +1,76 @@
+# Environment and configuration files
+.env
+config.php
+.env.local
+.env.production
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+error.log
+access.log
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Cache files
+cache/
+*.cache
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# PHP specific
+vendor/
+composer.phar
+composer.lock
+
+# Upload directories (if they contain user uploads)
+uploads/
+files/
+media/
+
+# Database dumps
+*.sql
+*.db
+*.sqlite
+
+# Build artifacts
+dist/
+build/
+public/build/
+
+# Session files (if stored as files)
+sessions/
+
+# Node modules (if using any frontend build tools)
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# PHP Storm
+*.iml
+
+# Generated documentation
+docs/generated/
