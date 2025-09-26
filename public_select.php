@@ -36,6 +36,14 @@ if (isset($_POST['lookup_pageant'])) {
             exit();
         } else {
             $error_message = "Invalid pageant code. Please check and try again.";
+            $error_type = "INVALID_PAGEANT_CODE";
+            $error_details = [
+                'attempted_code' => $code,
+                'section' => $section,
+                'timestamp' => date('Y-m-d H:i:s'),
+                'ip_address' => $_SERVER['REMOTE_ADDR'] ?? 'unknown'
+            ];
+            $show_error_alert = true;
         }
     } else {
         $error_message = "Pageant code is required.";
@@ -71,6 +79,14 @@ include __DIR__ . '/partials/head.php';
   </form>
   <p class="text-xs text-slate-500">Enter the official code distributed by event organizers.</p>
 </main>
+
+<?php if (isset($show_error_alert)): ?>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    showDetailedError('<?= $error_type ?>', '<?= htmlspecialchars($error_message, ENT_QUOTES, 'UTF-8') ?>', <?= json_encode($error_details) ?>);
+});
+</script>
+<?php endif; ?>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {

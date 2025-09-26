@@ -45,7 +45,28 @@ if (isset($_POST['login'])) {
         header("Location: " . $redirect);
         exit();
     } else {
-        $error_message = "Invalid pageant code, username, or password.";
+        // Determine specific error type for better debugging
+        $error_details = [
+            'attempted_pageant_code' => $pageant_code,
+            'attempted_username' => $username,
+            'timestamp' => date('Y-m-d H:i:s'),
+            'ip_address' => $_SERVER['REMOTE_ADDR'] ?? 'unknown'
+        ];
+        
+        // Check if pageant code exists
+        $pageant = $con->getPageantByCode($pageant_code);
+        if (!$pageant) {
+            $error_type = "INVALID_PAGEANT_CODE";
+            $error_message = "The pageant code '$pageant_code' is not valid or does not exist.";
+            $error_details['error_reason'] = 'pageant_code_not_found';
+        } else {
+            $error_type = "INVALID_CREDENTIALS";
+            $error_message = "Invalid username or password for this pageant.";
+            $error_details['error_reason'] = 'invalid_user_credentials';
+            $error_details['pageant_found'] = $pageant['name'];
+        }
+        
+        $show_error_alert = true;
     }
 }
 
@@ -80,6 +101,14 @@ include __DIR__ . '/partials/head.php';
     
     <p class="text-xs text-slate-500">You are accessing the judge portal.</p>
 </main>
+
+<?php if (isset($show_error_alert)): ?>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    showDetailedError('<?= $error_type ?>', '<?= htmlspecialchars($error_message, ENT_QUOTES, 'UTF-8') ?>', <?= json_encode($error_details) ?>);
+});
+</script>
+<?php endif; ?>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {

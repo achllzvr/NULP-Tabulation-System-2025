@@ -217,30 +217,37 @@ function makeFormLoadingEnabled(formId, buttonText = 'Processing...', showStatus
     const originalDisabled = submitButton.disabled;
     
     form.addEventListener('submit', function(e) {
-        // Show loading state
-        submitButton.disabled = true;
-        submitButton.innerHTML = `
-            <div class="flex items-center justify-center space-x-2">
-                <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                <span>${buttonText}</span>
-            </div>
-        `;
-        
-        // Add loading status if enabled
-        let statusElement = null;
-        if (showStatus) {
-            statusElement = document.createElement('div');
-            statusElement.className = 'text-xs text-blue-600 mt-2 text-center';
-            statusElement.textContent = 'Processing your request...';
-            submitButton.parentNode.appendChild(statusElement);
-        }
-        
-        // Auto-restore after timeout (failsafe)
+        // DON'T prevent default - let the form submit naturally
+        // Just show loading state immediately
         setTimeout(() => {
-            submitButton.disabled = originalDisabled;
-            submitButton.textContent = originalText;
-            if (statusElement) {
-                statusElement.remove();
+            // Show loading state after a brief delay to ensure form submission starts
+            submitButton.disabled = true;
+            submitButton.innerHTML = `
+                <div class="flex items-center justify-center space-x-2">
+                    <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>${buttonText}</span>
+                </div>
+            `;
+            
+            // Add loading status if enabled
+            let statusElement = null;
+            if (showStatus) {
+                statusElement = document.createElement('div');
+                statusElement.className = 'text-xs text-blue-600 mt-2 text-center';
+                statusElement.textContent = 'Processing your request...';
+                submitButton.parentNode.appendChild(statusElement);
+            }
+        }, 10); // Very small delay to allow form submission to start
+        
+        // Auto-restore after timeout (failsafe) - only if page hasn't redirected
+        setTimeout(() => {
+            if (document.getElementById(formId)) { // Check if still on same page
+                submitButton.disabled = originalDisabled;
+                submitButton.textContent = originalText;
+                const statusElement = submitButton.parentNode.querySelector('.text-xs.text-blue-600');
+                if (statusElement) {
+                    statusElement.remove();
+                }
             }
         }, 10000);
     });

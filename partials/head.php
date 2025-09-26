@@ -11,7 +11,11 @@ if (!isset($pageTitle)) { $pageTitle = 'Pageant Tabulation System'; }
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
-<script>window.APP_API_BASE='api.php';</script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+window.APP_API_BASE='api.php';
+window.APP_DEBUG = <?= (getenv('APP_DEBUG') === 'true' || ini_get('display_errors')) ? 'true' : 'false' ?>;
+</script>
 <?php include __DIR__ . '/../components/loading.php'; ?>
 </head>
 <body class="min-h-full font-[Inter] text-slate-800">

@@ -46,11 +46,11 @@ if (isset($_POST['change_password']) && $user_id) {
         
         if ($stmt->execute()) {
             $success_message = "Password changed successfully.";
-            $redirect = $_GET['redirect'] ?? ($user && strtoupper($user['role'])==='ADMIN' ? 'dashboard.php' : 'judge_active.php');
-            header("Location: " . $redirect);
-            exit();
+            $show_success_alert = true;
+            $redirect_url = $_GET['redirect'] ?? ($user && strtoupper($user['role'])==='ADMIN' ? 'dashboard.php' : 'judge_active.php');
         } else {
             $error_message = "Error changing password.";
+            $show_error_alert = true;
         }
         $stmt->close();
         $conn->close();
@@ -100,4 +100,24 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
   <?php endif; ?>
 </main>
+
+<?php if (isset($show_success_alert) && isset($redirect_url)): ?>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    showSuccess('Success!', '<?= htmlspecialchars($success_message, ENT_QUOTES, 'UTF-8') ?>')
+    .then(() => {
+        window.location.href = '<?= $redirect_url ?>';
+    });
+});
+</script>
+<?php endif; ?>
+
+<?php if (isset($show_error_alert)): ?>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    showError('Error!', '<?= htmlspecialchars($error_message, ENT_QUOTES, 'UTF-8') ?>');
+});
+</script>
+<?php endif; ?>
+
 <?php include __DIR__ . '/partials/footer.php'; ?>

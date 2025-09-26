@@ -14,9 +14,9 @@ function submitScores(e){
   }
   API('submit_score', payload).then(res => {
     if(res.success){
-      showToast('Scores saved','success');
+      showNotification('Scores saved successfully!','success', true);
     } else {
-      showToast(res.error||'Error saving scores','error');
+      showNotification(res.error||'Error saving scores','error', true);
     }
   });
   return false;

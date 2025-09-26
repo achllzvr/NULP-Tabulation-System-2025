@@ -43,7 +43,7 @@ include __DIR__ . '/partials/nav_admin.php';
 let awards = [];
 function loadAwards(){
   API('list_awards',{}).then(r=>{
-    if(!r.success) return showToast(r.error||'Error','error');
+    if(!r.success) return showNotification(r.error||'Error loading data','error', true);
     awards = r.awards||[];
     renderAwards();
   });
@@ -63,7 +63,7 @@ function renderAwards(){
 }
 function previewAwards(){
   API('compute_awards',{}).then(r=>{
-    if(!r.success) return showToast(r.error||'Preview error','error');
+    if(!r.success) return showNotification(r.error||'Preview error','error', true);
     const list = document.getElementById('awardPreviewList');
     const wrap = document.getElementById('awardPreview');
     list.innerHTML='';
@@ -80,13 +80,13 @@ function previewAwards(){
       list.appendChild(e);
     });
     wrap.classList.remove('hidden');
-    showToast('Preview ready','success');
+    showNotification('Preview ready!','success', true);
   });
 }
 function persistAwards(){
   API('compute_awards_persist',{csrf_token: window.csrfToken}).then(r=>{
-    if(!r.success) return showToast(r.error||'Persist error','error');
-    showToast('Awards persisted','success');
+    if(!r.success) return showNotification(r.error||'Persist error','error', true);
+    showNotification('Awards saved successfully!','success', true);
     previewAwards();
   });
 }

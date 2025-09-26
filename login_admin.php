@@ -45,6 +45,13 @@ if (isset($_POST['login'])) {
         exit();
     } else {
         $error_message = "Invalid username or password.";
+        $error_type = "INVALID_CREDENTIALS";
+        $error_details = [
+            'attempted_username' => $username,
+            'timestamp' => date('Y-m-d H:i:s'),
+            'ip_address' => $_SERVER['REMOTE_ADDR'] ?? 'unknown'
+        ];
+        $show_error_alert = true;
     }
 }
 
@@ -61,7 +68,7 @@ include __DIR__ . '/partials/head.php';
         </div>
     <?php endif; ?>
     
-    <form method="POST" class="space-y-4">
+    <form id="adminLoginForm" method="POST" class="space-y-4">
         <div>
             <label class="block text-sm font-medium text-slate-700 mb-1">Username</label>
             <input name="username" type="text" required class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring focus:border-blue-500" />
@@ -75,6 +82,14 @@ include __DIR__ . '/partials/head.php';
     
     <p class="text-xs text-slate-500">You are accessing the administration portal.</p>
 </main>
+
+<?php if (isset($show_error_alert)): ?>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    showDetailedError('<?= $error_type ?>', '<?= htmlspecialchars($error_message, ENT_QUOTES, 'UTF-8') ?>', <?= json_encode($error_details) ?>);
+});
+</script>
+<?php endif; ?>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {

@@ -43,9 +43,9 @@ function saveVisibility(e){
   API('set_visibility_flags', payload).then(res=>{
     if(res.success){
       if(res.csrf) window.csrfToken = res.csrf;
-      showToast('Updated','success');
+      showNotification('Settings updated successfully!', 'success', true);
       applyFlags(res.flags||{});
-    } else showToast(res.error||'Error','error');
+    } else showNotification(res.error||'Error updating settings', 'error', true);
   });
   return false;
 }

@@ -19,9 +19,21 @@ $current = basename($_SERVER['PHP_SELF']);
     </div>
     <div class="flex items-center gap-4">
       <span class="text-sm text-slate-600">Welcome, <?= htmlspecialchars($_SESSION['judgeFN'] ?? 'Judge', ENT_QUOTES, 'UTF-8') ?></span>
-      <form method="post" action="logout.php" class="inline">
+      <form method="post" action="logout.php" class="inline" onsubmit="return confirmLogout(event)">
         <button type="submit" class="text-sm text-slate-600 hover:text-slate-900">Logout</button>
       </form>
+      <script>
+      function confirmLogout(e) {
+        e.preventDefault();
+        showConfirm('Confirm Logout', 'Are you sure you want to logout?', 'Yes, Logout', 'Cancel')
+        .then((result) => {
+          if (result.isConfirmed) {
+            e.target.submit();
+          }
+        });
+        return false;
+      }
+      </script>
     </div>
   </div>
 </nav>

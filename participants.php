@@ -34,8 +34,16 @@ if (isset($_POST['add_participant'])) {
     
     if ($stmt->execute()) {
         $success_message = "Participant added successfully.";
+        $show_success_alert = true;
     } else {
         $error_message = "Error adding participant.";
+        $error_type = "FORM_SUBMISSION_ERROR";
+        $error_details = [
+            'form_type' => 'add_participant',
+            'mysql_error' => $conn->error,
+            'timestamp' => date('Y-m-d H:i:s')
+        ];
+        $show_error_alert = true;
     }
     $stmt->close();
     $conn->close();
@@ -96,5 +104,22 @@ $bodyHtml = '<form id="addParticipantForm" method="POST" class="space-y-4">'
   .'<script>makeFormLoadingEnabled("addParticipantForm", "Adding participant...", true);</script>';
 $footerHtml = '';
 include __DIR__ . '/components/modal.php';
-include __DIR__ . '/partials/footer.php';
 ?>
+
+<?php if (isset($show_success_alert)): ?>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    showSuccess('Success!', '<?= htmlspecialchars($success_message, ENT_QUOTES, 'UTF-8') ?>');
+});
+</script>
+<?php endif; ?>
+
+<?php if (isset($show_error_alert)): ?>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    showDetailedError('<?= $error_type ?>', '<?= htmlspecialchars($error_message, ENT_QUOTES, 'UTF-8') ?>', <?= json_encode($error_details) ?>);
+});
+</script>
+<?php endif; ?>
+
+<?php include __DIR__ . '/partials/footer.php'; ?>

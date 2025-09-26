@@ -46,12 +46,27 @@ if (isset($_POST['add_judge'])) {
         
         if ($stmt2->execute()) {
             $success_message = "Judge added successfully. Username: $username, Password: $password";
+            $show_success_alert = true;
         } else {
             $error_message = "Error adding judge to pageant.";
+            $error_type = "FORM_SUBMISSION_ERROR";
+            $error_details = [
+                'form_type' => 'add_judge_mapping',
+                'mysql_error' => $conn->error,
+                'timestamp' => date('Y-m-d H:i:s')
+            ];
+            $show_error_alert = true;
         }
         $stmt2->close();
     } else {
         $error_message = "Error adding judge.";
+        $error_type = "FORM_SUBMISSION_ERROR";
+        $error_details = [
+            'form_type' => 'add_judge_user',
+            'mysql_error' => $conn->error,
+            'timestamp' => date('Y-m-d H:i:s')
+        ];
+        $show_error_alert = true;
     }
     $stmt->close();
     $conn->close();
@@ -108,5 +123,22 @@ $bodyHtml = '<form id="addJudgeForm" method="POST" class="space-y-4">'
   .'<script>makeFormLoadingEnabled("addJudgeForm", "Creating judge account...", true);</script>';
 $footerHtml = '';
 include __DIR__ . '/components/modal.php';
-include __DIR__ . '/partials/footer.php';
 ?>
+
+<?php if (isset($show_success_alert)): ?>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    showSuccess('Judge Created!', '<?= htmlspecialchars($success_message, ENT_QUOTES, 'UTF-8') ?>');
+});
+</script>
+<?php endif; ?>
+
+<?php if (isset($show_error_alert)): ?>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    showDetailedError('<?= $error_type ?>', '<?= htmlspecialchars($error_message, ENT_QUOTES, 'UTF-8') ?>', <?= json_encode($error_details) ?>);
+});
+</script>
+<?php endif; ?>
+
+<?php include __DIR__ . '/partials/footer.php'; ?>
