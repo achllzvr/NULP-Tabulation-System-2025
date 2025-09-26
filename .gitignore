@@ -1,0 +1,35 @@
+# Build artifacts and dependencies
+node_modules/
+dist/
+build/
+*.log
+
+# PHP temporary files
+*.tmp
+*.cache
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Database files (if any)
+*.db
+*.sqlite
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# Backup files
+*.bak
+*.backup
+
+# Temporary files
+/tmp/
