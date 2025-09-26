@@ -1,6 +1,8 @@
 <?php
 $pageTitle = 'Public Awards';
+$pid = isset($_GET['pageant_id']) ? (int)$_GET['pageant_id'] : 0;
 include __DIR__ . '/partials/head.php';
+echo "<script>window.PUBLIC_PAGEANT_ID=" . json_encode($pid) . ";</script>";
 ?>
 <main class="mx-auto max-w-6xl w-full p-6 space-y-6">
   <h1 class="text-2xl font-semibold text-slate-800">Awards</h1>
@@ -29,4 +31,6 @@ function escapeHtml(str){
   return (str||'').replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[s]));
 }
 document.addEventListener('DOMContentLoaded', loadPublicAwards);
+// redirect if no pageant id
+if(!window.PUBLIC_PAGEANT_ID){ window.location='public_select.php'; }
 </script>

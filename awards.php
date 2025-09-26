@@ -1,7 +1,24 @@
 <?php
-require_once __DIR__ . '/classes/AuthService.php';
-require_once __DIR__ . '/classes/AwardsService.php';
-AuthService::start();
+
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
+// Start the session
+session_start();
+
+// Check if admin is logged in
+if (!isset($_SESSION['adminID'])) {
+    header("Location: login_admin.php");
+    exit();
+}
+
+// Include the database class file
+require_once('classes/database.php');
+
+// Create an instance of the database class
+$con = new database();
+
 $pageTitle = 'Awards Management';
 $awards = [];
 include __DIR__ . '/partials/head.php';

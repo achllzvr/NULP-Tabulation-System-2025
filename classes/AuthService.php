@@ -32,9 +32,28 @@ class AuthService {
 
     public static function requireRole(array $roles): void {
         self::start();
-        if (empty($_SESSION['role']) || !in_array($_SESSION['role'], $roles, true)) {
-            http_response_code(403);
-            echo 'Forbidden';
+        $normalizedRequired = array_map(fn($r)=>strtoupper($r), $roles);
+        $currentRole = isset($_SESSION['role']) ? strtoupper((string)$_SESSION['role']) : null;
+
+        // Not logged in
+        if (empty($_SESSION['user_id'])) {
+            $currentUrl = urlencode($_SERVER['REQUEST_URI'] ?? 'index.php');
+            // Choose login page based on required role priority
+            if (in_array('ADMIN', $normalizedRequired, true)) {
+                header('Location: login_admin.php?redirect=' . $currentUrl);
+                exit;
+            }
+            if (in_array('JUDGE', $normalizedRequired, true)) {
+                header('Location: login_judge.php?redirect=' . $currentUrl);
+                exit;
+            }
+            header('Location: index.php?auth=required');
+            exit;
+        }
+
+        // Logged in but wrong role
+        if (!$currentRole || !in_array($currentRole, $normalizedRequired, true)) {
+            header('Location: forbidden.php');
             exit;
         }
     }

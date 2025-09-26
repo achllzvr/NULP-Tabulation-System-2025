@@ -1,7 +1,46 @@
 <?php
-require_once __DIR__ . '/classes/AuthService.php';
-require_once __DIR__ . '/classes/ScoreService.php';
-AuthService::start();
+
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
+// Start the session
+session_start();
+
+// Check if judge is logged in
+if (!isset($_SESSION['judgeID'])) {
+    header("Location: login_judge.php");
+    exit();
+}
+
+// Include the database class file
+require_once('classes/database.php');
+
+// Create an instance of the database class
+$con = new database();
+
+// Handle score submissions
+if (isset($_POST['submit_score'])) {
+    $participant_id = $_POST['participant_id'];
+    $criterion_id = $_POST['criterion_id'];
+    $score = $_POST['score'];
+    $judge_id = $_SESSION['judgeID'];
+    $pageant_id = $_SESSION['pageantID'];
+    
+    // Insert or update score
+    $conn = $con->opencon();
+    $stmt = $conn->prepare("INSERT INTO scores (pageant_id, participant_id, judge_id, criterion_id, score) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE score = VALUES(score)");
+    $stmt->bind_param("iiiid", $pageant_id, $participant_id, $judge_id, $criterion_id, $score);
+    
+    if ($stmt->execute()) {
+        $success_message = "Score submitted successfully.";
+    } else {
+        $error_message = "Error submitting score.";
+    }
+    $stmt->close();
+    $conn->close();
+}
+
 $pageTitle = 'Judge Active Round';
 $participant = ['id'=>0];
 $criteria = [];

@@ -116,8 +116,12 @@ function require_csrf(): void {
 function require_auth(array $roles = null): array {
 	$user = AuthService::currentUser();
 	if (!$user) respond(['success'=>false,'error'=>'Auth required'], 401);
-	if ($roles && (!isset($user['role']) || !in_array($user['role'], $roles, true))) {
-		respond(['success'=>false,'error'=>'Forbidden'], 403);
+	if ($roles) {
+		$need = array_map('strtoupper',$roles);
+		$have = isset($user['role']) ? strtoupper($user['role']) : null;
+		if (!$have || !in_array($have, $need, true)) {
+			respond(['success'=>false,'error'=>'Forbidden'], 403);
+		}
 	}
 	return $user;
 }
@@ -143,6 +147,34 @@ try {
 		case 'ping':
 			respond(['success'=>true,'pong'=>true,'csrf'=>csrf_token()]);
 
+		case 'lookup_pageant_code':
+			$body = json_body();
+			$code = strtoupper(trim($body['code'] ?? ($_GET['code'] ?? '')));
+			if ($code==='') respond(['success'=>false,'error'=>'Code required'],422);
+			$pdo = Database::getConnection();
+			$st = $pdo->prepare('SELECT id, name FROM pageants WHERE UPPER(code)=? LIMIT 1');
+			$st->execute([$code]);
+			$row = $st->fetch(PDO::FETCH_ASSOC);
+			if(!$row) respond(['success'=>false,'error'=>'Not found'],404);
+			respond(['success'=>true,'pageant_id'=>(int)$row['id'],'name'=>$row['name'],'csrf'=>csrf_token()]);
+
+		case 'public_pageant_meta':
+			$pageantId = (int)($_GET['pageant_id'] ?? json_body()['pageant_id'] ?? 0);
+			if ($pageantId<=0) respond(['success'=>false,'error'=>'pageant_id required'],422);
+			$pdo = Database::getConnection();
+			$st = $pdo->prepare('SELECT id, name, code FROM pageants WHERE id=? LIMIT 1');
+			$st->execute([$pageantId]);
+			$pg = $st->fetch(PDO::FETCH_ASSOC);
+			if(!$pg) respond(['success'=>false,'error'=>'Not found'],404);
+			// Rounds (only OPEN or CLOSED maybe) for ordering
+			$stR = $pdo->prepare('SELECT id, name, state, sequence, scoring_mode FROM rounds WHERE pageant_id=? ORDER BY sequence');
+			$stR->execute([$pageantId]);
+			$rounds = $stR->fetchAll(PDO::FETCH_ASSOC);
+			require_once __DIR__ . '/classes/VisibilityService.php';
+			$visSvc = new VisibilityService();
+			$flags = $visSvc->getFlags($pageantId);
+			respond(['success'=>true,'pageant'=>$pg,'rounds'=>$rounds,'flags'=>$flags]);
+
 		case 'login':
 			ensure_method('POST');
 			$body = json_body();
@@ -152,25 +184,46 @@ try {
 				respond(['success'=>false,'error'=>'Username & password required'], 422);
 			}
 			$pdo = Database::getConnection();
-			$stmt = $pdo->prepare("SELECT id, username, role, pageant_id, name, password_hash FROM users WHERE username = ? LIMIT 1");
+			$stmt = $pdo->prepare("SELECT id, username, full_name, password_hash, global_role, is_active FROM users WHERE username = ? LIMIT 1");
 			$stmt->execute([$username]);
 			$u = $stmt->fetch(PDO::FETCH_ASSOC);
 			if (!$u || !password_verify($password, $u['password_hash'])) {
 				respond(['success'=>false,'error'=>'Invalid credentials'], 401);
 			}
+			if (isset($u['is_active']) && (int)$u['is_active'] === 0) {
+				respond(['success'=>false,'error'=>'Account disabled'], 403);
+			}
 			AuthService::regenerate();
+			// Resolve role/pageant mapping
+			$role = null; $pageantId = null;
+			$stMap = $pdo->prepare('SELECT pageant_id, role FROM pageant_users WHERE user_id = ? LIMIT 1');
+			$stMap->execute([(int)$u['id']]);
+			$map = $stMap->fetch(PDO::FETCH_ASSOC);
+			if ($map) {
+				$role = strtoupper($map['role']);
+				$pageantId = (int)$map['pageant_id'];
+			} else {
+				// Fallback: allow SUPERADMIN to assume ADMIN on the first pageant (if exists)
+				if (strtoupper((string)$u['global_role']) === 'SUPERADMIN') {
+					$stPg = $pdo->query('SELECT id FROM pageants ORDER BY id LIMIT 1');
+					$pg = $stPg->fetch(PDO::FETCH_ASSOC);
+					if ($pg) { $pageantId = (int)$pg['id']; $role = 'ADMIN'; }
+				}
+			}
+			if (!$role || !$pageantId) {
+				respond(['success'=>false,'error'=>'No pageant role mapping for this user'], 403);
+			}
 			$_SESSION['user_id'] = (int)$u['id'];
-			$_SESSION['role'] = $u['role'];
-			$_SESSION['pageant_id'] = (int)$u['pageant_id'];
-			$_SESSION['name'] = $u['name'];
-			$pdo->prepare("UPDATE users SET last_login_at = NOW(), force_password_reset = 0 WHERE id = ?")->execute([$u['id']]);
+			$_SESSION['role'] = $role;
+			$_SESSION['pageant_id'] = $pageantId;
+			$_SESSION['name'] = $u['full_name'];
 			AuditLogger::log((int)$u['id'], 'LOGIN', 'user', (int)$u['id']);
 			respond(['success'=>true,'user'=>[
 				'id'=>(int)$u['id'],
-				'role'=>$u['role'],
-				'pageant_id'=>(int)$u['pageant_id'],
-				'name'=>$u['name'],
-			,'force_password_reset'=>(bool)$u['force_password_reset']
+				'role'=>$role,
+				'pageant_id'=>$pageantId,
+				'name'=>$u['full_name'],
+			,'force_password_reset'=>false
 			],'csrf'=>csrf_token()]);
 
 		case 'logout':
