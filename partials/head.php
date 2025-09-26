@@ -12,6 +12,7 @@ if (!isset($pageTitle)) { $pageTitle = 'Pageant Tabulation System'; }
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
 <script>window.APP_API_BASE='api.php';</script>
+<?php include __DIR__ . '/../components/loading.php'; ?>
 </head>
 <body class="min-h-full font-[Inter] text-slate-800">
 <div id="app" class="min-h-full flex flex-col">

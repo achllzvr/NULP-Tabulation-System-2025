@@ -86,13 +86,14 @@ include __DIR__ . '/partials/nav_admin.php';
 <?php
 $modalId = 'addParticipantModal';
 $title = 'Add Participant';
-$bodyHtml = '<form method="POST" class="space-y-4">'
+$bodyHtml = '<form id="addParticipantForm" method="POST" class="space-y-4">'
   .'<div><label class="block text-xs font-medium mb-1">Division</label><select name="division" class="w-full border rounded px-2 py-1"><option>Mr</option><option>Ms</option></select></div>'
   .'<div><label class="block text-xs font-medium mb-1">Number Label</label><input name="number_label" class="w-full border rounded px-2 py-1" required /></div>'
   .'<div><label class="block text-xs font-medium mb-1">Full Name</label><input name="full_name" class="w-full border rounded px-2 py-1" required /></div>'
   .'<div><label class="block text-xs font-medium mb-1">Advocacy</label><textarea name="advocacy" class="w-full border rounded px-2 py-1" rows="3"></textarea></div>'
-  .'<div class="text-right"><button name="add_participant" type="submit" class="bg-blue-600 text-white px-4 py-2 rounded text-sm">Save</button></div>'
-  .'</form>';
+  .'<div class="text-right"><button name="add_participant" type="submit" class="bg-blue-600 hover:bg-blue-700 transition-all text-white px-4 py-2 rounded text-sm">Save</button></div>'
+  .'</form>'
+  .'<script>makeFormLoadingEnabled("addParticipantForm", "Adding participant...", true);</script>';
 $footerHtml = '';
 include __DIR__ . '/components/modal.php';
 include __DIR__ . '/partials/footer.php';

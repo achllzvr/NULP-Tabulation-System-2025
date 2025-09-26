@@ -54,7 +54,7 @@ include __DIR__ . '/partials/head.php';
     </div>
   <?php endif; ?>
   
-  <form method="POST" class="space-y-4">
+  <form id="pageantForm" method="POST" class="space-y-4">
     <div>
       <label class="block text-sm font-medium text-slate-700 mb-1">Pageant Code</label>
       <input name="code" type="text" required class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring focus:border-blue-500 uppercase tracking-wide" />
@@ -67,8 +67,16 @@ include __DIR__ . '/partials/head.php';
         <option value="awards">Awards</option>
       </select>
     </div>
-    <button name="lookup_pageant" type="submit" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded w-full">Continue</button>
+    <button name="lookup_pageant" type="submit" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded w-full transition-all">Continue</button>
   </form>
   <p class="text-xs text-slate-500">Enter the official code distributed by event organizers.</p>
 </main>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Make the form show loading state when submitted
+    makeFormLoadingEnabled('pageantForm', 'Looking up pageant...', true);
+});
+</script>
+
 <?php include __DIR__ . '/partials/footer.php'; ?>

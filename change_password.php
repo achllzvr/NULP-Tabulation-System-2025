@@ -81,7 +81,7 @@ include __DIR__ . '/partials/head.php';
     <p class="text-sm text-slate-600">You must login first.</p>
     <div class="flex gap-3"><a class="text-blue-600 text-sm" href="login_admin.php">Admin Login</a><a class="text-indigo-600 text-sm" href="login_judge.php">Judge Login</a></div>
   <?php else: ?>
-    <form method="POST" class="space-y-4">
+    <form id="changePasswordForm" method="POST" class="space-y-4">
       <div>
         <label class="block text-sm font-medium text-slate-700 mb-1">New Password</label>
         <input type="password" name="new_password" minlength="8" required class="w-full border border-slate-300 rounded px-3 py-2 text-sm" />
@@ -90,8 +90,14 @@ include __DIR__ . '/partials/head.php';
         <label class="block text-sm font-medium text-slate-700 mb-1">Confirm Password</label>
         <input type="password" name="confirm_password" minlength="8" required class="w-full border border-slate-300 rounded px-3 py-2 text-sm" />
       </div>
-      <button name="change_password" type="submit" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded w-full">Save New Password</button>
+      <button name="change_password" type="submit" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded w-full transition-all">Save New Password</button>
     </form>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    makeFormLoadingEnabled('changePasswordForm', 'Updating password...', true);
+});
+</script>
   <?php endif; ?>
 </main>
 <?php include __DIR__ . '/partials/footer.php'; ?>

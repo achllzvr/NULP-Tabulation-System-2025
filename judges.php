@@ -100,11 +100,12 @@ include __DIR__ . '/partials/nav_admin.php';
 <?php
 $modalId = 'addJudgeModal';
 $title = 'Add Judge';
-$bodyHtml = '<form method="POST" class="space-y-4">'
+$bodyHtml = '<form id="addJudgeForm" method="POST" class="space-y-4">'
   .'<div><label class="block text-xs font-medium mb-1">Full Name</label><input name="full_name" class="w-full border rounded px-2 py-1" required /></div>'
   .'<div><label class="block text-xs font-medium mb-1">Email</label><input type="email" name="email" class="w-full border rounded px-2 py-1" required /></div>'
-  .'<div class="text-right"><button name="add_judge" type="submit" class="bg-blue-600 text-white px-4 py-2 rounded text-sm">Create</button></div>'
-  .'</form>';
+  .'<div class="text-right"><button name="add_judge" type="submit" class="bg-blue-600 hover:bg-blue-700 transition-all text-white px-4 py-2 rounded text-sm">Create</button></div>'
+  .'</form>'
+  .'<script>makeFormLoadingEnabled("addJudgeForm", "Creating judge account...", true);</script>';
 $footerHtml = '';
 include __DIR__ . '/components/modal.php';
 include __DIR__ . '/partials/footer.php';
