@@ -10,7 +10,7 @@ session_start();
 // Check if there is an admin already logged in
 if (isset($_SESSION['adminID'])) {
     // If an admin is logged in, redirect to dashboard
-    header("Location: dashboard.php");
+    header("Location: admin/dashboard.php");
     exit();
 }
 
@@ -40,7 +40,7 @@ if (isset($_POST['login'])) {
         $_SESSION['adminRole'] = $user['role'] ?? $user['global_role'];
         
         // Redirect to dashboard or specified page
-        $redirect = $_GET['redirect'] ?? 'dashboard.php';
+        $redirect = urldecode($_GET['redirect'] ?? 'admin/dashboard.php');
         header("Location: " . $redirect);
         exit();
     } else {

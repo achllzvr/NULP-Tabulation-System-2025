@@ -1,14 +1,14 @@
 <?php
 $pageTitle = 'Public Awards';
 $pid = isset($_GET['pageant_id']) ? (int)$_GET['pageant_id'] : 0;
-include __DIR__ . '/partials/head.php';
+include __DIR__ . '/../partials/head.php';
 echo "<script>window.PUBLIC_PAGEANT_ID=" . json_encode($pid) . ";</script>";
 ?>
 <main class="mx-auto max-w-6xl w-full p-6 space-y-6">
   <h1 class="text-2xl font-semibold text-slate-800">Awards</h1>
   <div id="awardsPublicGrid" class="grid md:grid-cols-3 gap-6"><?php echo createLoadingSpinner('awardsLoader', 'Loading Awards', true); ?></div>
 </main>
-<?php include __DIR__ . '/partials/footer.php'; ?>
+<?php include __DIR__ . '/../partials/footer.php'; ?>
 <script>
 function loadPublicAwards(){
   const grid = document.getElementById('awardsPublicGrid');

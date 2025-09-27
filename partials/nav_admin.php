@@ -1,17 +1,21 @@
 <?php
 /** nav_admin.php : Admin navigation */
+// Determine if we're in a subdirectory
+$isInAdminDir = strpos($_SERVER['PHP_SELF'], '/admin/') !== false;
+$prefix = $isInAdminDir ? '' : 'admin/';
+
 $items = [
-    'Dashboard' => 'dashboard.php',
-    'Participants' => 'participants.php',
-    'Judges' => 'judges.php',
-    'Rounds & Criteria' => 'rounds.php',
-    'Live Control' => 'live_control.php',
-    'Leaderboard' => 'leaderboard.php',
-    'Advancement' => 'advancement.php',
-    'Final Round' => 'final_round.php',
-    'Awards' => 'awards.php',
-    'Tie Resolution' => 'tie_resolution.php',
-    'Settings' => 'settings.php'
+    'Dashboard' => $prefix . 'dashboard.php',
+    'Participants' => $prefix . 'participants.php',
+    'Judges' => $prefix . 'judges.php',
+    'Rounds & Criteria' => $prefix . 'rounds.php',
+    'Live Control' => $prefix . 'live_control.php',
+    'Leaderboard' => $prefix . 'leaderboard.php',
+    'Advancement' => $prefix . 'advancement.php',
+    'Final Round' => $prefix . 'final_round.php',
+    'Awards' => $prefix . 'awards.php',
+    'Tie Resolution' => $prefix . 'tie_resolution.php',
+    'Settings' => $prefix . 'settings.php'
 ];
 $current = basename($_SERVER['PHP_SELF']);
 ?>
@@ -29,19 +33,24 @@ $current = basename($_SERVER['PHP_SELF']);
     </div>
     <div class="flex items-center gap-4">
       <span class="text-sm text-slate-600">Welcome, <?= htmlspecialchars($_SESSION['adminFN'] ?? 'Admin', ENT_QUOTES, 'UTF-8') ?></span>
-      <form method="post" action="logout.php" class="inline" onsubmit="return confirmLogout(event)">
-        <button type="submit" class="text-sm text-slate-600 hover:text-slate-900">Logout</button>
+      <form method="post" action="<?= $isInAdminDir ? '../logout.php' : 'logout.php' ?>" class="inline" id="logoutForm">
+        <button type="button" class="text-sm text-slate-600 hover:text-slate-900" onclick="confirmLogout()">Logout</button>
       </form>
       <script>
-      function confirmLogout(e) {
-        e.preventDefault();
-        showConfirm('Confirm Logout', 'Are you sure you want to logout?', 'Yes, Logout', 'Cancel')
-        .then((result) => {
-          if (result.isConfirmed) {
-            e.target.submit();
+      function confirmLogout() {
+        if (typeof showConfirm === 'function') {
+          showConfirm('Confirm Logout', 'Are you sure you want to logout?', 'Yes, Logout', 'Cancel')
+          .then((result) => {
+            if (result.isConfirmed) {
+              document.getElementById('logoutForm').submit();
+            }
+          });
+        } else {
+          // Fallback to native confirm if SweetAlert2 isn't loaded yet
+          if (confirm('Are you sure you want to logout?')) {
+            document.getElementById('logoutForm').submit();
           }
-        });
-        return false;
+        }
       }
       </script>
     </div>

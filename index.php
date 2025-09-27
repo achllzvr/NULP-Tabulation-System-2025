@@ -21,7 +21,7 @@ include __DIR__ . '/partials/head.php';
         <h2 class="font-semibold mb-2">Judge Login</h2>
       <p class="text-sm text-slate-600">Enter scores for active round.</p>
     </a>
-      <a href="public_select.php" class="block bg-white border border-slate-200 rounded p-6 shadow hover:shadow-md transition">
+      <a href="public/public_select.php" class="block bg-white border border-slate-200 rounded p-6 shadow hover:shadow-md transition">
       <h2 class="font-semibold mb-2">Public Results</h2>
       <p class="text-sm text-slate-600">View published leaderboards.</p>
     </a>

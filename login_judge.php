@@ -10,7 +10,7 @@ session_start();
 // Check if there is a judge already logged in
 if (isset($_SESSION['judgeID'])) {
     // If a judge is logged in, redirect to judge dashboard
-    header("Location: judge_active.php");
+    header("Location: judge/judge_active.php");
     exit();
 }
 
@@ -41,7 +41,7 @@ if (isset($_POST['login'])) {
         $_SESSION['judgeRole'] = $user['role'] ?? $user['global_role'];
         
         // Redirect to judge dashboard or specified page
-        $redirect = $_GET['redirect'] ?? 'judge_active.php';
+        $redirect = urldecode($_GET['redirect'] ?? 'judge/judge_active.php');
         header("Location: " . $redirect);
         exit();
     } else {

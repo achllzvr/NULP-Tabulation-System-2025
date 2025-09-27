@@ -9,19 +9,20 @@ session_start();
 
 // Check if admin is logged in
 if (!isset($_SESSION['adminID'])) {
-    header("Location: login_admin.php");
+        $currentPage = urlencode('admin/' . basename($_SERVER['PHP_SELF'])); 
+    header("Location: ../login_admin.php?redirect=" . $currentPage);
     exit();
 }
 
 // Include the database class file
-require_once('classes/database.php');
+require_once('../classes/database.php');
 
 // Create an instance of the database class
 $con = new database();
 
 $pageTitle = 'Live Control';
-include __DIR__ . '/partials/head.php';
-include __DIR__ . '/partials/nav_admin.php';
+include __DIR__ . '/../partials/head.php';
+include __DIR__ . '/../partials/nav_admin.php';
 ?>
 <main class="mx-auto max-w-6xl w-full p-6 space-y-6">
   <h1 class="text-xl font-semibold text-slate-800">Live Control</h1>
@@ -29,4 +30,4 @@ include __DIR__ . '/partials/nav_admin.php';
     <!-- Round cards populated later -->
   </div>
 </main>
-<?php include __DIR__ . '/partials/footer.php'; ?>
+<?php include __DIR__ . '/../partials/footer.php'; ?>

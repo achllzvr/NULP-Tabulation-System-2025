@@ -8,7 +8,7 @@ error_reporting(E_ALL);
 session_start();
 
 // Include the database class file
-require_once('classes/database.php');
+require_once('../classes/database.php');
 
 // Create an instance of the database class
 $con = new database();
@@ -51,7 +51,7 @@ if (isset($_POST['lookup_pageant'])) {
 }
 
 $pageTitle = 'Enter Pageant Code';
-include __DIR__ . '/partials/head.php';
+include __DIR__ . '/../partials/head.php';
 ?>
 <main class="mx-auto max-w-sm w-full p-6 space-y-6">
   <h1 class="text-xl font-semibold text-slate-800">View Public Results</h1>
@@ -95,4 +95,4 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
-<?php include __DIR__ . '/partials/footer.php'; ?>
+<?php include __DIR__ . '/../partials/footer.php'; ?>

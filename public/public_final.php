@@ -1,7 +1,7 @@
 <?php
 $pageTitle = 'Public Final Results';
 $pid = isset($_GET['pageant_id']) ? (int)$_GET['pageant_id'] : 0;
-include __DIR__ . '/partials/head.php';
+include __DIR__ . '/../partials/head.php';
 echo "<script>window.PUBLIC_PAGEANT_ID=" . json_encode($pid) . ";</script>";
 ?>
 <main class="mx-auto max-w-5xl w-full p-6 space-y-8">
@@ -9,7 +9,7 @@ echo "<script>window.PUBLIC_PAGEANT_ID=" . json_encode($pid) . ";</script>";
   <section id="podium" class="grid md:grid-cols-3 gap-4">Podium placeholder</section>
   <section id="finalRankings" class="text-sm">Rankings placeholder</section>
 </main>
-<?php include __DIR__ . '/partials/footer.php'; ?>
+<?php include __DIR__ . '/../partials/footer.php'; ?>
 <script>
 document.addEventListener('DOMContentLoaded',()=>{
   const pid = window.PUBLIC_PAGEANT_ID||0;

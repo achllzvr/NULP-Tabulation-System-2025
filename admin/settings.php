@@ -9,19 +9,20 @@ session_start();
 
 // Check if admin is logged in
 if (!isset($_SESSION['adminID'])) {
-    header("Location: login_admin.php");
+        $currentPage = urlencode('admin/' . basename($_SERVER['PHP_SELF'])); 
+    header("Location: ../login_admin.php?redirect=" . $currentPage);
     exit();
 }
 
 // Include the database class file
-require_once('classes/database.php');
+require_once('../classes/database.php');
 
 // Create an instance of the database class
 $con = new database();
 
 $pageTitle = 'Settings';
-include __DIR__ . '/partials/head.php';
-include __DIR__ . '/partials/nav_admin.php';
+include __DIR__ . '/../partials/head.php';
+include __DIR__ . '/../partials/nav_admin.php';
 ?>
 <main class="mx-auto max-w-4xl w-full p-6 space-y-6">
   <h1 class="text-xl font-semibold text-slate-800">Visibility & Settings</h1>
@@ -32,7 +33,7 @@ include __DIR__ . '/partials/nav_admin.php';
     <button class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded">Apply</button>
   </form>
 </main>
-<?php include __DIR__ . '/partials/footer.php'; ?>
+<?php include __DIR__ . '/../partials/footer.php'; ?>
 <script>
 function saveVisibility(e){
   e.preventDefault();
