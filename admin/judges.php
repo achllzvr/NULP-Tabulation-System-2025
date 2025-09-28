@@ -26,47 +26,135 @@ if (isset($_POST['add_judge'])) {
     $email = $_POST['email'];
     $pageant_id = $_SESSION['pageant_id'] ?? 1; // Use consistent session variable
     
-    // Generate username and password
-    $username = strtolower(str_replace(' ', '', $full_name)) . rand(100, 999);
-    $password = 'judge' . rand(1000, 9999);
-    $password_hash = password_hash($password, PASSWORD_DEFAULT);
+    // Validate required fields
+    if (empty($full_name) || empty($email)) {
+        $error_message = "Full name and email are required.";
+        $show_error_alert = true;
+    } else if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $error_message = "Please enter a valid email address.";
+        $show_error_alert = true;
+    } else {
+        // Check if email already exists
+        $conn = $con->opencon();
+        $stmt = $conn->prepare("SELECT id FROM users WHERE email = ?");
+        $stmt->bind_param("s", $email);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        if ($result->num_rows > 0) {
+            $error_message = "A user with this email address already exists.";
+            $show_error_alert = true;
+        } else {
+            // Generate username and password
+            $username = strtolower(str_replace(' ', '', $full_name)) . rand(100, 999);
+            $password = 'judge' . rand(1000, 9999);
+            $password_hash = password_hash($password, PASSWORD_DEFAULT);
+            
+            // First add to users table
+            $stmt = $conn->prepare("INSERT INTO users (username, password_hash, full_name, email, global_role) VALUES (?, ?, ?, ?, 'judge')");
+            $stmt->bind_param("ssss", $username, $password_hash, $full_name, $email);
+            
+            if ($stmt->execute()) {
+                $user_id = $conn->insert_id;
+                
+                // Then add to pageant_users mapping
+                $stmt2 = $conn->prepare("INSERT INTO pageant_users (pageant_id, user_id, role) VALUES (?, ?, 'judge')");
+                $stmt2->bind_param("ii", $pageant_id, $user_id);
+                
+                if ($stmt2->execute()) {
+                    $success_message = "Judge '$full_name' added successfully. Username: $username, Password: $password";
+                    $show_success_alert = true;
+                } else {
+                    $error_message = "Error adding judge to pageant.";
+                    $error_type = "FORM_SUBMISSION_ERROR";
+                    $error_details = [
+                        'form_type' => 'add_judge_mapping',
+                        'mysql_error' => $conn->error,
+                        'timestamp' => date('Y-m-d H:i:s')
+                    ];
+                    $show_error_alert = true;
+                }
+                $stmt2->close();
+            } else {
+                $error_message = "Error adding judge.";
+                $error_type = "FORM_SUBMISSION_ERROR";
+                $error_details = [
+                    'form_type' => 'add_judge_user',
+                    'mysql_error' => $conn->error,
+                    'timestamp' => date('Y-m-d H:i:s')
+                ];
+                $show_error_alert = true;
+            }
+        }
+        $stmt->close();
+        $conn->close();
+    }
+}
+
+// Handle judge password reset
+if (isset($_POST['reset_password'])) {
+    $user_id = $_POST['user_id'];
+    $pageant_id = $_SESSION['pageant_id'] ?? 1;
     
-    // Add judge to database
+    // Generate new password
+    $new_password = 'judge' . rand(1000, 9999);
+    $password_hash = password_hash($new_password, PASSWORD_DEFAULT);
+    
     $conn = $con->opencon();
-    
-    // First add to users table
-    $stmt = $conn->prepare("INSERT INTO users (username, password_hash, full_name, email, global_role) VALUES (?, ?, ?, ?, 'judge')");
-    $stmt->bind_param("ssss", $username, $password_hash, $full_name, $email);
+    $stmt = $conn->prepare("UPDATE users SET password_hash = ? WHERE id = ?");
+    $stmt->bind_param("si", $password_hash, $user_id);
     
     if ($stmt->execute()) {
-        $user_id = $conn->insert_id;
+        // Get judge name for success message
+        $stmt2 = $conn->prepare("SELECT full_name, username FROM users WHERE id = ?");
+        $stmt2->bind_param("i", $user_id);
+        $stmt2->execute();
+        $result = $stmt2->get_result();
+        $judge = $result->fetch_assoc();
         
-        // Then add to pageant_users mapping
-        $stmt2 = $conn->prepare("INSERT INTO pageant_users (pageant_id, user_id, role) VALUES (?, ?, 'judge')");
-        $stmt2->bind_param("ii", $pageant_id, $user_id);
-        
-        if ($stmt2->execute()) {
-            $success_message = "Judge added successfully. Username: $username, Password: $password";
-            $show_success_alert = true;
-        } else {
-            $error_message = "Error adding judge to pageant.";
-            $error_type = "FORM_SUBMISSION_ERROR";
-            $error_details = [
-                'form_type' => 'add_judge_mapping',
-                'mysql_error' => $conn->error,
-                'timestamp' => date('Y-m-d H:i:s')
-            ];
-            $show_error_alert = true;
-        }
+        $success_message = "Password reset for {$judge['full_name']}. New password: $new_password";
+        $show_success_alert = true;
         $stmt2->close();
     } else {
-        $error_message = "Error adding judge.";
-        $error_type = "FORM_SUBMISSION_ERROR";
-        $error_details = [
-            'form_type' => 'add_judge_user',
-            'mysql_error' => $conn->error,
-            'timestamp' => date('Y-m-d H:i:s')
-        ];
+        $error_message = "Error resetting password.";
+        $show_error_alert = true;
+    }
+    $stmt->close();
+    $conn->close();
+}
+
+// Handle judge removal
+if (isset($_POST['remove_judge'])) {
+    $user_id = $_POST['user_id'];
+    $pageant_id = $_SESSION['pageant_id'] ?? 1;
+    
+    $conn = $con->opencon();
+    
+    // First remove from pageant_users mapping
+    $stmt = $conn->prepare("DELETE FROM pageant_users WHERE pageant_id = ? AND user_id = ? AND role = 'judge'");
+    $stmt->bind_param("ii", $pageant_id, $user_id);
+    
+    if ($stmt->execute()) {
+        // Check if user is used in other pageants
+        $stmt2 = $conn->prepare("SELECT COUNT(*) as count FROM pageant_users WHERE user_id = ?");
+        $stmt2->bind_param("i", $user_id);
+        $stmt2->execute();
+        $result = $stmt2->get_result();
+        $count = $result->fetch_assoc()['count'];
+        
+        // If not used in other pageants, remove from users table
+        if ($count == 0) {
+            $stmt3 = $conn->prepare("DELETE FROM users WHERE id = ?");
+            $stmt3->bind_param("i", $user_id);
+            $stmt3->execute();
+            $stmt3->close();
+        }
+        
+        $success_message = "Judge removed successfully.";
+        $show_success_alert = true;
+        $stmt2->close();
+    } else {
+        $error_message = "Error removing judge.";
         $show_error_alert = true;
     }
     $stmt->close();
@@ -216,8 +304,15 @@ include __DIR__ . '/../partials/nav_admin.php';
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div class="flex space-x-2">
-                      <button class="text-blue-600 hover:text-blue-900 font-medium">Reset Password</button>
-                      <button class="text-red-600 hover:text-red-900 font-medium">Remove</button>
+                      <form method="POST" class="inline" onsubmit="return confirm('Are you sure you want to reset the password for <?php echo htmlspecialchars($judge['full_name'], ENT_QUOTES); ?>? A new password will be generated.')">
+                        <input type="hidden" name="user_id" value="<?php echo $judge['id']; ?>">
+                        <button name="reset_password" type="submit" class="text-blue-600 hover:text-blue-900 font-medium">Reset Password</button>
+                      </form>
+                      
+                      <form method="POST" class="inline" onsubmit="return confirm('Are you sure you want to remove <?php echo htmlspecialchars($judge['full_name'], ENT_QUOTES); ?> as a judge? This action cannot be undone.')">
+                        <input type="hidden" name="user_id" value="<?php echo $judge['id']; ?>">
+                        <button name="remove_judge" type="submit" class="text-red-600 hover:text-red-900 font-medium">Remove</button>
+                      </form>
                     </div>
                   </td>
                 </tr>

@@ -99,7 +99,7 @@ include __DIR__ . '/../partials/nav_admin.php';
           <p class="text-slate-600">Manage judging rounds and scoring criteria</p>
         </div>
         <div class="flex gap-3">
-          <button class="bg-slate-600 hover:bg-slate-700 text-white font-medium px-6 py-3 rounded-lg transition-colors flex items-center gap-2">
+          <button onclick="showModal('manageCriteriaModal')" class="bg-slate-600 hover:bg-slate-700 text-white font-medium px-6 py-3 rounded-lg transition-colors flex items-center gap-2">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
@@ -258,7 +258,7 @@ include __DIR__ . '/../partials/nav_admin.php';
                           </button>
                         </form>
                       <?php endif; ?>
-                      <button class="bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+                      <button onclick="viewRoundDetails(<?php echo $round['id']; ?>, '<?php echo htmlspecialchars($round['name'], ENT_QUOTES); ?>', '<?php echo $round['state']; ?>', '<?php echo $round['criteria_count']; ?>')" class="bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-medium px-4 py-2 rounded-lg transition-colors">
                         View Details
                       </button>
                     </div>
@@ -315,6 +315,125 @@ include __DIR__ . '/../partials/nav_admin.php';
     </div>
   </div>
 </main>
+
+<?php
+// Manage Criteria Modal
+$modalId = 'manageCriteriaModal';
+$title = 'Manage Scoring Criteria';
+$bodyHtml = '<div class="space-y-6">'
+  .'<div class="bg-blue-50 border border-blue-200 rounded-lg p-4">'
+    .'<div class="flex items-center gap-2 mb-2">'
+      .'<svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">'
+        .'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>'
+      .'</svg>'
+      .'<h4 class="text-sm font-medium text-blue-800">Current Criteria</h4>'
+    .'</div>'
+    .'<p class="text-sm text-blue-700">The following criteria are currently active for judging rounds:</p>'
+  .'</div>';
+
+if (!empty($criteria)) {
+    $bodyHtml .= '<div class="space-y-3">';
+    foreach ($criteria as $criterion) {
+        $bodyHtml .= '<div class="border border-slate-200 rounded-lg p-4">'
+          .'<div class="flex items-center justify-between mb-2">'
+            .'<h4 class="font-medium text-slate-800">'.htmlspecialchars($criterion['name']).'</h4>'
+            .'<span class="text-sm text-slate-600">'.$criterion['default_max_score'].' points</span>'
+          .'</div>';
+        if ($criterion['description']) {
+            $bodyHtml .= '<p class="text-sm text-slate-600">'.htmlspecialchars($criterion['description']).'</p>';
+        }
+        $bodyHtml .= '</div>';
+    }
+    $bodyHtml .= '</div>';
+} else {
+    $bodyHtml .= '<div class="text-center py-8">'
+      .'<svg class="mx-auto h-8 w-8 text-slate-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">'
+        .'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>'
+      .'</svg>'
+      .'<p class="text-sm text-slate-500">No criteria configured</p>'
+    .'</div>';
+}
+
+$bodyHtml .= '<div class="pt-4">'
+    .'<button onclick="hideModal(\'manageCriteriaModal\')" class="w-full bg-slate-200 hover:bg-slate-300 text-slate-800 font-medium px-6 py-3 rounded-lg transition-colors">Close</button>'
+  .'</div>'
+  .'</div>';
+$footerHtml = '';
+include __DIR__ . '/../components/modal.php';
+
+// Round Details Modal
+$modalId = 'roundDetailsModal';
+$title = 'Round Details';
+$bodyHtml = '<div class="space-y-6">'
+  .'<div id="roundDetailsContent">'
+    .'<!-- Content will be populated by JavaScript -->'
+  .'</div>'
+  .'<div class="pt-4">'
+    .'<button onclick="hideModal(\'roundDetailsModal\')" class="w-full bg-slate-200 hover:bg-slate-300 text-slate-800 font-medium px-6 py-3 rounded-lg transition-colors">Close</button>'
+  .'</div>'
+  .'</div>';
+$footerHtml = '';
+include __DIR__ . '/../components/modal.php';
+?>
+
+<script>
+function viewRoundDetails(roundId, roundName, state, criteriaCount) {
+  const content = document.getElementById('roundDetailsContent');
+  
+  let stateClass = '';
+  let stateText = state;
+  switch (state) {
+    case 'OPEN':
+      stateClass = 'bg-blue-100 text-blue-800';
+      break;
+    case 'CLOSED':
+    case 'FINALIZED':
+      stateClass = 'bg-green-100 text-green-800';
+      break;
+    default:
+      stateClass = 'bg-slate-100 text-slate-600';
+  }
+  
+  content.innerHTML = `
+    <div class="bg-slate-50 border border-slate-200 rounded-lg p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-semibold text-slate-800">${roundName}</h3>
+        <span class="px-3 py-1 text-sm font-medium rounded-full ${stateClass}">
+          ${stateText}
+        </span>
+      </div>
+      
+      <div class="grid grid-cols-2 gap-4 mb-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">Round ID</label>
+          <p class="text-sm text-slate-800">#${roundId}</p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">Status</label>
+          <p class="text-sm text-slate-800">${stateText}</p>
+        </div>
+      </div>
+      
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-slate-600 mb-1">Assigned Criteria</label>
+        <p class="text-sm text-slate-800">${criteriaCount} criteria assigned for scoring</p>
+      </div>
+      
+      <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div class="flex items-center gap-2 mb-2">
+          <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <h4 class="text-sm font-medium text-blue-800">Round Information</h4>
+        </div>
+        <p class="text-sm text-blue-700">This round uses the configured scoring criteria and allows judges to evaluate participants based on the assigned standards.</p>
+      </div>
+    </div>
+  `;
+  
+  showModal('roundDetailsModal');
+}
+</script>
 
 <?php if (isset($show_success_alert)): ?>
 <script>

@@ -28,26 +28,120 @@ if (isset($_POST['add_participant'])) {
     $advocacy = $_POST['advocacy'];
     $pageant_id = $_SESSION['pageant_id'] ?? 1; // Use consistent session variable
     
-    // Add participant to database
+    // Validate required fields
+    if (empty($full_name) || empty($number_label)) {
+        $error_message = "Full name and number label are required.";
+        $show_error_alert = true;
+    } else {
+        // Check if number already exists
+        $conn = $con->opencon();
+        $stmt = $conn->prepare("SELECT id FROM participants WHERE pageant_id = ? AND number_label = ?");
+        $stmt->bind_param("is", $pageant_id, $number_label);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        if ($result->num_rows > 0) {
+            $error_message = "Participant number '$number_label' already exists.";
+            $show_error_alert = true;
+        } else {
+            // Add participant to database
+            $stmt = $conn->prepare("INSERT INTO participants (pageant_id, division, number_label, full_name, advocacy, is_active) VALUES (?, ?, ?, ?, ?, 1)");
+            $stmt->bind_param("issss", $pageant_id, $division, $number_label, $full_name, $advocacy);
+            
+            if ($stmt->execute()) {
+                $success_message = "Participant '$full_name' (#$number_label) added successfully.";
+                $show_success_alert = true;
+            } else {
+                $error_message = "Error adding participant: " . $conn->error;
+                $show_error_alert = true;
+            }
+        }
+        $stmt->close();
+        $conn->close();
+    }
+}
+
+// Handle participant deletion
+if (isset($_POST['delete_participant'])) {
+    $participant_id = $_POST['participant_id'];
+    $pageant_id = $_SESSION['pageant_id'] ?? 1;
+    
     $conn = $con->opencon();
-    $stmt = $conn->prepare("INSERT INTO participants (pageant_id, division, number_label, full_name, advocacy, is_active) VALUES (?, ?, ?, ?, ?, 1)");
-    $stmt->bind_param("issss", $pageant_id, $division, $number_label, $full_name, $advocacy);
+    $stmt = $conn->prepare("DELETE FROM participants WHERE id = ? AND pageant_id = ?");
+    $stmt->bind_param("ii", $participant_id, $pageant_id);
     
     if ($stmt->execute()) {
-        $success_message = "Participant added successfully.";
+        $success_message = "Participant deleted successfully.";
         $show_success_alert = true;
     } else {
-        $error_message = "Error adding participant.";
-        $error_type = "FORM_SUBMISSION_ERROR";
-        $error_details = [
-            'form_type' => 'add_participant',
-            'mysql_error' => $conn->error,
-            'timestamp' => date('Y-m-d H:i:s')
-        ];
+        $error_message = "Error deleting participant.";
         $show_error_alert = true;
     }
     $stmt->close();
     $conn->close();
+}
+
+// Handle participant status toggle
+if (isset($_POST['toggle_participant'])) {
+    $participant_id = $_POST['participant_id'];
+    $new_status = $_POST['new_status'];
+    $pageant_id = $_SESSION['pageant_id'] ?? 1;
+    
+    $conn = $con->opencon();
+    $stmt = $conn->prepare("UPDATE participants SET is_active = ? WHERE id = ? AND pageant_id = ?");
+    $stmt->bind_param("iii", $new_status, $participant_id, $pageant_id);
+    
+    if ($stmt->execute()) {
+        $success_message = "Participant status updated successfully.";
+        $show_success_alert = true;
+    } else {
+        $error_message = "Error updating participant status.";
+        $show_error_alert = true;
+    }
+    $stmt->close();
+    $conn->close();
+}
+
+// Handle participant editing
+if (isset($_POST['edit_participant'])) {
+    $participant_id = $_POST['participant_id'];
+    $division = $_POST['division'];
+    $number_label = $_POST['number_label'];
+    $full_name = $_POST['full_name'];
+    $advocacy = $_POST['advocacy'];
+    $pageant_id = $_SESSION['pageant_id'] ?? 1;
+    
+    // Validate required fields
+    if (empty($full_name) || empty($number_label)) {
+        $error_message = "Full name and number label are required.";
+        $show_error_alert = true;
+    } else {
+        // Check if number already exists (excluding current participant)
+        $conn = $con->opencon();
+        $stmt = $conn->prepare("SELECT id FROM participants WHERE pageant_id = ? AND number_label = ? AND id != ?");
+        $stmt->bind_param("isi", $pageant_id, $number_label, $participant_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        if ($result->num_rows > 0) {
+            $error_message = "Participant number '$number_label' already exists.";
+            $show_error_alert = true;
+        } else {
+            // Update participant
+            $stmt = $conn->prepare("UPDATE participants SET division = ?, number_label = ?, full_name = ?, advocacy = ? WHERE id = ? AND pageant_id = ?");
+            $stmt->bind_param("ssssii", $division, $number_label, $full_name, $advocacy, $participant_id, $pageant_id);
+            
+            if ($stmt->execute()) {
+                $success_message = "Participant '$full_name' (#$number_label) updated successfully.";
+                $show_success_alert = true;
+            } else {
+                $error_message = "Error updating participant: " . $conn->error;
+                $show_error_alert = true;
+            }
+        }
+        $stmt->close();
+        $conn->close();
+    }
 }
 
 // Fetch participants
@@ -193,8 +287,20 @@ include __DIR__ . '/../partials/nav_admin.php';
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div class="flex space-x-2">
-                      <button class="text-blue-600 hover:text-blue-900 font-medium">Edit</button>
-                      <button class="text-red-600 hover:text-red-900 font-medium">Delete</button>
+                      <button onclick="editParticipant(<?php echo $participant['id']; ?>, '<?php echo htmlspecialchars($participant['full_name'], ENT_QUOTES); ?>', '<?php echo $participant['number_label']; ?>', '<?php echo $participant['division']; ?>', '<?php echo htmlspecialchars($participant['advocacy'], ENT_QUOTES); ?>')" class="text-blue-600 hover:text-blue-900 font-medium">Edit</button>
+                      
+                      <form method="POST" class="inline" onsubmit="return confirm('Are you sure you want to delete this participant?')">
+                        <input type="hidden" name="participant_id" value="<?php echo $participant['id']; ?>">
+                        <button name="delete_participant" type="submit" class="text-red-600 hover:text-red-900 font-medium">Delete</button>
+                      </form>
+                      
+                      <form method="POST" class="inline">
+                        <input type="hidden" name="participant_id" value="<?php echo $participant['id']; ?>">
+                        <input type="hidden" name="new_status" value="<?php echo $participant['is_active'] ? '0' : '1'; ?>">
+                        <button name="toggle_participant" type="submit" class="text-slate-600 hover:text-slate-900 font-medium">
+                          <?php echo $participant['is_active'] ? 'Deactivate' : 'Activate'; ?>
+                        </button>
+                      </form>
                     </div>
                   </td>
                 </tr>
@@ -259,7 +365,54 @@ $bodyHtml = '<form id="addParticipantForm" method="POST" class="space-y-6">'
   .'<script>makeFormLoadingEnabled("addParticipantForm", "Adding participant...", true);</script>';
 $footerHtml = '';
 include __DIR__ . '/../components/modal.php';
+
+// Edit Participant Modal
+$modalId = 'editParticipantModal';
+$title = 'Edit Participant';
+$bodyHtml = '<form id="editParticipantForm" method="POST" class="space-y-6">'
+  .'<input type="hidden" name="edit_participant" value="1">'
+  .'<input type="hidden" name="participant_id" id="edit_participant_id">'
+  .'<div class="grid grid-cols-2 gap-4">'
+    .'<div>'
+      .'<label class="block text-sm font-medium text-slate-700 mb-2">Division</label>'
+      .'<select name="division" id="edit_division" class="w-full border border-slate-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">'
+        .'<option value="Mr">Mr</option>'
+        .'<option value="Ms">Ms</option>'
+      .'</select>'
+    .'</div>'
+    .'<div>'
+      .'<label class="block text-sm font-medium text-slate-700 mb-2">Number Label</label>'
+      .'<input name="number_label" id="edit_number_label" type="text" class="w-full border border-slate-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors" required />'
+    .'</div>'
+  .'</div>'
+  .'<div>'
+    .'<label class="block text-sm font-medium text-slate-700 mb-2">Full Name</label>'
+    .'<input name="full_name" id="edit_full_name" type="text" class="w-full border border-slate-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors" required />'
+  .'</div>'
+  .'<div>'
+    .'<label class="block text-sm font-medium text-slate-700 mb-2">Advocacy</label>'
+    .'<textarea name="advocacy" id="edit_advocacy" class="w-full border border-slate-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none" rows="4"></textarea>'
+  .'</div>'
+  .'<div class="flex gap-3 pt-4">'
+    .'<button type="button" onclick="hideModal(\'editParticipantModal\')" class="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-800 font-medium px-6 py-3 rounded-lg transition-colors">Cancel</button>'
+    .'<button name="edit_participant" type="submit" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-3 rounded-lg transition-colors">Update Participant</button>'
+  .'</div>'
+  .'</form>'
+  .'<script>makeFormLoadingEnabled("editParticipantForm", "Updating participant...", true);</script>';
+$footerHtml = '';
+include __DIR__ . '/../components/modal.php';
 ?>
+
+<script>
+function editParticipant(id, name, number, division, advocacy) {
+    document.getElementById('edit_participant_id').value = id;
+    document.getElementById('edit_full_name').value = name;
+    document.getElementById('edit_number_label').value = number;
+    document.getElementById('edit_division').value = division;
+    document.getElementById('edit_advocacy').value = advocacy;
+    showModal('editParticipantModal');
+}
+</script>
 
 <?php if (isset($show_success_alert)): ?>
 <script>
