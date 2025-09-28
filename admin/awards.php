@@ -9,7 +9,7 @@ session_start();
 
 // Check if admin is logged in
 if (!isset($_SESSION['adminID'])) {
-        $currentPage = urlencode('admin/' . basename($_SERVER['PHP_SELF'])); 
+    $currentPage = urlencode('admin/' . basename($_SERVER['PHP_SELF'])); 
     header("Location: ../login_admin.php?redirect=" . $currentPage);
     exit();
 }
@@ -19,80 +19,269 @@ require_once('../classes/database.php');
 
 // Create an instance of the database class
 $con = new database();
+$conn = $con->opencon();
+
+// Get pageant ID from session
+$pageant_id = $_SESSION['pageant_id'] ?? 1;
+
+// Handle award generation
+if (isset($_POST['generate_awards'])) {
+    // This is a simplified award system - you can expand this later
+    $success_message = "Award generation feature will be implemented when scoring system is complete.";
+    $show_success_alert = true;
+}
+
+// Get basic pageant data for awards display
+$stmt = $conn->prepare("SELECT COUNT(*) as count FROM participants WHERE pageant_id = ? AND is_active = 1");
+$stmt->bind_param("i", $pageant_id);
+$stmt->execute();
+$result = $stmt->get_result();
+$participants_count = $result->fetch_assoc()['count'];
+
+$stmt = $conn->prepare("SELECT COUNT(*) as count FROM rounds WHERE pageant_id = ? AND state = 'FINALIZED'");
+$stmt->bind_param("i", $pageant_id);
+$stmt->execute();
+$result = $stmt->get_result();
+$finalized_rounds = $result->fetch_assoc()['count'];
+
+$conn->close();
 
 $pageTitle = 'Awards Management';
-$awards = [];
 include __DIR__ . '/../partials/head.php';
 include __DIR__ . '/../partials/nav_admin.php';
 ?>
-<main class="mx-auto max-w-6xl w-full p-6 space-y-6">
-  <h1 class="text-xl font-semibold text-slate-800">Awards</h1>
-  <div class="flex flex-wrap gap-3">
-    <button onclick="previewAwards()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium px-3 py-2 rounded">Preview Computation</button>
-    <button onclick="persistAwards()" class="bg-green-600 hover:bg-green-700 text-white text-xs font-medium px-3 py-2 rounded">Compute & Persist</button>
-  </div>
-  <div class="grid md:grid-cols-3 gap-6" id="awardsGrid">
-    <!-- dynamic award cards -->
-  </div>
-  <div id="awardPreview" class="hidden">
-    <h2 class="text-sm font-semibold text-slate-700 mt-8 mb-2">Computation Preview</h2>
-    <div id="awardPreviewList" class="space-y-4"></div>
+<main class="bg-slate-50 min-h-screen">
+  <div class="mx-auto max-w-7xl px-6 py-8">
+    <!-- Header -->
+    <div class="mb-8">
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-3xl font-bold text-slate-800 mb-2">Awards Management</h1>
+          <p class="text-slate-600">Generate and manage pageant awards and recognitions</p>
+        </div>
+        <div class="flex gap-3">
+          <button onclick="generatePreview()" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-3 rounded-lg transition-colors flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+            Preview Awards
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Status Cards -->
+    <div class="grid md:grid-cols-3 gap-6 mb-8">
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-sm font-medium text-slate-600">Total Participants</h3>
+          <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+          </svg>
+        </div>
+        <p class="text-3xl font-bold text-slate-800 mb-1"><?php echo $participants_count; ?></p>
+        <p class="text-sm text-slate-600">Active contestants</p>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-sm font-medium text-slate-600">Completed Rounds</h3>
+          <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </div>
+        <p class="text-3xl font-bold text-slate-800 mb-1"><?php echo $finalized_rounds; ?></p>
+        <p class="text-sm text-slate-600">Finalized rounds</p>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-sm font-medium text-slate-600">Award Status</h3>
+          <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
+          </svg>
+        </div>
+        <p class="text-lg font-bold text-slate-800 mb-1">
+          <?php echo $finalized_rounds > 0 ? 'Ready' : 'Pending'; ?>
+        </p>
+        <p class="text-sm text-slate-600">Generation status</p>
+      </div>
+    </div>
+
+    <!-- Success/Error Messages -->
+    <?php if (isset($success_message)): ?>
+      <div class="bg-green-50 border border-green-200 text-green-700 px-6 py-4 rounded-lg text-sm mb-6 flex items-center gap-3">
+        <svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+        </svg>
+        <?= htmlspecialchars($success_message, ENT_QUOTES, 'UTF-8') ?>
+      </div>
+    <?php endif; ?>
+
+    <!-- Awards Configuration -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200">
+      <div class="px-6 py-4 border-b border-slate-200">
+        <h3 class="text-lg font-semibold text-slate-800">Award Categories</h3>
+        <p class="text-sm text-slate-600 mt-1">Configure and generate pageant awards</p>
+      </div>
+      
+      <div class="p-6">
+        <div class="grid md:grid-cols-2 gap-6">
+          <!-- Major Awards -->
+          <div class="space-y-4">
+            <h4 class="font-semibold text-slate-800 mb-4">Major Awards</h4>
+            
+            <div class="border border-slate-200 rounded-lg p-4">
+              <div class="flex items-center justify-between mb-2">
+                <h5 class="font-medium text-slate-800">Overall Winner</h5>
+                <span class="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full">Crown</span>
+              </div>
+              <p class="text-sm text-slate-600 mb-3">Highest total score across all rounds</p>
+              <div class="text-xs text-slate-500">
+                <span>• Mr Division Winner</span><br>
+                <span>• Ms Division Winner</span>
+              </div>
+            </div>
+
+            <div class="border border-slate-200 rounded-lg p-4">
+              <div class="flex items-center justify-between mb-2">
+                <h5 class="font-medium text-slate-800">Runner-up</h5>
+                <span class="px-2 py-1 text-xs bg-silver-100 text-slate-700 rounded-full">2nd Place</span>
+              </div>
+              <p class="text-sm text-slate-600 mb-3">Second highest total score</p>
+              <div class="text-xs text-slate-500">
+                <span>• 1st Runner-up Mr</span><br>
+                <span>• 1st Runner-up Ms</span>
+              </div>
+            </div>
+
+            <div class="border border-slate-200 rounded-lg p-4">
+              <div class="flex items-center justify-between mb-2">
+                <h5 class="font-medium text-slate-800">Second Runner-up</h5>
+                <span class="px-2 py-1 text-xs bg-orange-100 text-orange-800 rounded-full">3rd Place</span>
+              </div>
+              <p class="text-sm text-slate-600 mb-3">Third highest total score</p>
+              <div class="text-xs text-slate-500">
+                <span>• 2nd Runner-up Mr</span><br>
+                <span>• 2nd Runner-up Ms</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Special Awards -->
+          <div class="space-y-4">
+            <h4 class="font-semibold text-slate-800 mb-4">Special Awards</h4>
+            
+            <div class="border border-slate-200 rounded-lg p-4">
+              <div class="flex items-center justify-between mb-2">
+                <h5 class="font-medium text-slate-800">People's Choice</h5>
+                <span class="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">Popular</span>
+              </div>
+              <p class="text-sm text-slate-600">Audience favorite based on public voting</p>
+            </div>
+
+            <div class="border border-slate-200 rounded-lg p-4">
+              <div class="flex items-center justify-between mb-2">
+                <h5 class="font-medium text-slate-800">Best in Evening Gown</h5>
+                <span class="px-2 py-1 text-xs bg-purple-100 text-purple-800 rounded-full">Elegance</span>
+              </div>
+              <p class="text-sm text-slate-600">Highest score in formal wear round</p>
+            </div>
+
+            <div class="border border-slate-200 rounded-lg p-4">
+              <div class="flex items-center justify-between mb-2">
+                <h5 class="font-medium text-slate-800">Best in Talent</h5>
+                <span class="px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">Performance</span>
+              </div>
+              <p class="text-sm text-slate-600">Highest score in talent round</p>
+            </div>
+
+            <div class="border border-slate-200 rounded-lg p-4">
+              <div class="flex items-center justify-between mb-2">
+                <h5 class="font-medium text-slate-800">Miss/Mr Congeniality</h5>
+                <span class="px-2 py-1 text-xs bg-pink-100 text-pink-800 rounded-full">Friendship</span>
+              </div>
+              <p class="text-sm text-slate-600">Voted by fellow contestants</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="mt-8 flex gap-4">
+          <form method="POST" class="inline">
+            <button name="generate_awards" type="submit" class="bg-green-600 hover:bg-green-700 text-white font-medium px-6 py-3 rounded-lg transition-colors flex items-center gap-2">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
+              </svg>
+              Generate Awards
+            </button>
+          </form>
+          
+          <button onclick="showModal('previewModal')" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-3 rounded-lg transition-colors flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+            Preview Results
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Information Panel -->
+    <div class="bg-blue-50 border border-blue-200 rounded-xl p-6">
+      <div class="flex items-start gap-3">
+        <svg class="w-6 h-6 text-blue-600 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <div>
+          <h4 class="font-semibold text-blue-800 mb-2">Award Generation Information</h4>
+          <div class="text-sm text-blue-700 space-y-2">
+            <p>• Awards are automatically calculated based on final scores from all completed rounds</p>
+            <p>• Ensure all rounds are finalized before generating awards</p>
+            <p>• Major awards are divided by gender division (Mr/Ms)</p>
+            <p>• Special awards may require additional data collection</p>
+            <p>• Generated awards can be reviewed before being published</p>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </main>
-<?php include __DIR__ . '/../partials/footer.php'; ?>
+
+<?php
+// Preview Modal
+$modalId = 'previewModal';
+$title = 'Awards Preview';
+$bodyHtml = '<div class="space-y-4">'
+  .'<div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">'
+    .'<div class="flex items-center gap-2 mb-2">'
+      .'<svg class="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">'
+        .'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>'
+      .'</svg>'
+      .'<h4 class="text-sm font-medium text-yellow-800">Preview Not Available</h4>'
+    .'</div>'
+    .'<p class="text-sm text-yellow-700">Award preview will be available after the scoring system is fully implemented and rounds are completed.</p>'
+  .'</div>'
+  .'<div class="pt-4">'
+    .'<button onclick="hideModal(\'previewModal\')" class="w-full bg-slate-200 hover:bg-slate-300 text-slate-800 font-medium px-6 py-3 rounded-lg transition-colors">Close</button>'
+  .'</div>'
+  .'</div>';
+$footerHtml = '';
+include __DIR__ . '/../components/modal.php';
+?>
+
 <script>
-let awards = [];
-function loadAwards(){
-  API('list_awards',{}).then(r=>{
-    if(!r.success) return showNotification(r.error||'Error loading data','error', true);
-    awards = r.awards||[];
-    renderAwards();
-  });
+function generatePreview() {
+  showNotification('Awards preview will be available when scoring system is complete', 'info', true);
 }
-function renderAwards(){
-  const grid = document.getElementById('awardsGrid');
-  grid.innerHTML = '';
-  if(!awards.length){ grid.innerHTML = '<div class="col-span-3 text-slate-400 text-sm">No awards configured</div>'; return; }
-  awards.forEach(a=>{
-    const card = document.createElement('div');
-    card.className='border border-slate-200 rounded p-4 bg-white shadow-sm text-sm flex flex-col gap-2';
-    card.innerHTML = `<div class='font-semibold text-slate-800 text-xs tracking-wide uppercase'>${escapeHtml(a.name||'Award')}</div>
-    <div class='text-xs text-slate-500'>Type: ${a.award_type||''}</div>
-    <div class='text-xs text-slate-500'>Scope: ${a.division_scope||'ALL'}</div>`;
-    grid.appendChild(card);
-  });
-}
-function previewAwards(){
-  API('compute_awards',{}).then(r=>{
-    if(!r.success) return showNotification(r.error||'Preview error','error', true);
-    const list = document.getElementById('awardPreviewList');
-    const wrap = document.getElementById('awardPreview');
-    list.innerHTML='';
-    (r.preview||[]).forEach(entry=>{
-      const aw = awards.find(a=>a.id==entry.award_id)||{};
-      const e = document.createElement('div');
-      e.className='border border-slate-200 rounded p-3 bg-white';
-      if(entry.error){
-        e.innerHTML = `<div class='text-sm font-medium text-red-600'>${escapeHtml(aw.name||'Award')} - Error: ${escapeHtml(entry.error)}</div>`;
-      } else {
-        const winners = (entry.winners||[]).map((w,i)=>`<li>${escapeHtml(w.full_name||'')} <span class='text-xs text-slate-500'>(${w.division||''})</span> <span class='text-[10px] bg-slate-100 px-1 rounded ml-1'>${w.metric??''}</span></li>`).join('');
-        e.innerHTML = `<div class='text-sm font-semibold text-slate-700 mb-1'>${escapeHtml(aw.name||'Award')}</div><ul class='list-disc pl-5 text-xs space-y-1'>${winners||'<li class=\'text-slate-400\'>No winners</li>'}</ul>`;
-      }
-      list.appendChild(e);
-    });
-    wrap.classList.remove('hidden');
-    showNotification('Preview ready!','success', true);
-  });
-}
-function persistAwards(){
-  API('compute_awards_persist',{csrf_token: window.csrfToken}).then(r=>{
-    if(!r.success) return showNotification(r.error||'Persist error','error', true);
-    showNotification('Awards saved successfully!','success', true);
-    previewAwards();
-  });
-}
-function escapeHtml(str){
-  return (str||'').replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[s]));
-}
-document.addEventListener('DOMContentLoaded',()=>{ loadAwards(); });
 </script>
+
+<?php if (isset($show_success_alert)): ?>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    showSuccess('Success!', '<?= htmlspecialchars($success_message, ENT_QUOTES, 'UTF-8') ?>');
+});
+</script>
+<?php endif; ?>
+
+<?php include __DIR__ . '/../partials/footer.php'; ?>
