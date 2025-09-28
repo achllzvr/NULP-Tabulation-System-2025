@@ -1,82 +1,186 @@
 <?php
+
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 $pageTitle = 'Public Awards';
 $pid = isset($_GET['pageant_id']) ? (int)$_GET['pageant_id'] : 0;
+
+// Include the database class file
+require_once('../classes/database.php');
+
+// Create an instance of the database class
+$con = new database();
+
+// Initialize variables
+$pageant = null;
+$awards = [];
+$visibility_flags = [];
+$error_message = '';
+
+if ($pid > 0) {
+    // Get pageant information
+    $conn = $con->opencon();
+    $stmt = $conn->prepare("SELECT * FROM pageants WHERE id = ?");
+    $stmt->bind_param("i", $pid);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    if ($result->num_rows > 0) {
+        $pageant = $result->fetch_assoc();
+        
+        // Get visibility flags
+        $visibility_flags = $con->getVisibilityFlags($pid);
+        
+        // Get awards if they should be revealed
+        if ($visibility_flags['reveal_awards']) {
+            $awards = $con->getPublicAwards($pid);
+        }
+    } else {
+        $error_message = 'Pageant not found.';
+    }
+    
+    $stmt->close();
+    $conn->close();
+} else {
+    header('Location: public_select.php');
+    exit();
+}
+
 include __DIR__ . '/../partials/head.php';
-echo "<script>window.PUBLIC_PAGEANT_ID=" . json_encode($pid) . ";</script>";
 ?>
-<main class="mx-auto max-w-6xl w-full p-6 space-y-6">
-  <h1 class="text-2xl font-semibold text-slate-800">Awards</h1>
-  <div id="awardsPublicGrid" class="grid md:grid-cols-3 gap-6"><?php echo createLoadingSpinner('awardsLoader', 'Loading Awards', true); ?></div>
-</main>
-<?php include __DIR__ . '/../partials/footer.php'; ?>
-<script>
-function loadPublicAwards(){
-  const grid = document.getElementById('awardsPublicGrid');
-  
-  // Initialize loading manager
-  const loader = new LoadingManager('awardsLoader');
-  loader.startStatusUpdates();
-  
-  loader.setCustomStatus('Connecting to awards system...');
-  API('public_awards',{pageant_id: window.PUBLIC_PAGEANT_ID||0}).then(r=>{
-    if(!r.success){ 
-      loader.error('Failed to load awards'); 
-      return; 
-    }
-    
-    loader.setCustomStatus('Checking award visibility...');
-    if(!r.flags?.reveal_awards){ 
-      setTimeout(() => {
-        grid.innerHTML = '<div class="col-span-full text-center text-slate-500 py-12"><div class="text-4xl mb-4">🏆</div><p class="text-lg font-medium">Awards not yet revealed</p><p class="text-sm">Please check back later</p></div>';
-        loader.finish('Status updated');
-      }, 1000);
-      return; 
-    }
-    
-    const awards = r.awards||[];
-    if(!awards.length){ 
-      setTimeout(() => {
-        grid.innerHTML = '<div class="col-span-full text-center text-slate-500 py-12"><div class="text-4xl mb-4">🏅</div><p class="text-lg font-medium">No awards available</p></div>';
-        loader.finish('Status updated');
-      }, 1000);
-      return; 
-    }
-    
-    loader.setCustomStatus('Rendering award cards...');
-    setTimeout(() => {
-      grid.innerHTML='';
-      awards.forEach((a, index) => {
-        setTimeout(() => {
-          const card = document.createElement('div');
-          card.className='border border-slate-200 rounded-lg p-6 bg-white shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 text-sm flex flex-col gap-3 opacity-0';
-          const winners = (a.winners||[]).map((w,i)=>`<li class="flex items-center justify-between"><span>${escapeHtml(w.full_name||'')}</span><span class='text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full font-medium'>${i+1}${i===0?'st':i===1?'nd':i===2?'rd':'th'}</span></li>`).join('');
-          card.innerHTML = `
-            <div class='font-bold text-slate-800 text-lg text-center border-b pb-2'>${escapeHtml(a.name||'Award')}</div>
-            <div class='text-sm text-slate-500 text-center font-medium'>${escapeHtml(a.division_scope||'ALL')}</div>
-            <ul class='text-sm space-y-2'>${winners || '<li class=\'text-slate-400 text-center italic\'>To be announced</li>'}</ul>
-          `;
-          grid.appendChild(card);
-          
-          // Animate in
-          setTimeout(() => {
-            card.style.transition = 'opacity 0.5s ease-in';
-            card.style.opacity = '1';
-          }, 50);
-        }, index * 150); // Stagger animation
-      });
+<main class="mx-auto max-w-6xl w-full p-6 space-y-8">
+  <div class="text-center mb-8">
+    <h1 class="text-4xl font-bold text-slate-800 mb-2">🏆 Awards & Recognition</h1>
+    <?php if ($pageant): ?>
+      <p class="text-xl text-slate-600"><?php echo htmlspecialchars($pageant['name']); ?></p>
+      <p class="text-sm text-slate-500">Code: <?php echo htmlspecialchars($pageant['code']); ?></p>
+    <?php endif; ?>
+  </div>
+
+  <?php if ($error_message): ?>
+    <div class="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-lg text-center">
+      <svg class="w-6 h-6 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 8.5c-.77.833.192 2.5 1.732 2.5z"/>
+      </svg>
+      <p class="font-medium"><?php echo htmlspecialchars($error_message); ?></p>
+    </div>
+  <?php elseif (!$visibility_flags['reveal_awards']): ?>
+    <!-- Awards not yet revealed -->
+    <div class="text-center py-16">
+      <div class="text-8xl mb-6">🏆</div>
+      <h2 class="text-3xl font-bold text-slate-800 mb-4">Awards Not Yet Revealed</h2>
+      <p class="text-lg text-slate-600 mb-6">The awards ceremony hasn't begun yet.</p>
+      <p class="text-slate-500">Please check back later or stay tuned for the announcement!</p>
       
-      setTimeout(() => {
-        loader.finish(`Loaded ${awards.length} awards!`);
-      }, awards.length * 150 + 500);
-    }, 800);
-  }).catch(err => {
-    loader.error('Connection failed');
-  });
+      <div class="mt-8 inline-flex items-center px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg text-blue-700">
+        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <span class="text-sm font-medium">Awards will be announced soon</span>
+      </div>
+    </div>
+  <?php elseif (!empty($awards)): ?>
+    <!-- Awards Grid -->
+    <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+      <?php foreach ($awards as $index => $award): ?>
+        <div class="bg-gradient-to-br from-white to-slate-50 border-2 border-slate-200 rounded-xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1" 
+             style="animation: fadeInUp 0.6s ease-out <?php echo $index * 0.1; ?>s both;">
+          
+          <!-- Award Header -->
+          <div class="text-center border-b border-slate-200 pb-4 mb-4">
+            <div class="text-3xl mb-2">🏅</div>
+            <h3 class="text-xl font-bold text-slate-800"><?php echo htmlspecialchars($award['name']); ?></h3>
+            <p class="text-sm text-slate-500 font-medium mt-1">
+              <?php echo htmlspecialchars($award['division_scope']); ?> Division
+            </p>
+          </div>
+          
+          <!-- Winners List -->
+          <div class="space-y-3">
+            <?php if (!empty($award['winners'])): ?>
+              <?php foreach ($award['winners'] as $winnerIndex => $winner): ?>
+                <div class="flex items-center justify-between p-3 bg-gradient-to-r <?php 
+                  echo $winnerIndex === 0 ? 'from-yellow-100 to-yellow-200 border-yellow-300' : 
+                       ($winnerIndex === 1 ? 'from-gray-100 to-gray-200 border-gray-300' : 'from-orange-100 to-orange-200 border-orange-300'); 
+                ?> border rounded-lg">
+                  <div>
+                    <p class="font-semibold text-slate-800"><?php echo htmlspecialchars($winner['full_name']); ?></p>
+                    <p class="text-sm text-slate-600">#<?php echo htmlspecialchars($winner['number_label']); ?></p>
+                  </div>
+                  <div class="flex items-center">
+                    <span class="inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold <?php 
+                      echo $winnerIndex === 0 ? 'bg-yellow-500 text-white' : 
+                           ($winnerIndex === 1 ? 'bg-gray-500 text-white' : 'bg-orange-500 text-white'); 
+                    ?>">
+                      <?php 
+                        $position = $winnerIndex + 1;
+                        echo $position . ($position === 1 ? 'st' : ($position === 2 ? 'nd' : ($position === 3 ? 'rd' : 'th')));
+                      ?>
+                    </span>
+                  </div>
+                </div>
+              <?php endforeach; ?>
+            <?php else: ?>
+              <div class="text-center py-6 text-slate-400 italic">
+                <p>To be announced</p>
+              </div>
+            <?php endif; ?>
+          </div>
+        </div>
+      <?php endforeach; ?>
+    </div>
+  <?php else: ?>
+    <!-- No awards yet -->
+    <div class="text-center py-16">
+      <div class="text-8xl mb-6">🏅</div>
+      <h2 class="text-3xl font-bold text-slate-800 mb-4">No Awards Available</h2>
+      <p class="text-lg text-slate-600 mb-6">Awards have not been set up for this pageant yet.</p>
+      <p class="text-slate-500">Please check back later!</p>
+    </div>
+  <?php endif; ?>
+  
+  <!-- Auto-refresh notice -->
+  <div class="text-center text-sm text-slate-500 mt-8">
+    <p>Awards are updated in real-time. Last updated: <?php echo date('g:i A'); ?></p>
+    <button onclick="location.reload()" class="mt-2 text-blue-600 hover:text-blue-700 font-medium transition-colors">
+      🔄 Refresh Awards
+    </button>
+  </div>
+</main>
+
+<style>
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
-function escapeHtml(str){
-  return (str||'').replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[s]));
-}
-document.addEventListener('DOMContentLoaded', loadPublicAwards);
-// redirect if no pageant id
-if(!window.PUBLIC_PAGEANT_ID){ window.location='public_select.php'; }
+</style>
+
+<script>
+// Auto-refresh every 60 seconds for awards (less frequent than leaderboards)
+setInterval(function() {
+    if (document.visibilityState === 'visible') {
+        location.reload();
+    }
+}, 60000);
+
+// Show loading notification
+document.addEventListener('DOMContentLoaded', function() {
+    <?php if (!$visibility_flags['reveal_awards']): ?>
+        showNotification('Awards not yet revealed - check back later!', 'info', true);
+    <?php elseif (!empty($awards)): ?>
+        showNotification('Awards loaded successfully', 'success', true);
+    <?php else: ?>
+        showNotification('No awards configured yet', 'info', true);
+    <?php endif; ?>
+});
 </script>
+
+<?php include __DIR__ . '/../partials/footer.php'; ?>

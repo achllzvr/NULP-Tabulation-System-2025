@@ -24,6 +24,10 @@ $conn = $con->opencon();
 // Get pageant ID from session
 $pageant_id = $_SESSION['pageant_id'] ?? 1;
 
+// Handle filter changes
+$selected_round = $_GET['round'] ?? 'all';
+$selected_division = $_GET['division'] ?? 'all';
+
 // Get participants count
 $stmt = $conn->prepare("SELECT COUNT(*) as count FROM participants WHERE pageant_id = ? AND is_active = 1");
 $stmt->bind_param("i", $pageant_id);
@@ -32,7 +36,7 @@ $result = $stmt->get_result();
 $participants_count = $result->fetch_assoc()['count'];
 
 // Get completed rounds count
-$stmt = $conn->prepare("SELECT COUNT(*) as count FROM rounds WHERE pageant_id = ? AND state = 'FINALIZED'");
+$stmt = $conn->prepare("SELECT COUNT(*) as count FROM rounds WHERE pageant_id = ? AND state IN ('CLOSED', 'FINALIZED')");
 $stmt->bind_param("i", $pageant_id);
 $stmt->execute();
 $result = $stmt->get_result();
@@ -45,10 +49,23 @@ $stmt->execute();
 $result = $stmt->get_result();
 $rounds = $result->fetch_all(MYSQLI_ASSOC);
 
+// Get leaderboard data
+$rows = [];
+$current_leader = null;
+if ($selected_round === 'all') {
+    $rows = $con->getOverallLeaderboard($pageant_id, $selected_division);
+} else {
+    $rows = $con->getRoundLeaderboard((int)$selected_round, $selected_division);
+}
+
+// Get current leader info
+if (!empty($rows)) {
+    $current_leader = $rows[0];
+}
+
 $conn->close();
 
 $pageTitle = 'Leaderboard';
-$rows = []; // Placeholder for actual leaderboard data
 include __DIR__ . '/../partials/head.php';
 include __DIR__ . '/../partials/nav_admin.php';
 ?>
@@ -103,8 +120,8 @@ include __DIR__ . '/../partials/nav_admin.php';
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
           </svg>
         </div>
-        <p class="text-lg font-bold text-slate-800 mb-1">TBD</p>
-        <p class="text-sm text-slate-600">When scores available</p>
+        <p class="text-lg font-bold text-slate-800 mb-1"><?php echo $current_leader ? htmlspecialchars($current_leader['name']) : 'TBD'; ?></p>
+        <p class="text-sm text-slate-600"><?php echo $current_leader ? 'Score: ' . $current_leader['total_score'] : 'When scores available'; ?></p>
       </div>
 
       <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
@@ -130,20 +147,22 @@ include __DIR__ . '/../partials/nav_admin.php';
         <div class="grid md:grid-cols-3 gap-6">
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-2">Round Filter</label>
-            <select id="roundFilter" class="w-full border border-slate-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
-              <option value="all">All Rounds (Overall)</option>
+            <select id="roundFilter" name="round" class="w-full border border-slate-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors" onchange="updateFilters()">
+              <option value="all" <?php echo $selected_round === 'all' ? 'selected' : ''; ?>>All Rounds (Overall)</option>
               <?php foreach ($rounds as $round): ?>
-                <option value="<?php echo $round['id']; ?>"><?php echo htmlspecialchars($round['name']); ?></option>
+                <option value="<?php echo $round['id']; ?>" <?php echo $selected_round == $round['id'] ? 'selected' : ''; ?>>
+                  <?php echo htmlspecialchars($round['name']); ?> (<?php echo ucfirst(strtolower($round['state'])); ?>)
+                </option>
               <?php endforeach; ?>
             </select>
           </div>
           
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-2">Division Filter</label>
-            <select id="divisionFilter" class="w-full border border-slate-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
-              <option value="all">All Divisions</option>
-              <option value="Mr">Mr Division</option>
-              <option value="Ms">Ms Division</option>
+            <select id="divisionFilter" name="division" class="w-full border border-slate-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors" onchange="updateFilters()">
+              <option value="all" <?php echo $selected_division === 'all' ? 'selected' : ''; ?>>All Divisions</option>
+              <option value="Mr" <?php echo $selected_division === 'Mr' ? 'selected' : ''; ?>>Mr Division</option>
+              <option value="Ms" <?php echo $selected_division === 'Ms' ? 'selected' : ''; ?>>Ms Division</option>
             </select>
           </div>
           
@@ -168,9 +187,66 @@ include __DIR__ . '/../partials/nav_admin.php';
       
       <div class="overflow-x-auto">
         <div id="leaderboardContent">
-          <?php if ($completed_rounds > 0): ?>
-            <!-- This would contain the actual leaderboard component -->
-            <?php include __DIR__ . '/../components/leaderboard_table.php'; ?>
+          <?php if (!empty($rows)): ?>
+            <!-- Enhanced Leaderboard Table -->
+            <table class="w-full">
+              <thead class="bg-slate-50 border-b border-slate-200">
+                <tr>
+                  <th class="px-6 py-4 text-left text-sm font-semibold text-slate-700">Rank</th>
+                  <th class="px-6 py-4 text-left text-sm font-semibold text-slate-700">Number</th>
+                  <th class="px-6 py-4 text-left text-sm font-semibold text-slate-700">Name</th>
+                  <th class="px-6 py-4 text-left text-sm font-semibold text-slate-700">Division</th>
+                  <th class="px-6 py-4 text-right text-sm font-semibold text-slate-700">Score</th>
+                  <th class="px-6 py-4 text-center text-sm font-semibold text-slate-700">Actions</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                <?php foreach ($rows as $index => $participant): ?>
+                  <tr class="<?php echo $index % 2 === 0 ? 'bg-white' : 'bg-slate-25'; ?> hover:bg-blue-50 transition-colors duration-200">
+                    <td class="px-6 py-4">
+                      <div class="flex items-center">
+                        <?php if ($participant['rank'] <= 3): ?>
+                          <span class="inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold <?php 
+                            echo $participant['rank'] === 1 ? 'bg-yellow-100 text-yellow-800' : 
+                                 ($participant['rank'] === 2 ? 'bg-gray-100 text-gray-800' : 'bg-orange-100 text-orange-800'); 
+                          ?>">
+                            #<?php echo $participant['rank']; ?>
+                          </span>
+                        <?php else: ?>
+                          <span class="text-slate-600 font-medium">#<?php echo $participant['rank']; ?></span>
+                        <?php endif; ?>
+                      </div>
+                    </td>
+                    <td class="px-6 py-4">
+                      <span class="inline-flex items-center px-3 py-1 rounded-lg text-sm font-medium bg-blue-100 text-blue-800">
+                        <?php echo htmlspecialchars($participant['number_label']); ?>
+                      </span>
+                    </td>
+                    <td class="px-6 py-4">
+                      <div class="font-medium text-slate-800"><?php echo htmlspecialchars($participant['name']); ?></div>
+                    </td>
+                    <td class="px-6 py-4">
+                      <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium <?php 
+                        echo $participant['division'] === 'Mr' ? 'bg-blue-100 text-blue-800' : 'bg-pink-100 text-pink-800'; 
+                      ?>">
+                        <?php echo htmlspecialchars($participant['division']); ?>
+                      </span>
+                    </td>
+                    <td class="px-6 py-4 text-right">
+                      <span class="font-mono text-lg font-semibold text-slate-800">
+                        <?php echo $participant['total_score'] ?? $participant['score'] ?? '--'; ?>
+                      </span>
+                    </td>
+                    <td class="px-6 py-4 text-center">
+                      <button onclick="viewParticipantDetails(<?php echo $participant['id']; ?>)" 
+                              class="text-blue-600 hover:text-blue-700 font-medium transition-colors text-sm">
+                        View Details
+                      </button>
+                    </td>
+                  </tr>
+                <?php endforeach; ?>
+              </tbody>
+            </table>
           <?php else: ?>
             <div class="p-12 text-center">
               <svg class="mx-auto h-16 w-16 text-slate-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -204,30 +280,48 @@ include __DIR__ . '/../partials/nav_admin.php';
 <script>
 function refreshLeaderboard() {
   document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
-  showNotification('Leaderboard refreshed', 'success', true);
-  // Here you would implement actual data refresh
+  showNotification('Refreshing leaderboard...', 'info', true);
+  setTimeout(() => {
+    location.reload();
+  }, 500);
+}
+
+function updateFilters() {
+  const roundFilter = document.getElementById('roundFilter').value;
+  const divisionFilter = document.getElementById('divisionFilter').value;
+  
+  const url = new URL(window.location);
+  url.searchParams.set('round', roundFilter);
+  url.searchParams.set('division', divisionFilter);
+  
+  showNotification('Updating filters...', 'info', true);
+  window.location.href = url.toString();
+}
+
+function viewParticipantDetails(participantId) {
+  // Open participant details in a new tab/window
+  window.open(`participants.php?view=${participantId}`, '_blank');
 }
 
 // Update last update time on page load
 document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+  
+  <?php if (!empty($rows)): ?>
+    showNotification('Leaderboard loaded with <?php echo count($rows); ?> participants', 'success', true);
+  <?php endif; ?>
 });
 
-// Handle filter changes
-document.getElementById('roundFilter').addEventListener('change', function() {
-  // Implement filter logic here
-  showNotification('Filter applied', 'info', true);
-});
-
-document.getElementById('divisionFilter').addEventListener('change', function() {
-  // Implement filter logic here
-  showNotification('Division filter applied', 'info', true);
-});
-
-document.getElementById('viewMode').addEventListener('change', function() {
-  // Implement view mode change here
-  showNotification('View mode changed', 'info', true);
-});
+// Auto-refresh every 30 seconds
+setInterval(function() {
+    if (document.visibilityState === 'visible') {
+        document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+        // Optional: Auto-reload every 2 minutes
+        if (Math.floor(Date.now() / 1000) % 120 === 0) {
+            location.reload();
+        }
+    }
+}, 30000);
 </script>
 
 <?php include __DIR__ . '/../partials/footer.php'; ?>
