@@ -57,17 +57,18 @@ if ($finalized_rounds > 0) {
     $tie_query = "
         SELECT 
             p.id,
-            p.participant_name,
-            p.participant_number,
-            COALESCE(SUM(s.score), 0) as total_score,
-            COUNT(p.id) OVER (PARTITION BY COALESCE(SUM(s.score), 0)) as tie_count
+            p.full_name,
+            p.number_label,
+            COALESCE(SUM(COALESCE(s.override_score, s.raw_score) * (rc.weight / 100.0)), 0) as total_score,
+            COUNT(p.id) OVER (PARTITION BY COALESCE(SUM(COALESCE(s.override_score, s.raw_score) * (rc.weight / 100.0)), 0)) as tie_count
         FROM participants p
         LEFT JOIN scores s ON p.id = s.participant_id
-        LEFT JOIN rounds r ON s.round_id = r.id
+        LEFT JOIN round_criteria rc ON s.criterion_id = rc.id
+        LEFT JOIN rounds r ON rc.round_id = r.id
         WHERE p.pageant_id = ? AND p.is_active = 1 AND (r.state = 'FINALIZED' OR r.state IS NULL)
-        GROUP BY p.id, p.participant_name, p.participant_number
+        GROUP BY p.id, p.full_name, p.number_label
         HAVING tie_count > 1
-        ORDER BY total_score DESC, p.participant_number ASC
+        ORDER BY total_score DESC, p.number_label ASC
     ";
     
     $stmt = $conn->prepare($tie_query);
@@ -260,11 +261,11 @@ include __DIR__ . '/../partials/nav_admin.php';
                   <?php foreach ($tie_group as $participant): ?>
                     <div class="bg-white border border-amber-200 rounded-lg p-4">
                       <div class="flex items-center justify-between mb-2">
-                        <h5 class="font-medium text-slate-800">#<?php echo $participant['participant_number']; ?></h5>
+                        <h5 class="font-medium text-slate-800">#<?php echo $participant['number_label']; ?></h5>
                         <span class="text-sm text-slate-600">Score: <?php echo number_format($participant['total_score'], 2); ?></span>
                       </div>
-                      <p class="text-sm text-slate-600 mb-3"><?php echo htmlspecialchars($participant['participant_name']); ?></p>
-                      <button onclick="resolveTie('<?php echo $index; ?>', <?php echo $participant['id']; ?>, '<?php echo htmlspecialchars($participant['participant_name']); ?>')" 
+                      <p class="text-sm text-slate-600 mb-3"><?php echo htmlspecialchars($participant['full_name']); ?></p>
+                      <button onclick="resolveTie('<?php echo $index; ?>', <?php echo $participant['id']; ?>, '<?php echo htmlspecialchars($participant['full_name']); ?>')" 
                               class="w-full bg-green-600 hover:bg-green-700 text-white text-sm font-medium px-3 py-2 rounded transition-colors">
                         Select as Winner
                       </button>

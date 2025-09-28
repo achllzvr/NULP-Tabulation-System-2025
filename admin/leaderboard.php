@@ -121,7 +121,7 @@ include __DIR__ . '/../partials/nav_admin.php';
           </svg>
         </div>
         <p class="text-lg font-bold text-slate-800 mb-1"><?php echo $current_leader ? htmlspecialchars($current_leader['name']) : 'TBD'; ?></p>
-        <p class="text-sm text-slate-600"><?php echo $current_leader ? 'Score: ' . $current_leader['total_score'] : 'When scores available'; ?></p>
+        <p class="text-sm text-slate-600"><?php echo $current_leader ? 'Score: ' . $current_leader['score'] : 'When scores available'; ?></p>
       </div>
 
       <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
@@ -168,7 +168,7 @@ include __DIR__ . '/../partials/nav_admin.php';
           
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-2">View Mode</label>
-            <select id="viewMode" class="w-full border border-slate-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
+            <select id="viewMode" class="w-full border border-slate-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors" onchange="changeViewMode()">
               <option value="ranking">Ranking View</option>
               <option value="scores">Detailed Scores</option>
               <option value="comparison">Score Comparison</option>
@@ -192,18 +192,19 @@ include __DIR__ . '/../partials/nav_admin.php';
             <table class="w-full">
               <thead class="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  <th class="px-6 py-4 text-left text-sm font-semibold text-slate-700">Rank</th>
+                  <th class="px-6 py-4 text-left text-sm font-semibold text-slate-700 rank-column">Rank</th>
                   <th class="px-6 py-4 text-left text-sm font-semibold text-slate-700">Number</th>
                   <th class="px-6 py-4 text-left text-sm font-semibold text-slate-700">Name</th>
                   <th class="px-6 py-4 text-left text-sm font-semibold text-slate-700">Division</th>
                   <th class="px-6 py-4 text-right text-sm font-semibold text-slate-700">Score</th>
+                  <th class="px-6 py-4 text-center text-sm font-semibold text-slate-700 score-details" style="display: none;">Details</th>
                   <th class="px-6 py-4 text-center text-sm font-semibold text-slate-700">Actions</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-100">
                 <?php foreach ($rows as $index => $participant): ?>
                   <tr class="<?php echo $index % 2 === 0 ? 'bg-white' : 'bg-slate-25'; ?> hover:bg-blue-50 transition-colors duration-200">
-                    <td class="px-6 py-4">
+                    <td class="px-6 py-4 rank-column">
                       <div class="flex items-center">
                         <?php if ($participant['rank'] <= 3): ?>
                           <span class="inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold <?php 
@@ -236,6 +237,12 @@ include __DIR__ . '/../partials/nav_admin.php';
                       <span class="font-mono text-lg font-semibold text-slate-800">
                         <?php echo $participant['total_score'] ?? $participant['score'] ?? '--'; ?>
                       </span>
+                    </td>
+                    <td class="px-6 py-4 text-center score-details" style="display: none;">
+                      <div class="text-xs text-slate-500">
+                        <div>Total: <?php echo $participant['total_score'] ?? $participant['score'] ?? '--'; ?></div>
+                        <div>Rank: #<?php echo $participant['rank']; ?></div>
+                      </div>
                     </td>
                     <td class="px-6 py-4 text-center">
                       <button onclick="viewParticipantDetails(<?php echo $participant['id']; ?>)" 
@@ -296,6 +303,35 @@ function updateFilters() {
   
   showNotification('Updating filters...', 'info', true);
   window.location.href = url.toString();
+}
+
+function changeViewMode() {
+  const viewMode = document.getElementById('viewMode').value;
+  const leaderboardContent = document.getElementById('leaderboardContent');
+  
+  // Show loading state
+  showNotification('Changing view mode...', 'info', true);
+  
+  // Apply different view modes
+  switch(viewMode) {
+    case 'ranking':
+      // Show basic ranking view (default)
+      leaderboardContent.querySelectorAll('.score-details').forEach(el => el.style.display = 'none');
+      leaderboardContent.querySelectorAll('.rank-column').forEach(el => el.style.display = 'table-cell');
+      break;
+    case 'scores':
+      // Show detailed scores
+      leaderboardContent.querySelectorAll('.score-details').forEach(el => el.style.display = 'table-cell');
+      leaderboardContent.querySelectorAll('.rank-column').forEach(el => el.style.display = 'table-cell');
+      break;
+    case 'comparison':
+      // Show score comparison view
+      leaderboardContent.querySelectorAll('.score-details').forEach(el => el.style.display = 'table-cell');
+      leaderboardContent.querySelectorAll('.rank-column').forEach(el => el.style.display = 'none');
+      break;
+  }
+  
+  showNotification(`Switched to ${viewMode} view`, 'success', true);
 }
 
 function viewParticipantDetails(participantId) {

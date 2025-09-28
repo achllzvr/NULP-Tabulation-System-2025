@@ -1,0 +1,793 @@
+<?php
+/**
+ * Unified API Handler for NULP Tabulation System
+ * Handles all public and administrative data requests
+ */
+
+// Unified API dispatcher
+require_once __DIR__ . '/classes/AuthService.php';
+
+    require_once __DIR__ . '/classes/ScoreService.php';
+
+    switch ($action) {require_once __DIR__ . '/classes/AwardsService.php';
+
+        case 'public_pageant_meta':require_once __DIR__ . '/classes/PageantService.php';
+
+            handlePublicPageantMeta($conn, $input);require_once __DIR__ . '/classes/RoundService.php';
+
+            break;require_once __DIR__ . '/classes/LeaderboardService.php';
+
+            require_once __DIR__ . '/classes/database.php';
+
+        case 'public_leaderboard':require_once __DIR__ . '/classes/AuditLogger.php';
+
+            handlePublicLeaderboard($conn, $input);
+
+            break;AuthService::start();
+
+            header('Content-Type: application/json');
+
+        case 'public_awards':
+
+            handlePublicAwards($conn, $input);// ---------- Helpers ----------
+
+            break;function json_body(): array {
+
+            	static $cache = null;
+
+        case 'admin_leaderboard':	if ($cache !== null) return $cache;
+
+            handleAdminLeaderboard($conn, $input);	$raw = file_get_contents('php://input');
+
+            break;	if ($raw === false || $raw === '') return $cache = [];
+
+            	$data = json_decode($raw, true);
+
+        case 'admin_advancement':	return $cache = (is_array($data) ? $data : []);
+
+            handleAdminAdvancement($conn, $input);}
+
+            break;
+
+            function respond($data, int $code = 200): void {
+
+        case 'admin_advancement_confirm':	http_response_code($code);
+
+            handleAdminAdvancementConfirm($conn, $input);	echo json_encode($data);
+
+            break;	exit;
+
+            }
+
+        default:
+
+            handleError('Invalid action specified', ['action' => $action]);function ensure_method(string $expected): void {
+
+    }	if (strcasecmp($_SERVER['REQUEST_METHOD'] ?? '', $expected) !== 0) {
+
+    		respond(['success'=>false,'error'=>'Method not allowed'], 405);
+
+} catch (Exception $e) {	}
+
+    handleError('Server error occurred', ['exception' => $e->getMessage()]);}
+
+} finally {
+
+    if (isset($conn) && $conn instanceof mysqli) {function csrf_token(): string {
+
+        $conn->close();	if (empty($_SESSION['csrf_token'])) {
+
+    }		$_SESSION['csrf_token'] = bin2hex(random_bytes(16));
+
+}	}
+
+	return $_SESSION['csrf_token'];
+
+/**}
+
+ * Get pageant metadata and rounds for public viewing
+
+ */function require_csrf(): void {
+
+function handlePublicPageantMeta($conn, $input) {	$token = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? ($_POST['csrf_token'] ?? (json_body()['csrf_token'] ?? null));
+
+    $pageant_id = (int)($input['pageant_id'] ?? 0);	if (!$token || !hash_equals($_SESSION['csrf_token'] ?? '', $token)) {
+
+    		respond(['success'=>false,'error'=>'Invalid CSRF token'], 419);
+
+    if (!$pageant_id) {	}
+
+        handleError('Pageant ID is required');}
+
+    }
+
+    function require_auth(array $roles = null): array {
+
+    // Get pageant basic info	$user = AuthService::currentUser();
+
+    $stmt = $conn->prepare("SELECT id, name, code, status FROM pageants WHERE id = ?");	if (!$user) respond(['success'=>false,'error'=>'Auth required'], 401);
+
+    $stmt->bind_param("i", $pageant_id);	if ($roles) {
+
+    $stmt->execute();		$need = array_map('strtoupper',$roles);
+
+    $result = $stmt->get_result();		$have = isset($user['role']) ? strtoupper($user['role']) : null;
+
+    		if (!$have || !in_array($have, $need, true)) {
+
+    if ($result->num_rows === 0) {			respond(['success'=>false,'error'=>'Forbidden'], 403);
+
+        handleError('Pageant not found');		}
+
+    }	}
+
+    	return $user;
+
+    $pageant = $result->fetch_assoc();}
+
+    $stmt->close();
+
+    // Identify action
+
+    // Get rounds$action = $_GET['action'] ?? $_POST['action'] ?? json_body()['action'] ?? null;
+
+    $stmt = $conn->prepare("SELECT id, name, state, sequence FROM rounds WHERE pageant_id = ? ORDER BY sequence");if (!$action) {
+
+    $stmt->bind_param("i", $pageant_id);	respond(['success'=>false,'error'=>'Missing action']);
+
+    $stmt->execute();}
+
+    $result = $stmt->get_result();
+
+    $rounds = $result->fetch_all(MYSQLI_ASSOC);// Actions that change state (for CSRF enforcement)
+
+    $stmt->close();$stateChanging = [
+
+    	'login','logout','save_score','open_round','close_round','set_manual_award'
+
+    sendResponse(true, [];
+
+        'pageant' => $pageant,if (in_array($action, $stateChanging, true) && $action !== 'login') {
+
+        'rounds' => $rounds	// Allow login to bootstrap CSRF
+
+    ], 'Pageant metadata retrieved successfully');	csrf_token(); // ensure token exists
+
+}	require_csrf();
+
+}
+
+/**
+
+ * Get leaderboard data for a specific roundtry {
+
+ */	switch ($action) {
+
+function handlePublicLeaderboard($conn, $input) {		case 'ping':
+
+    $round_id = (int)($input['round_id'] ?? 0);			respond(['success'=>true,'pong'=>true,'csrf'=>csrf_token()]);
+
+    
+
+    if (!$round_id) {		case 'lookup_pageant_code':
+
+        handleError('Round ID is required');			$body = json_body();
+
+    }			$code = strtoupper(trim($body['code'] ?? ($_GET['code'] ?? '')));
+
+    			if ($code==='') respond(['success'=>false,'error'=>'Code required'],422);
+
+    // Calculate leaderboard for the round			$pdo = Database::getConnection();
+
+    $leaderboard = calculateRoundLeaderboard($conn, $round_id);			$st = $pdo->prepare('SELECT id, name FROM pageants WHERE UPPER(code)=? LIMIT 1');
+
+    			$st->execute([$code]);
+
+    sendResponse(true, [			$row = $st->fetch(PDO::FETCH_ASSOC);
+
+        'rows' => $leaderboard			if(!$row) respond(['success'=>false,'error'=>'Not found'],404);
+
+    ], 'Leaderboard data retrieved successfully');			respond(['success'=>true,'pageant_id'=>(int)$row['id'],'name'=>$row['name'],'csrf'=>csrf_token()]);
+
+}
+
+		case 'public_pageant_meta':
+
+/**			$pageantId = (int)($_GET['pageant_id'] ?? json_body()['pageant_id'] ?? 0);
+
+ * Get awards data for public viewing			if ($pageantId<=0) respond(['success'=>false,'error'=>'pageant_id required'],422);
+
+ */			$pdo = Database::getConnection();
+
+function handlePublicAwards($conn, $input) {			$st = $pdo->prepare('SELECT id, name, code FROM pageants WHERE id=? LIMIT 1');
+
+    $pageant_id = (int)($input['pageant_id'] ?? 0);			$st->execute([$pageantId]);
+
+    			$pg = $st->fetch(PDO::FETCH_ASSOC);
+
+    if (!$pageant_id) {			if(!$pg) respond(['success'=>false,'error'=>'Not found'],404);
+
+        handleError('Pageant ID is required');			// Rounds (only OPEN or CLOSED maybe) for ordering
+
+    }			$stR = $pdo->prepare('SELECT id, name, state, sequence, scoring_mode FROM rounds WHERE pageant_id=? ORDER BY sequence');
+
+    			$stR->execute([$pageantId]);
+
+    // Get visibility flags			$rounds = $stR->fetchAll(PDO::FETCH_ASSOC);
+
+    $db = new database();			require_once __DIR__ . '/classes/VisibilityService.php';
+
+    $flags = $db->getVisibilityFlags($pageant_id);			$visSvc = new VisibilityService();
+
+    			$flags = $visSvc->getFlags($pageantId);
+
+    // Get awards if they should be revealed			respond(['success'=>true,'pageant'=>$pg,'rounds'=>$rounds,'flags'=>$flags]);
+
+    $awards = [];
+
+    if ($flags['reveal_awards']) {		case 'login':
+
+        $stmt = $conn->prepare("			ensure_method('POST');
+
+            SELECT a.name, a.division_scope,			$body = json_body();
+
+                   p.full_name, p.number_label			$username = trim($body['username'] ?? ($_POST['username'] ?? ''));
+
+            FROM awards a			$password = $body['password'] ?? ($_POST['password'] ?? '');
+
+            LEFT JOIN award_winners aw ON a.id = aw.award_id			if ($username === '' || $password === '') {
+
+            LEFT JOIN participants p ON aw.participant_id = p.id				respond(['success'=>false,'error'=>'Username & password required'], 422);
+
+            WHERE a.pageant_id = ?			}
+
+            ORDER BY a.sequence, aw.position			$pdo = Database::getConnection();
+
+        ");			$stmt = $pdo->prepare("SELECT id, username, full_name, password_hash, global_role, is_active FROM users WHERE username = ? LIMIT 1");
+
+        $stmt->bind_param("i", $pageant_id);			$stmt->execute([$username]);
+
+        $stmt->execute();			$u = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        $result = $stmt->get_result();			if (!$u || !password_verify($password, $u['password_hash'])) {
+
+        				respond(['success'=>false,'error'=>'Invalid credentials'], 401);
+
+        $awardGroups = [];			}
+
+        while ($row = $result->fetch_assoc()) {			if (isset($u['is_active']) && (int)$u['is_active'] === 0) {
+
+            $key = $row['name'] . '_' . $row['division_scope'];				respond(['success'=>false,'error'=>'Account disabled'], 403);
+
+            if (!isset($awardGroups[$key])) {			}
+
+                $awardGroups[$key] = [			AuthService::regenerate();
+
+                    'name' => $row['name'],			// Resolve role/pageant mapping
+
+                    'division_scope' => $row['division_scope'],			$role = null; $pageantId = null;
+
+                    'winners' => []			$stMap = $pdo->prepare('SELECT pageant_id, role FROM pageant_users WHERE user_id = ? LIMIT 1');
+
+                ];			$stMap->execute([(int)$u['id']]);
+
+            }			$map = $stMap->fetch(PDO::FETCH_ASSOC);
+
+            			if ($map) {
+
+            if ($row['full_name']) {				$role = strtoupper($map['role']);
+
+                $awardGroups[$key]['winners'][] = [				$pageantId = (int)$map['pageant_id'];
+
+                    'full_name' => $row['full_name'],			} else {
+
+                    'number_label' => $row['number_label']				// Fallback: allow SUPERADMIN to assume ADMIN on the first pageant (if exists)
+
+                ];				if (strtoupper((string)$u['global_role']) === 'SUPERADMIN') {
+
+            }					$stPg = $pdo->query('SELECT id FROM pageants ORDER BY id LIMIT 1');
+
+        }					$pg = $stPg->fetch(PDO::FETCH_ASSOC);
+
+        					if ($pg) { $pageantId = (int)$pg['id']; $role = 'ADMIN'; }
+
+        $awards = array_values($awardGroups);				}
+
+        $stmt->close();			}
+
+    }			if (!$role || !$pageantId) {
+
+    				respond(['success'=>false,'error'=>'No pageant role mapping for this user'], 403);
+
+    sendResponse(true, [			}
+
+        'awards' => $awards,			$_SESSION['user_id'] = (int)$u['id'];
+
+        'flags' => $flags			$_SESSION['role'] = $role;
+
+    ], 'Awards data retrieved successfully');			$_SESSION['pageant_id'] = $pageantId;
+
+}			$_SESSION['name'] = $u['full_name'];
+
+			AuditLogger::log((int)$u['id'], 'LOGIN', 'user', (int)$u['id']);
+
+/**			respond(['success'=>true,'user'=>[
+
+ * Get comprehensive leaderboard data for admin interface				'id'=>(int)$u['id'],
+
+ */				'role'=>$role,
+
+function handleAdminLeaderboard($conn, $input) {				'pageant_id'=>$pageantId,
+
+    // Check admin authentication				'name'=>$u['full_name'],
+
+    if (!isset($_SESSION['adminID'])) {			,'force_password_reset'=>false
+
+        handleError('Admin authentication required');			],'csrf'=>csrf_token()]);
+
+    }
+
+    		case 'logout':
+
+    $pageant_id = $_SESSION['pageant_id'] ?? 1;			ensure_method('POST');
+
+    $round_id = $input['round_id'] ?? 'all';			AuthService::start();
+
+    $division = $input['division'] ?? 'all';			$uid = $_SESSION['user_id'] ?? null;
+
+    			session_unset();
+
+    if ($round_id === 'all') {			session_destroy();
+
+        // Calculate overall leaderboard across all finalized rounds			if ($uid) AuditLogger::log((int)$uid, 'LOGOUT', 'user', (int)$uid);
+
+        $leaderboard = calculateOverallLeaderboard($conn, $pageant_id, $division);			respond(['success'=>true]);
+
+    } else {
+
+        // Calculate leaderboard for specific round		case 'round_can_open':
+
+        $leaderboard = calculateRoundLeaderboard($conn, (int)$round_id, $division);			$user = require_auth(['ADMIN']);
+
+    }			$roundId = (int)($_GET['round_id'] ?? json_body()['round_id'] ?? 0);
+
+    			if ($roundId <= 0) respond(['success'=>false,'error'=>'round_id required'],422);
+
+    sendResponse(true, [			$svc = new RoundService();
+
+        'leaderboard' => $leaderboard,			$result = $svc->canOpenRound($roundId);
+
+        'round_id' => $round_id,			respond(['success'=>true,'data'=>$result]);
+
+        'division' => $division,
+
+        'pageant_id' => $pageant_id		case 'open_round':
+
+    ], 'Admin leaderboard data retrieved successfully');			$user = require_auth(['ADMIN']);
+
+}			$roundId = (int)(json_body()['round_id'] ?? $_POST['round_id'] ?? 0);
+
+			if ($roundId <= 0) respond(['success'=>false,'error'=>'round_id required'],422);
+
+/**			$svc = new RoundService();
+
+ * Get advancement data showing top participants for next round			$changed = $svc->openRound($roundId, $user['user_id']);
+
+ */			if ($changed) AuditLogger::log($user['user_id'], 'ROUND_OPEN', 'round', $roundId);
+
+function handleAdminAdvancement($conn, $input) {			respond(['success'=>true,'changed'=>$changed]);
+
+    // Check admin authentication
+
+    if (!isset($_SESSION['adminID'])) {		case 'close_round':
+
+        handleError('Admin authentication required');			$user = require_auth(['ADMIN']);
+
+    }			$roundId = (int)(json_body()['round_id'] ?? $_POST['round_id'] ?? 0);
+
+    			if ($roundId <= 0) respond(['success'=>false,'error'=>'round_id required'],422);
+
+    $pageant_id = $_SESSION['pageant_id'] ?? 1;			$svc = new RoundService();
+
+    $advancement_count = (int)($input['count'] ?? 5);			$changed = $svc->closeRound($roundId, $user['user_id']);
+
+    			if ($changed) AuditLogger::log($user['user_id'], 'ROUND_CLOSE', 'round', $roundId);
+
+    // Get Mr and Ms top participants			respond(['success'=>true,'changed'=>$changed]);
+
+    $mr_top = getTopParticipants($conn, $pageant_id, 'Mr', $advancement_count);
+
+    $ms_top = getTopParticipants($conn, $pageant_id, 'Ms', $advancement_count);		case 'save_score':
+
+    			$user = require_auth(['JUDGE','ADMIN']);
+
+    sendResponse(true, [			ensure_method('POST');
+
+        'mr_top' => $mr_top,			$body = json_body();
+
+        'ms_top' => $ms_top,			$roundId = (int)($body['round_id'] ?? 0);
+
+        'advancement_count' => $advancement_count			$participantId = (int)($body['participant_id'] ?? 0);
+
+    ], 'Advancement data retrieved successfully');			$scoresArr = $body['scores'] ?? null; // { criterion_id: value }
+
+}			if ($roundId<=0 || $participantId<=0 || !is_array($scoresArr)) {
+
+				respond(['success'=>false,'error'=>'round_id, participant_id, scores map required'],422);
+
+/**			}
+
+ * Confirm advancement of selected participants to next round			// Optionally validate round open state
+
+ */			$pdo = Database::getConnection();
+
+function handleAdminAdvancementConfirm($conn, $input) {			$st = $pdo->prepare("SELECT state FROM rounds WHERE id=?");
+
+    // Check admin authentication			$st->execute([$roundId]);
+
+    if (!isset($_SESSION['adminID'])) {			$stRow = $st->fetch(PDO::FETCH_ASSOC);
+
+        handleError('Admin authentication required');			if (!$stRow || $stRow['state'] !== 'OPEN') {
+
+    }				respond(['success'=>false,'error'=>'Round not open'],409);
+
+    			}
+
+    $pageant_id = $_SESSION['pageant_id'] ?? 1;			$saved = 0; $errors=[];
+
+    $mr_participants = $input['mr_participants'] ?? [];			foreach ($scoresArr as $criterionId => $val) {
+
+    $ms_participants = $input['ms_participants'] ?? [];				$cId = (int)$criterionId; $v = (float)$val;
+
+    				if ($cId<=0) continue;
+
+    $conn->begin_transaction();				try {
+
+    					// Expect raw_score field schema; if only score_value exists adapt here
+
+    try {					$pdo->prepare("INSERT INTO scores (round_id, participant_id, criterion_id, judge_user_id, raw_score, updated_at) VALUES (?,?,?,?,?,NOW()) ON DUPLICATE KEY UPDATE raw_score=VALUES(raw_score), updated_at=NOW()")
+
+        // Advance Mr participants						->execute([$roundId,$participantId,$cId,$user['user_id'],$v]);
+
+        foreach ($mr_participants as $participant_id) {					$saved++;
+
+            advanceParticipant($conn, $participant_id, $pageant_id);					AuditLogger::log($user['user_id'], 'SAVE_SCORE', 'score', null, [
+
+        }						'round_id'=>$roundId,
+
+        						'participant_id'=>$participantId,
+
+        // Advance Ms participants						'criterion_id'=>$cId,
+
+        foreach ($ms_participants as $participant_id) {						'value'=>$v
+
+            advanceParticipant($conn, $participant_id, $pageant_id);					]);
+
+        }				} catch (Exception $e) { $errors[] = ['criterion_id'=>$cId,'error'=>$e->getMessage()]; }
+
+        			}
+
+        $conn->commit();			respond(['success'=>true,'saved'=>$saved,'errors'=>$errors,'csrf'=>csrf_token()]);
+
+        
+
+        sendResponse(true, [		case 'leaderboard':
+
+            'advanced_count' => count($mr_participants) + count($ms_participants)			$user = require_auth(['ADMIN','JUDGE']); // adjust for public exposure later
+
+        ], 'Participants advanced successfully');			$roundId = (int)($_GET['round_id'] ?? json_body()['round_id'] ?? 0);
+
+        			if ($roundId<=0) respond(['success'=>false,'error'=>'round_id required'],422);
+
+    } catch (Exception $e) {			$svc = new LeaderboardService();
+
+        $conn->rollback();			$rows = $svc->getRoundStandings($roundId);
+
+        handleError('Failed to advance participants', ['error' => $e->getMessage()]);			respond(['success'=>true,'rows'=>$rows]);
+
+    }
+
+}		case 'list_awards':
+
+			$user = require_auth(['ADMIN']);
+
+/**			$pageantId = (int)($_GET['pageant_id'] ?? $user['pageant_id'] ?? 0);
+
+ * Calculate leaderboard for a specific round			if ($pageantId<=0) respond(['success'=>false,'error'=>'pageant_id required'],422);
+
+ */			$awards = AwardsService::getAwards($pageantId);
+
+function calculateRoundLeaderboard($conn, $round_id, $division = 'all') {			respond(['success'=>true,'awards'=>$awards]);
+
+    $divisionFilter = '';
+
+    $params = [$round_id];		case 'award_winners':
+
+    $types = 'i';			$user = require_auth(['ADMIN']);
+
+    			$awardId = (int)($_GET['award_id'] ?? 0);
+
+    if ($division !== 'all') {			if ($awardId<=0) respond(['success'=>false,'error'=>'award_id required'],422);
+
+        $divisionFilter = ' AND d.name = ?';			$winners = AwardsService::getAwardWinners($awardId);
+
+        $params[] = $division;			respond(['success'=>true,'winners'=>$winners]);
+
+        $types .= 's';
+
+    }		case 'force_password_reset':
+
+    			$user = require_auth(['ADMIN']);
+
+    $sql = "			require_csrf();
+
+        SELECT 			$body = json_body();
+
+            p.id,			$targetId = (int)($body['user_id'] ?? 0);
+
+            p.full_name,			if ($targetId<=0) respond(['success'=>false,'error'=>'user_id required'],422);
+
+            p.number_label,			$pdo = Database::getConnection();
+
+            d.name as division,			$pdo->prepare('UPDATE users SET force_password_reset = 1 WHERE id = ?')->execute([$targetId]);
+
+            SUM(s.score * (rc.weight / 100.0)) as total_score			AuditLogger::log($user['user_id'], 'FORCE_PASSWORD_RESET', 'user', $targetId);
+
+        FROM participants p			respond(['success'=>true]);
+
+        JOIN divisions d ON p.division_id = d.id
+
+        LEFT JOIN scores s ON p.id = s.participant_id		case 'change_password':
+
+        LEFT JOIN round_criteria rc ON s.round_criteria_id = rc.id			$user = require_auth(['ADMIN','JUDGE']); // user must be logged in
+
+        WHERE rc.round_id = ? AND p.is_active = 1" . $divisionFilter . "			require_csrf();
+
+        GROUP BY p.id			$body = json_body();
+
+        ORDER BY total_score DESC, p.full_name ASC			$newPass = $body['new_password'] ?? '';
+
+    ";			if (strlen($newPass) < 8) respond(['success'=>false,'error'=>'Password too short'],422);
+
+    			$hash = password_hash($newPass, PASSWORD_DEFAULT);
+
+    $stmt = $conn->prepare($sql);			$pdo = Database::getConnection();
+
+    $stmt->bind_param($types, ...$params);			$pdo->prepare('UPDATE users SET password_hash=?, force_password_reset=0 WHERE id=?')->execute([$hash, $user['user_id']]);
+
+    $stmt->execute();			AuditLogger::log($user['user_id'], 'CHANGE_PASSWORD', 'user', $user['user_id']);
+
+    $result = $stmt->get_result();			respond(['success'=>true]);
+
+    
+
+    $leaderboard = [];		case 'get_visibility_flags':
+
+    $rank = 1;			$user = require_auth(['ADMIN']);
+
+    $prev_score = null;			require_once __DIR__ . '/classes/VisibilityService.php';
+
+    $actual_rank = 1;			$svc = new VisibilityService();
+
+    			$flags = $svc->getFlags((int)$user['pageant_id']);
+
+    while ($row = $result->fetch_assoc()) {			respond(['success'=>true,'flags'=>$flags,'csrf'=>csrf_token()]);
+
+        $current_score = (float)$row['total_score'];
+
+        		case 'set_visibility_flags':
+
+        // Handle ties			$user = require_auth(['ADMIN']);
+
+        if ($prev_score !== null && $current_score !== $prev_score) {			require_csrf();
+
+            $rank = $actual_rank;			$body = json_body();
+
+        }			require_once __DIR__ . '/classes/VisibilityService.php';
+
+        			$svc = new VisibilityService();
+
+        $leaderboard[] = [			$flags = $svc->setFlags((int)$user['pageant_id'],[
+
+            'id' => $row['id'],				'reveal_names'=>!empty($body['show_participant_names']),
+
+            'rank' => $rank,				'reveal_scores'=>!empty($body['show_scores']),
+
+            'name' => $row['full_name'],				'reveal_awards'=>!empty($body['show_awards'])
+
+            'number_label' => $row['number_label'],			]);
+
+            'division' => $row['division'],			AuditLogger::log($user['user_id'], 'VISIBILITY_SET', 'pageant', (int)$user['pageant_id'], $flags);
+
+            'score' => number_format($current_score, 2),			respond(['success'=>true,'flags'=>$flags,'csrf'=>csrf_token()]);
+
+            'raw_score' => $current_score
+
+        ];		case 'public_awards':
+
+        			// public awards only if reveal_awards true
+
+        $prev_score = $current_score;			$pageantId = (int)($_GET['pageant_id'] ?? 0);
+
+        $actual_rank++;			if ($pageantId<=0) respond(['success'=>false,'error'=>'pageant_id required'],422);
+
+    }			require_once __DIR__ . '/classes/VisibilityService.php';
+
+    			$vis = new VisibilityService();
+
+    $stmt->close();			$flags = $vis->getFlags($pageantId);
+
+    return $leaderboard;			if (!$flags['reveal_awards']) respond(['success'=>true,'awards'=>[],'flags'=>$flags]);
+
+}			$awards = AwardsService::getAwards($pageantId);
+
+			// attach winners
+
+/**			foreach ($awards as &$a) {
+
+ * Calculate overall leaderboard across all finalized rounds				$a['winners'] = AwardsService::getAwardWinners($a['id']);
+
+ */			}
+
+function calculateOverallLeaderboard($conn, $pageant_id, $division = 'all') {			unset($a);
+
+    $divisionFilter = '';			respond(['success'=>true,'awards'=>$awards,'flags'=>$flags]);
+
+    $params = [$pageant_id];
+
+    $types = 'i';		case 'compute_awards':
+
+    			$user = require_auth(['ADMIN']);
+
+    if ($division !== 'all') {			$pageantId = (int)($_GET['pageant_id'] ?? json_body()['pageant_id'] ?? ($user['pageant_id'] ?? 0));
+
+        $divisionFilter = ' AND d.name = ?';			if ($pageantId<=0) respond(['success'=>false,'error'=>'pageant_id required'],422);
+
+        $params[] = $division;			$results = AwardsService::computeAll($pageantId, false);
+
+        $types .= 's';			AuditLogger::log($user['user_id'], 'AWARDS_COMPUTE_PREVIEW', 'pageant', $pageantId, ['count'=>count($results)]);
+
+    }			respond(['success'=>true,'preview'=>$results]);
+
+    
+
+    $sql = "		case 'compute_awards_persist':
+
+        SELECT 			$user = require_auth(['ADMIN']);
+
+            p.id,			require_csrf();
+
+            p.full_name,			$pageantId = (int)(json_body()['pageant_id'] ?? ($user['pageant_id'] ?? 0));
+
+            p.number_label,			if ($pageantId<=0) respond(['success'=>false,'error'=>'pageant_id required'],422);
+
+            d.name as division,			$results = AwardsService::computeAll($pageantId, true);
+
+            SUM(s.score * (rc.weight / 100.0)) as total_score			AuditLogger::log($user['user_id'], 'AWARDS_COMPUTE_PERSIST', 'pageant', $pageantId, ['count'=>count($results)]);
+
+        FROM participants p			respond(['success'=>true,'persisted'=>$results]);
+
+        JOIN divisions d ON p.division_id = d.id
+
+        LEFT JOIN scores s ON p.id = s.participant_id		default:
+
+        LEFT JOIN round_criteria rc ON s.round_criteria_id = rc.id			respond(['success'=>false,'error'=>'Unknown action'],400);
+
+        LEFT JOIN rounds r ON rc.round_id = r.id	}
+
+        WHERE r.pageant_id = ? AND r.state = 'FINALIZED' AND p.is_active = 1" . $divisionFilter . "} catch (RuntimeException $re) {
+
+        GROUP BY p.id	respond(['success'=>false,'error'=>$re->getMessage()], 422);
+
+        ORDER BY total_score DESC, p.full_name ASC} catch (Exception $e) {
+
+    ";	respond(['success'=>false,'error'=>'Server error','detail'=>$e->getMessage()], 500);
+
+    }
+
+    $stmt = $conn->prepare($sql);
+
+    $stmt->bind_param($types, ...$params);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    $leaderboard = [];
+    $rank = 1;
+    $prev_score = null;
+    $actual_rank = 1;
+    
+    while ($row = $result->fetch_assoc()) {
+        $current_score = (float)$row['total_score'];
+        
+        // Handle ties
+        if ($prev_score !== null && $current_score !== $prev_score) {
+            $rank = $actual_rank;
+        }
+        
+        $leaderboard[] = [
+            'id' => $row['id'],
+            'rank' => $rank,
+            'name' => $row['full_name'],
+            'number_label' => $row['number_label'],
+            'division' => $row['division'],
+            'total_score' => number_format($current_score, 2),
+            'raw_score' => $current_score
+        ];
+        
+        $prev_score = $current_score;
+        $actual_rank++;
+    }
+    
+    $stmt->close();
+    return $leaderboard;
+}
+
+/**
+ * Get top participants for advancement
+ */
+function getTopParticipants($conn, $pageant_id, $division, $count) {
+    $sql = "
+        SELECT 
+            p.id,
+            p.full_name,
+            p.number_label,
+            SUM(s.score * (rc.weight / 100.0)) as total_score
+        FROM participants p
+        JOIN divisions d ON p.division_id = d.id
+        LEFT JOIN scores s ON p.id = s.participant_id
+        LEFT JOIN round_criteria rc ON s.round_criteria_id = rc.id
+        LEFT JOIN rounds r ON rc.round_id = r.id
+        WHERE r.pageant_id = ? AND d.name = ? AND r.state = 'FINALIZED' AND p.is_active = 1
+        GROUP BY p.id
+        ORDER BY total_score DESC
+        LIMIT ?
+    ";
+    
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("isi", $pageant_id, $division, $count);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    $participants = [];
+    $rank = 1;
+    while ($row = $result->fetch_assoc()) {
+        $participants[] = [
+            'id' => $row['id'],
+            'rank' => $rank,
+            'name' => $row['full_name'],
+            'number_label' => $row['number_label'],
+            'score' => number_format((float)$row['total_score'], 2)
+        ];
+        $rank++;
+    }
+    
+    $stmt->close();
+    return $participants;
+}
+
+/**
+ * Advance a participant to the next round
+ */
+function advanceParticipant($conn, $participant_id, $pageant_id) {
+    // This is a placeholder for advancement logic
+    // In a real system, you might update participant status, 
+    // create entries in a next round, etc.
+    
+    $stmt = $conn->prepare("
+        UPDATE participants 
+        SET status = 'ADVANCED', 
+            updated_at = NOW() 
+        WHERE id = ?
+    ");
+    $stmt->bind_param("i", $participant_id);
+    $result = $stmt->execute();
+    $stmt->close();
+    
+    if (!$result) {
+        throw new Exception("Failed to advance participant {$participant_id}");
+    }
+    
+    return true;
+}
+
+?>
