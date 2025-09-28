@@ -24,6 +24,65 @@ $conn = $con->opencon();
 // Get pageant ID from session
 $pageant_id = $_SESSION['pageant_id'] ?? 1; // Use consistent session variable
 
+// Handle criteria assignment to rounds
+if (isset($_POST['assign_criteria'])) {
+    $round_id = intval($_POST['round_id']);
+    $criteria_data = $_POST['criteria'] ?? [];
+    
+    try {
+        // Start transaction
+        $conn->begin_transaction();
+        
+        // First, remove existing criteria assignments for this round
+        $stmt = $conn->prepare("DELETE FROM round_criteria WHERE round_id = ?");
+        $stmt->bind_param("i", $round_id);
+        $stmt->execute();
+        $stmt->close();
+        
+        // Calculate total weight to validate it sums to 1.0
+        $total_weight = 0;
+        foreach ($criteria_data as $criterion_data) {
+            if (isset($criterion_data['selected']) && $criterion_data['selected']) {
+                $weight = floatval($criterion_data['weight']);
+                $total_weight += $weight;
+            }
+        }
+        
+        // Validate total weight
+        if (abs($total_weight - 1.0) > 0.001) {
+            throw new Exception("Total weight must equal 1.0 (100%). Current total: " . number_format($total_weight, 3));
+        }
+        
+        // Insert new criteria assignments
+        $display_order = 1;
+        foreach ($criteria_data as $criterion_id => $criterion_data) {
+            if (isset($criterion_data['selected']) && $criterion_data['selected']) {
+                $weight = floatval($criterion_data['weight']);
+                $max_score = floatval($criterion_data['max_score'] ?? 10.00);
+                
+                $stmt = $conn->prepare("INSERT INTO round_criteria (round_id, criterion_id, weight, max_score, display_order) VALUES (?, ?, ?, ?, ?)");
+                $stmt->bind_param("iiddi", $round_id, $criterion_id, $weight, $max_score, $display_order);
+                $stmt->execute();
+                $stmt->close();
+                
+                $display_order++;
+            }
+        }
+        
+        // Commit transaction
+        $conn->commit();
+        
+        $success_message = "Criteria assigned to round successfully.";
+        $show_success_alert = true;
+        
+    } catch (Exception $e) {
+        // Rollback transaction
+        $conn->rollback();
+        $error_message = "Error assigning criteria: " . $e->getMessage();
+        $show_error_alert = true;
+    }
+}
+
 // Handle round state changes
 if (isset($_POST['toggle_round'])) {
     $round_id = intval($_POST['round_id']);
@@ -207,7 +266,15 @@ include __DIR__ . '/../partials/nav_admin.php';
                     <div class="flex items-center justify-between mb-4">
                       <div>
                         <h4 class="text-lg font-semibold text-slate-800"><?php echo htmlspecialchars($round['name']); ?></h4>
-                        <p class="text-sm text-slate-600">Round <?php echo $round['sequence']; ?> • <?php echo $round['criteria_count']; ?> criteria assigned</p>
+                        <p class="text-sm text-slate-600">
+                          Round <?php echo $round['sequence']; ?> • 
+                          <span class="<?php echo $round['criteria_count'] > 0 ? 'text-green-600 font-medium' : 'text-red-600 font-medium'; ?>">
+                            <?php echo $round['criteria_count']; ?> criteria assigned
+                          </span>
+                          <?php if ($round['criteria_count'] == 0): ?>
+                            <span class="text-red-600">⚠️ Cannot open without criteria</span>
+                          <?php endif; ?>
+                        </p>
                       </div>
                       <span class="px-3 py-1 text-sm font-medium rounded-full <?php 
                         switch ($round['state']) {
@@ -293,6 +360,9 @@ include __DIR__ . '/../partials/nav_admin.php';
                           </button>
                         </form>
                       <?php endif; ?>
+                      <button onclick="manageCriteria(<?php echo $round['id']; ?>, '<?php echo htmlspecialchars($round['name'], ENT_QUOTES); ?>')" class="bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+                        Manage Criteria
+                      </button>
                       <button onclick="viewRoundDetails(<?php echo $round['id']; ?>, '<?php echo htmlspecialchars($round['name'], ENT_QUOTES); ?>', '<?php echo $round['state']; ?>', '<?php echo $round['criteria_count']; ?>')" class="bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-medium px-4 py-2 rounded-lg transition-colors">
                         View Details
                       </button>
@@ -344,6 +414,25 @@ include __DIR__ . '/../partials/nav_admin.php';
                 <p class="text-sm text-slate-500">No criteria configured</p>
               </div>
             <?php endif; ?>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Information Panel -->
+    <div class="mt-8 bg-blue-50 border border-blue-200 rounded-xl p-6">
+      <div class="flex items-start gap-3">
+        <svg class="w-6 h-6 text-blue-600 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <div>
+          <h4 class="font-semibold text-blue-800 mb-2">Round Management Guide</h4>
+          <div class="text-sm text-blue-700 space-y-2">
+            <p>• <strong>Manage Criteria:</strong> Assign scoring criteria to rounds before opening them</p>
+            <p>• <strong>Weight Validation:</strong> Criteria weights must sum to exactly 1.0 (100%)</p>
+            <p>• <strong>Opening Rounds:</strong> Rounds can only be opened if they have criteria assigned</p>
+            <p>• <strong>State Flow:</strong> PENDING → OPEN → CLOSED → FINALIZED</p>
+            <p>• Use the <strong>"Manage Criteria"</strong> button to assign and configure scoring criteria for each round</p>
           </div>
         </div>
       </div>
@@ -409,9 +498,174 @@ $bodyHtml = '<div class="space-y-6">'
   .'</div>';
 $footerHtml = '';
 include __DIR__ . '/../components/modal.php';
+
+// Criteria Assignment Modal
+$modalId = 'criteriaAssignmentModal';
+$title = 'Manage Round Criteria';
+$bodyHtml = '<form method="POST" id="criteriaAssignmentForm">'
+  .'<input type="hidden" name="assign_criteria" value="1">'
+  .'<input type="hidden" name="round_id" id="modalRoundId">'
+  .'<div class="space-y-6">'
+    .'<div class="bg-blue-50 border border-blue-200 rounded-lg p-4">'
+      .'<div class="flex items-center gap-2 mb-2">'
+        .'<svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">'
+          .'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>'
+        .'</svg>'
+        .'<h4 class="text-sm font-medium text-blue-800">Weight Instructions</h4>'
+      .'</div>'
+      .'<p class="text-sm text-blue-700">• Select criteria to assign to this round</p>'
+      .'<p class="text-sm text-blue-700">• Assign weights (0.0 to 1.0) - total must equal 1.0</p>'
+      .'<p class="text-sm text-blue-700">• Set maximum scores for each criterion</p>'
+    .'</div>'
+    .'<div id="criteriaList" class="space-y-4">'
+      .'<!-- Criteria will be populated by JavaScript -->'
+    .'</div>'
+    .'<div class="bg-slate-50 rounded-lg p-4">'
+      .'<div class="flex justify-between items-center">'
+        .'<span class="text-sm font-medium text-slate-700">Total Weight:</span>'
+        .'<span id="totalWeight" class="text-lg font-bold text-slate-800">0.000</span>'
+      .'</div>'
+    .'</div>'
+  .'</div>'
+  .'<div class="flex gap-3 mt-6">'
+    .'<button type="submit" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium px-6 py-3 rounded-lg transition-colors">Save Criteria Assignment</button>'
+    .'<button type="button" onclick="hideModal(\'criteriaAssignmentModal\')" class="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-800 font-medium px-6 py-3 rounded-lg transition-colors">Cancel</button>'
+  .'</div>'
+  .'</form>';
+$footerHtml = '';
+include __DIR__ . '/../components/modal.php';
 ?>
 
 <script>
+// Available criteria data (populated from PHP)
+const availableCriteria = <?php echo json_encode($criteria); ?>;
+
+function manageCriteria(roundId, roundName) {
+  document.getElementById('modalRoundId').value = roundId;
+  
+  // Update modal title - check different possible selectors
+  const titleElement = document.querySelector('#criteriaAssignmentModal h3') || 
+                       document.querySelector('#criteriaAssignmentModal .text-lg') ||
+                       document.querySelector('#criteriaAssignmentModal [role="dialog"] h3');
+  if (titleElement) {
+    titleElement.textContent = `Manage Criteria - ${roundName}`;
+  }
+  
+  // Load current criteria assignments for this round
+  loadRoundCriteria(roundId);
+  
+  showModal('criteriaAssignmentModal');
+}
+
+function loadRoundCriteria(roundId) {
+  // Make AJAX call to get current assignments
+  fetch(`get_round_criteria.php?round_id=${roundId}`)
+    .then(response => response.json())
+    .then(data => {
+      populateCriteriaList(data.assignments);
+    })
+    .catch(error => {
+      console.error('Error loading criteria:', error);
+      populateCriteriaList([]);
+    });
+}
+
+function populateCriteriaList(currentAssignments = []) {
+  const criteriaList = document.getElementById('criteriaList');
+  criteriaList.innerHTML = '';
+  
+  // Create assignment lookup
+  const assignmentMap = {};
+  currentAssignments.forEach(assignment => {
+    assignmentMap[assignment.criterion_id] = assignment;
+  });
+  
+  availableCriteria.forEach(criterion => {
+    const assignment = assignmentMap[criterion.id];
+    const isSelected = !!assignment;
+    const weight = assignment ? assignment.weight : '0.000';
+    const maxScore = assignment ? assignment.max_score : criterion.default_max_score;
+    
+    const criterionHtml = `
+      <div class="border border-slate-200 rounded-lg p-4">
+        <div class="flex items-center gap-3 mb-3">
+          <input type="checkbox" 
+                 name="criteria[${criterion.id}][selected]" 
+                 value="1" 
+                 ${isSelected ? 'checked' : ''}
+                 onchange="updateCriteriaState(this)"
+                 class="rounded">
+          <div class="flex-1">
+            <h4 class="font-medium text-slate-800">${criterion.name}</h4>
+            ${criterion.description ? `<p class="text-sm text-slate-600">${criterion.description}</p>` : ''}
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-slate-600 mb-1">Weight</label>
+            <input type="number" 
+                   name="criteria[${criterion.id}][weight]" 
+                   value="${weight}"
+                   step="0.001" 
+                   min="0" 
+                   max="1"
+                   ${!isSelected ? 'disabled' : ''}
+                   onchange="updateTotalWeight()"
+                   class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-600 mb-1">Max Score</label>
+            <input type="number" 
+                   name="criteria[${criterion.id}][max_score]" 
+                   value="${maxScore}"
+                   step="0.01" 
+                   min="1"
+                   ${!isSelected ? 'disabled' : ''}
+                   class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+          </div>
+        </div>
+      </div>
+    `;
+    
+    criteriaList.insertAdjacentHTML('beforeend', criterionHtml);
+  });
+  
+  updateTotalWeight();
+}
+
+function updateCriteriaState(checkbox) {
+  const criteriaContainer = checkbox.closest('.border');
+  const inputs = criteriaContainer.querySelectorAll('input[type="number"]');
+  
+  inputs.forEach(input => {
+    input.disabled = !checkbox.checked;
+    if (!checkbox.checked) {
+      input.value = input.name.includes('weight') ? '0.000' : input.defaultValue;
+    }
+  });
+  
+  updateTotalWeight();
+}
+
+function updateTotalWeight() {
+  const weightInputs = document.querySelectorAll('input[name*="[weight]"]:not(:disabled)');
+  let total = 0;
+  
+  weightInputs.forEach(input => {
+    total += parseFloat(input.value) || 0;
+  });
+  
+  const totalElement = document.getElementById('totalWeight');
+  totalElement.textContent = total.toFixed(3);
+  
+  // Visual feedback for weight validation
+  if (Math.abs(total - 1.0) < 0.001) {
+    totalElement.className = 'text-lg font-bold text-green-600';
+  } else {
+    totalElement.className = 'text-lg font-bold text-red-600';
+  }
+}
+
 function viewRoundDetails(roundId, roundName, state, criteriaCount) {
   const content = document.getElementById('roundDetailsContent');
   
