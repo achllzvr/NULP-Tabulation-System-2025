@@ -24,7 +24,7 @@ $con = new database();
 if (isset($_POST['add_judge'])) {
     $full_name = $_POST['full_name'];
     $email = $_POST['email'];
-    $pageant_id = $_SESSION['pageantID'];
+    $pageant_id = $_SESSION['pageant_id'] ?? 1; // Use consistent session variable
     
     // Generate username and password
     $username = strtolower(str_replace(' ', '', $full_name)) . rand(100, 999);
@@ -75,7 +75,7 @@ if (isset($_POST['add_judge'])) {
 
 // Fetch judges
 $conn = $con->opencon();
-$pageant_id = $_SESSION['pageantID'];
+$pageant_id = $_SESSION['pageant_id'] ?? 1; // Use consistent session variable
 $stmt = $conn->prepare("SELECT u.*, pu.role FROM users u JOIN pageant_users pu ON u.id = pu.user_id WHERE pu.pageant_id = ? AND pu.role = 'judge' ORDER BY u.full_name");
 $stmt->bind_param("i", $pageant_id);
 $stmt->execute();
@@ -85,41 +85,195 @@ $stmt->close();
 $conn->close();
 
 $pageTitle = 'Judges';
-$columns = [
-  ['header'=>'Name','field'=>'full_name'],
-  ['header'=>'Email','field'=>'email'],
-  ['header'=>'User ID','field'=>'id'],
-];
+$rows = $judges; // Use fetched judges data for table
 include __DIR__ . '/../partials/head.php';
 include __DIR__ . '/../partials/nav_admin.php';
 ?>
-<main class="mx-auto max-w-7xl w-full p-6 space-y-6">
-  <div class="flex justify-between items-center">
-    <h1 class="text-xl font-semibold text-slate-800">Judges</h1>
-    <button onclick="showModal('addJudgeModal')" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded">Add Judge</button>
-  </div>
-  
-  <?php if (isset($success_message)): ?>
-    <div class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded text-sm">
+<main class="bg-slate-50 min-h-screen">
+  <div class="mx-auto max-w-7xl px-6 py-8">
+    <!-- Header -->
+    <div class="mb-8">
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-3xl font-bold text-slate-800 mb-2">Judges</h1>
+          <p class="text-slate-600">Manage pageant judges and their credentials</p>
+        </div>
+        <button onclick="showModal('addJudgeModal')" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-3 rounded-lg transition-colors flex items-center gap-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+          </svg>
+          Add Judge
+        </button>
+      </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="grid md:grid-cols-3 gap-6 mb-8">
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-sm font-medium text-slate-600">Total Judges</h3>
+          <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
+          </svg>
+        </div>
+        <p class="text-3xl font-bold text-slate-800 mb-1"><?php echo count($judges); ?></p>
+        <p class="text-sm text-slate-600">Assigned judges</p>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-sm font-medium text-slate-600">Active Accounts</h3>
+          <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </div>
+        <p class="text-3xl font-bold text-slate-800 mb-1">
+          <?php echo count(array_filter($judges, fn($j) => $j['is_active'] ?? 1)); ?>
+        </p>
+        <p class="text-sm text-slate-600">Ready to judge</p>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-sm font-medium text-slate-600">Judge Status</h3>
+          <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+          </svg>
+        </div>
+        <p class="text-lg font-bold text-slate-800 mb-1">
+          <?php echo count($judges) > 0 ? 'Ready' : 'Setup Needed'; ?>
+        </p>
+        <p class="text-sm text-slate-600">Judging readiness</p>
+      </div>
+    </div>
+
+    <!-- Success/Error Messages -->
+    <?php if (isset($success_message)): ?>
+      <div class="bg-green-50 border border-green-200 text-green-700 px-6 py-4 rounded-lg text-sm mb-6 flex items-center gap-3">
+        <svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+        </svg>
         <?= htmlspecialchars($success_message, ENT_QUOTES, 'UTF-8') ?>
-    </div>
-  <?php endif; ?>
-  
-  <?php if (isset($error_message)): ?>
-    <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
+      </div>
+    <?php endif; ?>
+    
+    <?php if (isset($error_message)): ?>
+      <div class="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-lg text-sm mb-6 flex items-center gap-3">
+        <svg class="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+        </svg>
         <?= htmlspecialchars($error_message, ENT_QUOTES, 'UTF-8') ?>
+      </div>
+    <?php endif; ?>
+
+    <!-- Judges Table -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200">
+      <div class="px-6 py-4 border-b border-slate-200">
+        <h3 class="text-lg font-semibold text-slate-800">Judge Accounts</h3>
+        <p class="text-sm text-slate-600 mt-1">All judges assigned to this pageant</p>
+      </div>
+      
+      <div class="overflow-x-auto">
+        <table class="min-w-full">
+          <thead class="bg-slate-50">
+            <tr>
+              <th class="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Judge</th>
+              <th class="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Contact</th>
+              <th class="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Account</th>
+              <th class="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
+              <th class="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-slate-200">
+            <?php if (!empty($judges)): ?>
+              <?php foreach ($judges as $judge): ?>
+                <tr class="hover:bg-slate-50 transition-colors">
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="flex items-center">
+                      <div class="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center">
+                        <svg class="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                        </svg>
+                      </div>
+                      <div class="ml-4">
+                        <div class="text-sm font-medium text-slate-900"><?php echo htmlspecialchars($judge['full_name']); ?></div>
+                        <div class="text-sm text-slate-500">Judge ID: <?php echo $judge['id']; ?></div>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="text-sm text-slate-900"><?php echo htmlspecialchars($judge['email']); ?></div>
+                    <div class="text-sm text-slate-500"><?php echo htmlspecialchars($judge['username']); ?></div>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="text-sm text-slate-900">Username: <?php echo htmlspecialchars($judge['username']); ?></div>
+                    <div class="text-sm text-slate-500">Role: <?php echo ucfirst($judge['role']); ?></div>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full <?php echo ($judge['is_active'] ?? 1) ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'; ?>">
+                      <?php echo ($judge['is_active'] ?? 1) ? 'Active' : 'Inactive'; ?>
+                    </span>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <div class="flex space-x-2">
+                      <button class="text-blue-600 hover:text-blue-900 font-medium">Reset Password</button>
+                      <button class="text-red-600 hover:text-red-900 font-medium">Remove</button>
+                    </div>
+                  </td>
+                </tr>
+              <?php endforeach; ?>
+            <?php else: ?>
+              <tr>
+                <td colspan="5" class="px-6 py-12 text-center">
+                  <div class="text-slate-400">
+                    <svg class="mx-auto h-12 w-12 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                    </svg>
+                    <h3 class="text-sm font-medium text-slate-900 mb-2">No judges found</h3>
+                    <p class="text-sm text-slate-500 mb-4">Get started by adding your first judge.</p>
+                    <button onclick="showModal('addJudgeModal')" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg transition-colors">
+                      Add Judge
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            <?php endif; ?>
+          </tbody>
+        </table>
+      </div>
     </div>
-  <?php endif; ?>
-  
-  <?php include __DIR__ . '/../components/table.php'; ?>
+  </div>
 </main>
 <?php
 $modalId = 'addJudgeModal';
-$title = 'Add Judge';
-$bodyHtml = '<form id="addJudgeForm" method="POST" class="space-y-4">'
-  .'<div><label class="block text-xs font-medium mb-1">Full Name</label><input name="full_name" class="w-full border rounded px-2 py-1" required /></div>'
-  .'<div><label class="block text-xs font-medium mb-1">Email</label><input type="email" name="email" class="w-full border rounded px-2 py-1" required /></div>'
-  .'<div class="text-right"><button name="add_judge" type="submit" class="bg-blue-600 hover:bg-blue-700 transition-all text-white px-4 py-2 rounded text-sm">Create</button></div>'
+$title = 'Add New Judge';
+$bodyHtml = '<form id="addJudgeForm" method="POST" class="space-y-6">'
+  .'<div>'
+    .'<label class="block text-sm font-medium text-slate-700 mb-2">Full Name</label>'
+    .'<input name="full_name" type="text" placeholder="Enter judge full name" class="w-full border border-slate-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors" required />'
+  .'</div>'
+  .'<div>'
+    .'<label class="block text-sm font-medium text-slate-700 mb-2">Email Address</label>'
+    .'<input type="email" name="email" placeholder="Enter judge email address" class="w-full border border-slate-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors" required />'
+  .'</div>'
+  .'<div class="bg-blue-50 border border-blue-200 rounded-lg p-4">'
+    .'<div class="flex items-center gap-2 mb-2">'
+      .'<svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">'
+        .'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>'
+      .'</svg>'
+      .'<h4 class="text-sm font-medium text-blue-800">Account Information</h4>'
+    .'</div>'
+    .'<p class="text-sm text-blue-700">A username and password will be generated automatically. You will receive the login credentials after creating the judge account.</p>'
+  .'</div>'
+  .'<div class="flex gap-3 pt-4">'
+    .'<button type="button" onclick="hideModal(\'addJudgeModal\')" class="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-800 font-medium px-6 py-3 rounded-lg transition-colors">Cancel</button>'
+    .'<button name="add_judge" type="submit" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-3 rounded-lg transition-colors flex items-center justify-center gap-2">'
+      .'<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">'
+        .'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>'
+      .'</svg>'
+      .'Create Judge Account'
+    .'</button>'
+  .'</div>'
   .'</form>'
   .'<script>makeFormLoadingEnabled("addJudgeForm", "Creating judge account...", true);</script>';
 $footerHtml = '';
