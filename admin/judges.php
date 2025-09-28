@@ -50,8 +50,8 @@ if (isset($_POST['add_judge'])) {
             $password = 'judge' . rand(1000, 9999);
             $password_hash = password_hash($password, PASSWORD_DEFAULT);
             
-            // First add to users table
-            $stmt = $conn->prepare("INSERT INTO users (username, password_hash, full_name, email, global_role) VALUES (?, ?, ?, ?, 'judge')");
+            // First add to users table (set global_role to null since 'judge' might not be a valid enum value)
+            $stmt = $conn->prepare("INSERT INTO users (username, password_hash, full_name, email) VALUES (?, ?, ?, ?)");
             $stmt->bind_param("ssss", $username, $password_hash, $full_name, $email);
             
             if ($stmt->execute()) {

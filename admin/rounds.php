@@ -40,6 +40,9 @@ if (isset($_POST['toggle_round'])) {
         case 'finalize':
             $new_state = 'FINALIZED';
             break;
+        case 'pending':
+            $new_state = 'PENDING';
+            break;
         default:
             $new_state = 'PENDING';
     }
@@ -232,7 +235,7 @@ include __DIR__ . '/../partials/nav_admin.php';
                       <?php endif; ?>
                     </div>
                     
-                    <div class="flex gap-2">
+                    <div class="flex gap-2 flex-wrap">
                       <?php if ($round['state'] === 'PENDING'): ?>
                         <form method="POST" class="inline">
                           <input type="hidden" name="round_id" value="<?php echo $round['id']; ?>">
@@ -249,12 +252,34 @@ include __DIR__ . '/../partials/nav_admin.php';
                             Close Round
                           </button>
                         </form>
+                        <form method="POST" class="inline" onsubmit="return confirm('Are you sure you want to revert this round to pending status?')">
+                          <input type="hidden" name="round_id" value="<?php echo $round['id']; ?>">
+                          <input type="hidden" name="action" value="pending">
+                          <button name="toggle_round" type="submit" class="bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+                            Revert to Pending
+                          </button>
+                        </form>
                       <?php elseif ($round['state'] === 'CLOSED'): ?>
                         <form method="POST" class="inline">
                           <input type="hidden" name="round_id" value="<?php echo $round['id']; ?>">
                           <input type="hidden" name="action" value="finalize">
                           <button name="toggle_round" type="submit" class="bg-green-600 hover:bg-green-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
                             Finalize
+                          </button>
+                        </form>
+                        <form method="POST" class="inline" onsubmit="return confirm('Are you sure you want to reopen this round?')">
+                          <input type="hidden" name="round_id" value="<?php echo $round['id']; ?>">
+                          <input type="hidden" name="action" value="open">
+                          <button name="toggle_round" type="submit" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+                            Reopen Round
+                          </button>
+                        </form>
+                      <?php elseif ($round['state'] === 'FINALIZED'): ?>
+                        <form method="POST" class="inline" onsubmit="return confirm('Are you sure you want to revert this finalized round to closed status? This action should only be done if there was an error.')">
+                          <input type="hidden" name="round_id" value="<?php echo $round['id']; ?>">
+                          <input type="hidden" name="action" value="close">
+                          <button name="toggle_round" type="submit" class="bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+                            Revert to Closed
                           </button>
                         </form>
                       <?php endif; ?>

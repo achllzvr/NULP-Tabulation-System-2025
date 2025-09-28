@@ -12,7 +12,6 @@ $items = [
     'Live Control' => $prefix . 'live_control.php',
     'Leaderboard' => $prefix . 'leaderboard.php',
     'Advancement' => $prefix . 'advancement.php',
-    'Final Round' => $prefix . 'final_round.php',
     'Awards' => $prefix . 'awards.php',
     'Tie Resolution' => $prefix . 'tie_resolution.php',
     'Settings' => $prefix . 'settings.php'

@@ -44,9 +44,9 @@ if (isset($_POST['add_participant'])) {
             $error_message = "Participant number '$number_label' already exists.";
             $show_error_alert = true;
         } else {
-            // Add participant to database
-            $stmt = $conn->prepare("INSERT INTO participants (pageant_id, division, number_label, full_name, advocacy, is_active) VALUES (?, ?, ?, ?, ?, 1)");
-            $stmt->bind_param("issss", $pageant_id, $division, $number_label, $full_name, $advocacy);
+            // Add participant to database (assuming division column doesn't exist in DB yet)
+            $stmt = $conn->prepare("INSERT INTO participants (pageant_id, number_label, full_name, advocacy, is_active) VALUES (?, ?, ?, ?, 1)");
+            $stmt->bind_param("isss", $pageant_id, $number_label, $full_name, $advocacy);
             
             if ($stmt->execute()) {
                 $success_message = "Participant '$full_name' (#$number_label) added successfully.";
@@ -127,9 +127,9 @@ if (isset($_POST['edit_participant'])) {
             $error_message = "Participant number '$number_label' already exists.";
             $show_error_alert = true;
         } else {
-            // Update participant
-            $stmt = $conn->prepare("UPDATE participants SET division = ?, number_label = ?, full_name = ?, advocacy = ? WHERE id = ? AND pageant_id = ?");
-            $stmt->bind_param("ssssii", $division, $number_label, $full_name, $advocacy, $participant_id, $pageant_id);
+            // Update participant (assuming division column doesn't exist in DB yet)
+            $stmt = $conn->prepare("UPDATE participants SET number_label = ?, full_name = ?, advocacy = ? WHERE id = ? AND pageant_id = ?");
+            $stmt->bind_param("sssii", $number_label, $full_name, $advocacy, $participant_id, $pageant_id);
             
             if ($stmt->execute()) {
                 $success_message = "Participant '$full_name' (#$number_label) updated successfully.";
@@ -199,7 +199,7 @@ include __DIR__ . '/../partials/nav_admin.php';
           </svg>
         </div>
         <p class="text-3xl font-bold text-slate-800 mb-1">
-          <?php echo count(array_filter($participants, fn($p) => $p['division'] === 'Mr')); ?>
+          <?php echo count(array_filter($participants, fn($p) => isset($p['division']) && $p['division'] === 'Mr')); ?>
         </p>
         <p class="text-sm text-slate-600">Male participants</p>
       </div>
@@ -212,7 +212,7 @@ include __DIR__ . '/../partials/nav_admin.php';
           </svg>
         </div>
         <p class="text-3xl font-bold text-slate-800 mb-1">
-          <?php echo count(array_filter($participants, fn($p) => $p['division'] === 'Ms')); ?>
+          <?php echo count(array_filter($participants, fn($p) => isset($p['division']) && $p['division'] === 'Ms')); ?>
         </p>
         <p class="text-sm text-slate-600">Female participants</p>
       </div>
@@ -268,8 +268,12 @@ include __DIR__ . '/../partials/nav_admin.php';
                     </div>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap">
-                    <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full <?php echo $participant['division'] === 'Mr' ? 'bg-blue-100 text-blue-800' : 'bg-pink-100 text-pink-800'; ?>">
-                      <?php echo htmlspecialchars($participant['division']); ?>
+                    <?php 
+                    // Infer division from number or use default (since division column doesn't exist yet)
+                    $division = isset($participant['division']) ? $participant['division'] : 'General';
+                    ?>
+                    <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full <?php echo $division === 'Mr' ? 'bg-blue-100 text-blue-800' : ($division === 'Ms' ? 'bg-pink-100 text-pink-800' : 'bg-slate-100 text-slate-600'); ?>">
+                      <?php echo htmlspecialchars($division); ?>
                     </span>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap">
@@ -287,7 +291,7 @@ include __DIR__ . '/../partials/nav_admin.php';
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div class="flex space-x-2">
-                      <button onclick="editParticipant(<?php echo $participant['id']; ?>, '<?php echo htmlspecialchars($participant['full_name'], ENT_QUOTES); ?>', '<?php echo $participant['number_label']; ?>', '<?php echo $participant['division']; ?>', '<?php echo htmlspecialchars($participant['advocacy'], ENT_QUOTES); ?>')" class="text-blue-600 hover:text-blue-900 font-medium">Edit</button>
+                      <button onclick="editParticipant(<?php echo $participant['id']; ?>, '<?php echo htmlspecialchars($participant['full_name'], ENT_QUOTES); ?>', '<?php echo $participant['number_label']; ?>', '<?php echo isset($participant['division']) ? $participant['division'] : 'General'; ?>', '<?php echo htmlspecialchars($participant['advocacy'], ENT_QUOTES); ?>')" class="text-blue-600 hover:text-blue-900 font-medium">Edit</button>
                       
                       <form method="POST" class="inline" onsubmit="return confirm('Are you sure you want to delete this participant?')">
                         <input type="hidden" name="participant_id" value="<?php echo $participant['id']; ?>">
