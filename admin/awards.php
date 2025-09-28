@@ -182,14 +182,6 @@ include __DIR__ . '/../partials/nav_admin.php';
 
             <div class="border border-slate-200 rounded-lg p-4">
               <div class="flex items-center justify-between mb-2">
-                <h5 class="font-medium text-slate-800">Best in Evening Gown</h5>
-                <span class="px-2 py-1 text-xs bg-purple-100 text-purple-800 rounded-full">Elegance</span>
-              </div>
-              <p class="text-sm text-slate-600">Highest score in formal wear round</p>
-            </div>
-
-            <div class="border border-slate-200 rounded-lg p-4">
-              <div class="flex items-center justify-between mb-2">
                 <h5 class="font-medium text-slate-800">Best in Talent</h5>
                 <span class="px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">Performance</span>
               </div>

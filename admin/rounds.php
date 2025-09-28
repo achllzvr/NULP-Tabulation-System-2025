@@ -26,7 +26,7 @@ $pageant_id = $_SESSION['pageant_id'] ?? 1; // Use consistent session variable
 
 // Handle round state changes
 if (isset($_POST['toggle_round'])) {
-    $round_id = $_POST['round_id'];
+    $round_id = intval($_POST['round_id']);
     $action = $_POST['action'];
     
     $new_state = '';
@@ -47,17 +47,27 @@ if (isset($_POST['toggle_round'])) {
             $new_state = 'PENDING';
     }
     
-    $stmt = $conn->prepare("UPDATE rounds SET state = ?, opened_at = CASE WHEN ? = 'OPEN' THEN NOW() ELSE opened_at END, closed_at = CASE WHEN ? IN ('CLOSED', 'FINALIZED') THEN NOW() ELSE closed_at END WHERE id = ?");
-    $stmt->bind_param("sssi", $new_state, $new_state, $new_state, $round_id);
-    
-    if ($stmt->execute()) {
-        $success_message = "Round status updated successfully.";
-        $show_success_alert = true;
-    } else {
-        $error_message = "Error updating round status.";
+    try {
+        $stmt = $conn->prepare("UPDATE rounds SET state = ?, opened_at = CASE WHEN ? = 'OPEN' THEN NOW() ELSE opened_at END, closed_at = CASE WHEN ? IN ('CLOSED', 'FINALIZED') THEN NOW() ELSE closed_at END WHERE id = ?");
+        $stmt->bind_param("sssi", $new_state, $new_state, $new_state, $round_id);
+        
+        if ($stmt->execute()) {
+            $success_message = "Round status updated successfully to " . $new_state . ".";
+            $show_success_alert = true;
+        } else {
+            $error_message = "Error updating round status: " . $stmt->error;
+            $show_error_alert = true;
+        }
+        $stmt->close();
+    } catch (mysqli_sql_exception $e) {
+        // Handle specific errors from the database trigger/stored procedure
+        if (strpos($e->getMessage(), 'Cannot open round') !== false) {
+            $error_message = $e->getMessage();
+        } else {
+            $error_message = "Error updating round status: " . $e->getMessage();
+        }
         $show_error_alert = true;
     }
-    $stmt->close();
 }
 
 // Fetch rounds with their criteria
