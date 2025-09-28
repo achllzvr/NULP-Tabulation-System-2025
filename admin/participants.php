@@ -44,9 +44,12 @@ if (isset($_POST['add_participant'])) {
             $error_message = "Participant number '$number_label' already exists.";
             $show_error_alert = true;
         } else {
-            // Add participant to database (assuming division column doesn't exist in DB yet)
-            $stmt = $conn->prepare("INSERT INTO participants (pageant_id, number_label, full_name, advocacy, is_active) VALUES (?, ?, ?, ?, 1)");
-            $stmt->bind_param("isss", $pageant_id, $number_label, $full_name, $advocacy);
+            // Convert division name to division_id
+            $division_id = ($division === 'Mr') ? 1 : (($division === 'Ms') ? 2 : 1);
+            
+            // Add participant to database
+            $stmt = $conn->prepare("INSERT INTO participants (pageant_id, division_id, number_label, full_name, advocacy, is_active) VALUES (?, ?, ?, ?, ?, 1)");
+            $stmt->bind_param("iisss", $pageant_id, $division_id, $number_label, $full_name, $advocacy);
             
             if ($stmt->execute()) {
                 $success_message = "Participant '$full_name' (#$number_label) added successfully.";
@@ -127,9 +130,12 @@ if (isset($_POST['edit_participant'])) {
             $error_message = "Participant number '$number_label' already exists.";
             $show_error_alert = true;
         } else {
-            // Update participant (assuming division column doesn't exist in DB yet)
-            $stmt = $conn->prepare("UPDATE participants SET number_label = ?, full_name = ?, advocacy = ? WHERE id = ? AND pageant_id = ?");
-            $stmt->bind_param("sssii", $number_label, $full_name, $advocacy, $participant_id, $pageant_id);
+            // Convert division name to division_id
+            $division_id = ($division === 'Mr') ? 1 : (($division === 'Ms') ? 2 : 1);
+            
+            // Update participant
+            $stmt = $conn->prepare("UPDATE participants SET division_id = ?, number_label = ?, full_name = ?, advocacy = ? WHERE id = ? AND pageant_id = ?");
+            $stmt->bind_param("isssii", $division_id, $number_label, $full_name, $advocacy, $participant_id, $pageant_id);
             
             if ($stmt->execute()) {
                 $success_message = "Participant '$full_name' (#$number_label) updated successfully.";
@@ -144,14 +150,24 @@ if (isset($_POST['edit_participant'])) {
     }
 }
 
-// Fetch participants
+// Fetch participants with division names
 $conn = $con->opencon();
 $pageant_id = $_SESSION['pageant_id'] ?? 1; // Use consistent session variable
-$stmt = $conn->prepare("SELECT * FROM participants WHERE pageant_id = ? ORDER BY number_label");
+$stmt = $conn->prepare("SELECT p.*, d.name as division FROM participants p JOIN divisions d ON p.division_id = d.id WHERE p.pageant_id = ? ORDER BY p.number_label");
 $stmt->bind_param("i", $pageant_id);
 $stmt->execute();
 $result = $stmt->get_result();
 $participants = $result->fetch_all(MYSQLI_ASSOC);
+$stmt->close();
+$conn->close();
+
+// Fetch divisions for form dropdowns
+$conn = $con->opencon();
+$stmt = $conn->prepare("SELECT * FROM divisions WHERE pageant_id = ? ORDER BY sort_order");
+$stmt->bind_param("i", $pageant_id);
+$stmt->execute();
+$result = $stmt->get_result();
+$divisions = $result->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
 $conn->close();
 
@@ -338,10 +354,11 @@ $bodyHtml = '<form id="addParticipantForm" method="POST" class="space-y-6">'
   .'<div class="grid grid-cols-2 gap-4">'
     .'<div>'
       .'<label class="block text-sm font-medium text-slate-700 mb-2">Division</label>'
-      .'<select name="division" class="w-full border border-slate-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">'
-        .'<option value="Mr">Mr</option>'
-        .'<option value="Ms">Ms</option>'
-      .'</select>'
+      .'<select name="division" class="w-full border border-slate-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">';
+foreach ($divisions as $division) {
+    $bodyHtml .= '<option value="' . htmlspecialchars($division['name']) . '">' . htmlspecialchars($division['name']) . '</option>';
+}
+$bodyHtml .= '</select>'
     .'</div>'
     .'<div>'
       .'<label class="block text-sm font-medium text-slate-700 mb-2">Number Label</label>'
@@ -379,10 +396,11 @@ $bodyHtml = '<form id="editParticipantForm" method="POST" class="space-y-6">'
   .'<div class="grid grid-cols-2 gap-4">'
     .'<div>'
       .'<label class="block text-sm font-medium text-slate-700 mb-2">Division</label>'
-      .'<select name="division" id="edit_division" class="w-full border border-slate-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">'
-        .'<option value="Mr">Mr</option>'
-        .'<option value="Ms">Ms</option>'
-      .'</select>'
+      .'<select name="division" id="edit_division" class="w-full border border-slate-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">';
+foreach ($divisions as $division) {
+    $bodyHtml .= '<option value="' . htmlspecialchars($division['name']) . '">' . htmlspecialchars($division['name']) . '</option>';
+}
+$bodyHtml .= '</select>'
     .'</div>'
     .'<div>'
       .'<label class="block text-sm font-medium text-slate-700 mb-2">Number Label</label>'
