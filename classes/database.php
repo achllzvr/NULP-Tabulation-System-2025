@@ -132,37 +132,21 @@ class database {
     function getVisibilityFlags($pageant_id) {
         $con = $this->opencon();
         
-        // Check if pageant_visibility table exists, if not create it
-        $checkTable = "SHOW TABLES LIKE 'pageant_visibility'";
-        $result = $con->query($checkTable);
-        
-        if ($result->num_rows == 0) {
-            $createTable = "CREATE TABLE pageant_visibility (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                pageant_id INT NOT NULL,
-                reveal_names BOOLEAN DEFAULT FALSE,
-                reveal_scores BOOLEAN DEFAULT FALSE,
-                reveal_awards BOOLEAN DEFAULT FALSE,
-                UNIQUE KEY unique_pageant (pageant_id)
-            )";
-            $con->query($createTable);
-        }
-        
-        $stmt = $con->prepare("SELECT reveal_names, reveal_scores, reveal_awards FROM pageant_visibility WHERE pageant_id = ?");
-        $stmt->bind_param("i", $pageant_id);
+        // Get settings from pageant_settings table
+        $stmt = $con->prepare("SELECT setting_key, setting_value FROM pageant_settings WHERE setting_key IN ('reveal_names', 'reveal_scores', 'reveal_awards')");
         $stmt->execute();
         $result = $stmt->get_result();
         
-        if ($result->num_rows > 0) {
-            $flags = $result->fetch_assoc();
-        } else {
-            // Insert default flags
-            $insertStmt = $con->prepare("INSERT INTO pageant_visibility (pageant_id, reveal_names, reveal_scores, reveal_awards) VALUES (?, 0, 0, 0)");
-            $insertStmt->bind_param("i", $pageant_id);
-            $insertStmt->execute();
-            $insertStmt->close();
-            
-            $flags = ['reveal_names' => 0, 'reveal_scores' => 0, 'reveal_awards' => 0];
+        // Initialize default flags
+        $flags = [
+            'reveal_names' => false,
+            'reveal_scores' => false,
+            'reveal_awards' => false
+        ];
+        
+        // Update flags based on database values
+        while ($row = $result->fetch_assoc()) {
+            $flags[$row['setting_key']] = (bool)(int)$row['setting_value'];
         }
         
         $stmt->close();

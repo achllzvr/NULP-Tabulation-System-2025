@@ -37,8 +37,11 @@ if (isset($_POST['confirm_advancement'])) {
     try {
         // Advance Mr participants
         foreach ($mr_participants as $participant_id) {
-            $stmt = $conn->prepare("UPDATE participants SET status = 'ADVANCED', updated_at = NOW() WHERE id = ? AND pageant_id = ?");
-            $stmt->bind_param("ii", $participant_id, $pageant_id);
+            // Insert advancement record (assuming advancing from current round to next round)
+            $from_round_id = 1; // You may need to determine this based on current context
+            $to_round_id = 2;   // You may need to determine this based on current context
+            $stmt = $conn->prepare("INSERT INTO advancements (from_round_id, to_round_id, participant_id, rank_at_advancement, is_override) VALUES (?, ?, ?, 0, 1)");
+            $stmt->bind_param("iii", $from_round_id, $to_round_id, $participant_id);
             if ($stmt->execute()) {
                 $success_count++;
             } else {
@@ -49,8 +52,11 @@ if (isset($_POST['confirm_advancement'])) {
         
         // Advance Ms participants
         foreach ($ms_participants as $participant_id) {
-            $stmt = $conn->prepare("UPDATE participants SET status = 'ADVANCED', updated_at = NOW() WHERE id = ? AND pageant_id = ?");
-            $stmt->bind_param("ii", $participant_id, $pageant_id);
+            // Insert advancement record (assuming advancing from current round to next round)
+            $from_round_id = 1; // You may need to determine this based on current context
+            $to_round_id = 2;   // You may need to determine this based on current context
+            $stmt = $conn->prepare("INSERT INTO advancements (from_round_id, to_round_id, participant_id, rank_at_advancement, is_override) VALUES (?, ?, ?, 0, 1)");
+            $stmt->bind_param("iii", $from_round_id, $to_round_id, $participant_id);
             if ($stmt->execute()) {
                 $success_count++;
             } else {

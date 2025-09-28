@@ -56,23 +56,42 @@ if ($finalized_rounds > 0) {
     // Query to find ties - participants with same total score
     $tie_query = "
         SELECT 
-            p.id,
-            p.full_name,
-            p.number_label,
-            COALESCE(SUM(COALESCE(s.override_score, s.raw_score) * (rc.weight / 100.0)), 0) as total_score,
-            COUNT(p.id) OVER (PARTITION BY COALESCE(SUM(COALESCE(s.override_score, s.raw_score) * (rc.weight / 100.0)), 0)) as tie_count
-        FROM participants p
-        LEFT JOIN scores s ON p.id = s.participant_id
-        LEFT JOIN round_criteria rc ON s.criterion_id = rc.id
-        LEFT JOIN rounds r ON rc.round_id = r.id
-        WHERE p.pageant_id = ? AND p.is_active = 1 AND (r.state = 'FINALIZED' OR r.state IS NULL)
-        GROUP BY p.id, p.full_name, p.number_label
+            t1.id,
+            t1.full_name,
+            t1.number_label,
+            t1.total_score,
+            COUNT(*) as tie_count
+        FROM (
+            SELECT 
+                p.id,
+                p.full_name,
+                p.number_label,
+                COALESCE(SUM(COALESCE(s.override_score, s.raw_score) * (rc.weight / 100.0)), 0) as total_score
+            FROM participants p
+            LEFT JOIN scores s ON p.id = s.participant_id
+            LEFT JOIN round_criteria rc ON s.criterion_id = rc.id
+            LEFT JOIN rounds r ON rc.round_id = r.id
+            WHERE p.pageant_id = ? AND p.is_active = 1 AND (r.state = 'FINALIZED' OR r.state IS NULL)
+            GROUP BY p.id, p.full_name, p.number_label
+        ) t1
+        INNER JOIN (
+            SELECT 
+                p.id,
+                COALESCE(SUM(COALESCE(s.override_score, s.raw_score) * (rc.weight / 100.0)), 0) as total_score
+            FROM participants p
+            LEFT JOIN scores s ON p.id = s.participant_id
+            LEFT JOIN round_criteria rc ON s.criterion_id = rc.id
+            LEFT JOIN rounds r ON rc.round_id = r.id
+            WHERE p.pageant_id = ? AND p.is_active = 1 AND (r.state = 'FINALIZED' OR r.state IS NULL)
+            GROUP BY p.id
+        ) t2 ON t1.total_score = t2.total_score
+        GROUP BY t1.id, t1.full_name, t1.number_label, t1.total_score
         HAVING tie_count > 1
-        ORDER BY total_score DESC, p.number_label ASC
+        ORDER BY t1.total_score DESC, t1.number_label ASC
     ";
     
     $stmt = $conn->prepare($tie_query);
-    $stmt->bind_param("i", $pageant_id);
+    $stmt->bind_param("ii", $pageant_id, $pageant_id);
     $stmt->execute();
     $result = $stmt->get_result();
     

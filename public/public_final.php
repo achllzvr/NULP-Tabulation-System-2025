@@ -30,6 +30,9 @@ if ($pid > 0) {
     if ($result->num_rows > 0) {
         $pageant = $result->fetch_assoc();
         
+        // Get visibility flags
+        $visibility_flags = $con->getVisibilityFlags($pid);
+        
         // Get rounds for this pageant
         $rounds = $con->getPageantRounds($pid);
         
@@ -163,18 +166,26 @@ include __DIR__ . '/../partials/head.php';
                     </span>
                   </td>
                   <td class="px-6 py-4">
-                    <div class="font-semibold text-slate-800 text-lg"><?php echo htmlspecialchars($participant['name']); ?></div>
+                    <div class="font-semibold text-slate-800 text-lg">
+                      <?php echo $visibility_flags['reveal_names'] ? htmlspecialchars($participant['name']) : 'Hidden'; ?>
+                    </div>
                   </td>
                   <td class="px-6 py-4">
-                    <span class="inline-flex items-center px-2 py-1 rounded text-sm font-medium <?php 
-                      echo $participant['division'] === 'Mr' ? 'bg-blue-100 text-blue-800' : 'bg-pink-100 text-pink-800'; 
-                    ?>">
-                      <?php echo htmlspecialchars($participant['division']); ?>
-                    </span>
+                    <?php if ($visibility_flags['reveal_names']): ?>
+                      <span class="inline-flex items-center px-2 py-1 rounded text-sm font-medium <?php 
+                        echo $participant['division'] === 'Mr' ? 'bg-blue-100 text-blue-800' : 'bg-pink-100 text-pink-800'; 
+                      ?>">
+                        <?php echo htmlspecialchars($participant['division']); ?>
+                      </span>
+                    <?php else: ?>
+                      <span class="inline-flex items-center px-2 py-1 rounded text-sm font-medium bg-gray-100 text-gray-800">
+                        Hidden
+                      </span>
+                    <?php endif; ?>
                   </td>
                   <td class="px-6 py-4 text-right">
                     <span class="font-mono text-xl font-bold text-slate-800">
-                      <?php echo $participant['score'] ?? '--'; ?>
+                      <?php echo $visibility_flags['reveal_scores'] ? ($participant['score'] ?? '--') : 'Hidden'; ?>
                     </span>
                   </td>
                 </tr>
