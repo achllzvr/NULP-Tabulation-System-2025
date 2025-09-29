@@ -305,12 +305,12 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                     <div class="flex space-x-2">
                       <form method="POST" class="inline" onsubmit="return confirm('Are you sure you want to reset the password for <?php echo htmlspecialchars($judge['full_name'], ENT_QUOTES); ?>? A new password will be generated.')">
                         <input type="hidden" name="user_id" value="<?php echo $judge['id']; ?>">
-                        <button name="reset_password" type="submit" class="text-blue-600 hover:text-blue-900 font-medium">Reset Password</button>
+                        <button name="reset_password" type="submit" class="text-blue-300 hover:text-blue-400 font-medium">Reset Password</button>
                       </form>
                       
                       <form method="POST" class="inline" onsubmit="return confirm('Are you sure you want to remove <?php echo htmlspecialchars($judge['full_name'], ENT_QUOTES); ?> as a judge? This action cannot be undone.')">
                         <input type="hidden" name="user_id" value="<?php echo $judge['id']; ?>">
-                        <button name="remove_judge" type="submit" class="text-red-600 hover:text-red-900 font-medium">Remove</button>
+                        <button name="remove_judge" type="submit" class="text-red-300 hover:text-red-400 font-medium">Remove</button>
                       </form>
                     </div>
                   </td>
