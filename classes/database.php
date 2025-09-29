@@ -16,27 +16,41 @@ class database {
         return $con;
     }
 
-    // Function to login admin user
-    function loginAdmin($username, $password) {
+    // Function to login admin user with pageant code validation
+    function loginAdmin($pageant_code, $username, $password) {
         $con = $this->opencon();
         
+        // First validate the pageant code and get pageant_id
+        $stmt = $con->prepare("SELECT id FROM pageants WHERE UPPER(code) = UPPER(?)");
+        $stmt->bind_param("s", $pageant_code);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        if ($result->num_rows == 0) {
+            $stmt->close();
+            $con->close();
+            return false; // Invalid pageant code
+        }
+        
+        $pageant = $result->fetch_assoc();
+        $pageant_id = $pageant['id'];
+        $stmt->close();
+        
+        // Now validate admin credentials for this specific pageant
         $stmt = $con->prepare("SELECT u.id, u.username, u.full_name, u.password_hash, u.global_role, u.is_active, pu.pageant_id, pu.role 
                                FROM users u 
-                               LEFT JOIN pageant_users pu ON u.id = pu.user_id 
-                               WHERE u.username = ? AND u.is_active = 1");
-        $stmt->bind_param("s", $username);
+                               JOIN pageant_users pu ON u.id = pu.user_id 
+                               WHERE u.username = ? AND u.is_active = 1 AND pu.pageant_id = ? AND (pu.role = 'admin' OR u.global_role = 'SUPERADMIN')");
+        $stmt->bind_param("si", $username, $pageant_id);
         $stmt->execute();
         $result = $stmt->get_result();
         
         if ($result->num_rows > 0) {
             $user = $result->fetch_assoc();
             if (password_verify($password, $user['password_hash'])) {
-                // Check if user has ADMIN role or is SUPERADMIN
-                if ($user['role'] == 'ADMIN' || $user['global_role'] == 'SUPERADMIN') {
-                    $stmt->close();
-                    $con->close();
-                    return $user;
-                }
+                $stmt->close();
+                $con->close();
+                return $user;
             }
         }
         

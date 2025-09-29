@@ -23,12 +23,13 @@ $con = new database();
 // Check if the login form is submitted
 if (isset($_POST['login'])) {
     
-    // Get the username and password from the POST request
+    // Get the form data from the POST request
+    $pageant_code = $_POST['pageant_code'] ?? '';
     $username = $_POST['username'];
     $password = $_POST['password'];
     
     // Validate the inputs
-    $user = $con->loginAdmin($username, $password);
+    $user = $con->loginAdmin($pageant_code, $username, $password);
     
     // If the user is found, set session variables
     if ($user) {
@@ -36,7 +37,7 @@ if (isset($_POST['login'])) {
         $_SESSION['adminFN'] = $user['full_name'];
         $_SESSION['adminLN'] = '';
         $_SESSION['adminUsername'] = $user['username'];
-        $_SESSION['pageantID'] = $user['pageant_id'] ?? 1;
+        $_SESSION['pageantID'] = $user['pageant_id'];
         $_SESSION['adminRole'] = $user['role'] ?? $user['global_role'];
         
         // Redirect to dashboard or specified page
@@ -44,13 +45,27 @@ if (isset($_POST['login'])) {
         header("Location: " . $redirect);
         exit();
     } else {
-        $error_message = "Invalid username or password.";
-        $error_type = "INVALID_CREDENTIALS";
+        // Determine specific error type for better debugging
         $error_details = [
+            'attempted_pageant_code' => $pageant_code,
             'attempted_username' => $username,
             'timestamp' => date('Y-m-d H:i:s'),
             'ip_address' => $_SERVER['REMOTE_ADDR'] ?? 'unknown'
         ];
+        
+        // Check if pageant code exists
+        $pageant = $con->getPageantByCode($pageant_code);
+        if (!$pageant) {
+            $error_type = "INVALID_PAGEANT_CODE";
+            $error_message = "The pageant code '$pageant_code' is not valid or does not exist.";
+            $error_details['error_reason'] = 'pageant_code_not_found';
+        } else {
+            $error_type = "INVALID_CREDENTIALS";
+            $error_message = "Invalid username or password for this pageant.";
+            $error_details['error_reason'] = 'invalid_admin_credentials';
+            $error_details['pageant_found'] = $pageant['name'];
+        }
+        
         $show_error_alert = true;
     }
 }
@@ -59,7 +74,8 @@ $pageTitle = 'Admin Login';
 include __DIR__ . '/partials/head.php';
 ?>
 
-<main class="mx-auto max-w-sm w-full p-8 space-y-6 bg-white bg-opacity-15 backdrop-blur-md rounded-2xl shadow-2xl border border-white border-opacity-20">
+<main class="min-h-screen flex items-center justify-center px-4">
+  <div class="mx-auto max-w-sm w-full p-8 space-y-6 bg-white bg-opacity-15 backdrop-blur-md rounded-2xl shadow-2xl border border-white border-opacity-20">
     <div class="text-center">
         <h1 class="text-2xl font-semibold text-white mb-2">Admin Login</h1>
         <div class="w-12 h-12 bg-blue-500 bg-opacity-30 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-4">
@@ -77,6 +93,12 @@ include __DIR__ . '/partials/head.php';
     
     <form id="adminLoginForm" method="POST" class="space-y-4">
         <div>
+            <label class="block text-sm font-medium text-slate-200 mb-2">Pageant Code</label>
+            <select name="pageant_code" id="pageant_code" required class="w-full bg-white bg-opacity-20 backdrop-blur-sm border border-white border-opacity-30 rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-50 focus:border-opacity-50 transition-all">
+                <option value="" class="text-slate-800">Loading pageants...</option>
+            </select>
+        </div>
+        <div>
             <label class="block text-sm font-medium text-slate-200 mb-2">Username</label>
             <input name="username" type="text" required class="w-full bg-white bg-opacity-20 backdrop-blur-sm border border-white border-opacity-30 rounded-lg px-4 py-3 text-sm text-white placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-50 focus:border-opacity-50 transition-all" placeholder="Enter your username" />
         </div>
@@ -88,6 +110,7 @@ include __DIR__ . '/partials/head.php';
     </form>
     
     <p class="text-xs text-slate-300 text-center">You are accessing the administration portal.</p>
+  </div>
 </main>
 
 <?php if (isset($show_error_alert)): ?>
@@ -101,6 +124,31 @@ document.addEventListener('DOMContentLoaded', function() {
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     makeFormLoadingEnabled('adminLoginForm', 'Signing in...', true);
+    
+    // Load pageant codes
+    fetch('api.php?action=get_pageant_codes')
+        .then(response => response.json())
+        .then(data => {
+            const select = document.getElementById('pageant_code');
+            select.innerHTML = '<option value="" class="text-slate-800">Select a pageant...</option>';
+            
+            if (data.success && data.pageants) {
+                data.pageants.forEach(pageant => {
+                    const option = document.createElement('option');
+                    option.value = pageant.code;
+                    option.textContent = `${pageant.name} (${pageant.code})`;
+                    option.className = 'text-slate-800';
+                    select.appendChild(option);
+                });
+            } else {
+                select.innerHTML = '<option value="" class="text-slate-800">No pageants available</option>';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading pageants:', error);
+            const select = document.getElementById('pageant_code');
+            select.innerHTML = '<option value="" class="text-slate-800">Error loading pageants</option>';
+        });
 });
 </script>
 

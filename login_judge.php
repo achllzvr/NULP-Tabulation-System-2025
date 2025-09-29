@@ -74,7 +74,8 @@ $pageTitle = 'Judge Login';
 include __DIR__ . '/partials/head.php';
 ?>
 
-<main class="mx-auto max-w-sm w-full p-8 space-y-6 bg-white bg-opacity-15 backdrop-blur-md rounded-2xl shadow-2xl border border-white border-opacity-20">
+<main class="min-h-screen flex items-center justify-center px-4">
+  <div class="mx-auto max-w-sm w-full p-8 space-y-6 bg-white bg-opacity-15 backdrop-blur-md rounded-2xl shadow-2xl border border-white border-opacity-20">
     <div class="text-center">
         <h1 class="text-2xl font-semibold text-white mb-2">Judge Login</h1>
         <div class="w-12 h-12 bg-orange-500 bg-opacity-30 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-4">
@@ -93,7 +94,9 @@ include __DIR__ . '/partials/head.php';
     <form id="judgeLoginForm" method="POST" class="space-y-4">
         <div>
             <label class="block text-sm font-medium text-slate-200 mb-2">Pageant Code</label>
-            <input name="pageant_code" type="text" required class="w-full bg-white bg-opacity-20 backdrop-blur-sm border border-white border-opacity-30 rounded-lg px-4 py-3 text-sm text-white placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-opacity-50 focus:border-opacity-50 transition-all" placeholder="Enter pageant code" />
+            <select name="pageant_code" id="pageant_code" required class="w-full bg-white bg-opacity-20 backdrop-blur-sm border border-white border-opacity-30 rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-opacity-50 focus:border-opacity-50 transition-all">
+                <option value="" class="text-slate-800">Loading pageants...</option>
+            </select>
         </div>
         <div>
             <label class="block text-sm font-medium text-slate-200 mb-2">Username</label>
@@ -107,6 +110,7 @@ include __DIR__ . '/partials/head.php';
     </form>
     
     <p class="text-xs text-slate-300 text-center">You are accessing the judge portal.</p>
+  </div>
 </main>
 
 <?php if (isset($show_error_alert)): ?>
@@ -120,6 +124,31 @@ document.addEventListener('DOMContentLoaded', function() {
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     makeFormLoadingEnabled('judgeLoginForm', 'Verifying credentials...', true);
+    
+    // Load pageant codes
+    fetch('api.php?action=get_pageant_codes')
+        .then(response => response.json())
+        .then(data => {
+            const select = document.getElementById('pageant_code');
+            select.innerHTML = '<option value="" class="text-slate-800">Select a pageant...</option>';
+            
+            if (data.success && data.pageants) {
+                data.pageants.forEach(pageant => {
+                    const option = document.createElement('option');
+                    option.value = pageant.code;
+                    option.textContent = `${pageant.name} (${pageant.code})`;
+                    option.className = 'text-slate-800';
+                    select.appendChild(option);
+                });
+            } else {
+                select.innerHTML = '<option value="" class="text-slate-800">No pageants available</option>';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading pageants:', error);
+            const select = document.getElementById('pageant_code');
+            select.innerHTML = '<option value="" class="text-slate-800">Error loading pageants</option>';
+        });
 });
 </script>
 

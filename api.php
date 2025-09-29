@@ -33,6 +33,51 @@ try {
         case 'ping':
             respond(['success' => true, 'pong' => true]);
             
+        case 'test_db':
+            // Test database connection and table existence
+            try {
+                $result = $conn->query("SHOW TABLES LIKE 'pageants'");
+                $tableExists = $result->num_rows > 0;
+                
+                if ($tableExists) {
+                    $result = $conn->query("DESCRIBE pageants");
+                    $columns = $result->fetch_all(MYSQLI_ASSOC);
+                    respond([
+                        'success' => true,
+                        'table_exists' => true,
+                        'columns' => $columns
+                    ]);
+                } else {
+                    respond([
+                        'success' => true,
+                        'table_exists' => false,
+                        'error' => 'pageants table does not exist'
+                    ]);
+                }
+            } catch (Exception $e) {
+                respond(['success' => false, 'error' => 'Database test error: ' . $e->getMessage()], 500);
+            }
+            
+        case 'get_pageant_codes':
+            // Get all columns from pageants table to see what's available
+            $stmt = $conn->prepare("SELECT * FROM pageants ORDER BY code");
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $pageants = [];
+            
+            while ($row = $result->fetch_assoc()) {
+                $pageants[] = [
+                    'code' => $row['code'],
+                    'name' => $row['name'] ?? $row['code'] // Use name if available, otherwise use code
+                ];
+            }
+            $stmt->close();
+            
+            respond([
+                'success' => true,
+                'pageants' => $pageants
+            ]);
+            
         case 'public_pageant_meta':
             $pageant_id = (int)($_GET['pageant_id'] ?? 0);
             if (!$pageant_id) {
