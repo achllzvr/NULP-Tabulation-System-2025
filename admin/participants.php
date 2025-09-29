@@ -181,8 +181,8 @@ include __DIR__ . '/../partials/sidebar_admin.php';
     <div class="mb-8">
       <div class="flex items-center justify-between">
         <div>
-          <h1 class="text-3xl font-bold text-slate-800 mb-2">Participants</h1>
-          <p class="text-slate-600">Manage pageant participants and their information</p>
+          <h1 class="text-3xl font-bold text-white mb-2">Participants</h1>
+          <p class="text-slate-200">Manage pageant participants and their information</p>
         </div>
         <button onclick="showModal('addParticipantModal')" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-3 rounded-lg transition-colors flex items-center gap-2">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -195,48 +195,48 @@ include __DIR__ . '/../partials/sidebar_admin.php';
 
     <!-- Statistics Cards -->
     <div class="grid md:grid-cols-3 gap-6 mb-8">
-      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+      <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20 p-6">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="text-sm font-medium text-slate-600">Total Participants</h3>
-          <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <h3 class="text-sm font-medium text-slate-200">Total Participants</h3>
+          <svg class="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
           </svg>
         </div>
-        <p class="text-3xl font-bold text-slate-800 mb-1"><?php echo count($participants); ?></p>
-        <p class="text-sm text-slate-600">Registered participants</p>
+        <p class="text-3xl font-bold text-white mb-1"><?php echo count($participants); ?></p>
+        <p class="text-sm text-slate-200">Registered participants</p>
       </div>
 
-      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+      <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20 p-6">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="text-sm font-medium text-slate-600">Mr Division</h3>
-          <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <h3 class="text-sm font-medium text-slate-200">Mr Division</h3>
+          <svg class="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
           </svg>
         </div>
-        <p class="text-3xl font-bold text-slate-800 mb-1">
+        <p class="text-3xl font-bold text-white mb-1">
           <?php echo count(array_filter($participants, fn($p) => isset($p['division']) && $p['division'] === 'Mr')); ?>
         </p>
-        <p class="text-sm text-slate-600">Male participants</p>
+        <p class="text-sm text-slate-200">Male participants</p>
       </div>
 
-      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+      <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20 p-6">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="text-sm font-medium text-slate-600">Ms Division</h3>
-          <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <h3 class="text-sm font-medium text-slate-200">Ms Division</h3>
+          <svg class="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
           </svg>
         </div>
-        <p class="text-3xl font-bold text-slate-800 mb-1">
+        <p class="text-3xl font-bold text-white mb-1">
           <?php echo count(array_filter($participants, fn($p) => isset($p['division']) && $p['division'] === 'Ms')); ?>
         </p>
-        <p class="text-sm text-slate-600">Female participants</p>
+        <p class="text-sm text-slate-200">Female participants</p>
       </div>
     </div>
 
     <!-- Success/Error Messages -->
     <?php if (isset($success_message)): ?>
-      <div class="bg-green-50 border border-green-200 text-green-700 px-6 py-4 rounded-lg text-sm mb-6 flex items-center gap-3">
-        <svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+      <div class="bg-green-500 bg-opacity-20 backdrop-blur-sm border border-green-400 border-opacity-30 text-green-100 px-6 py-4 rounded-lg text-sm mb-6 flex items-center gap-3">
+        <svg class="w-5 h-5 text-green-300" fill="currentColor" viewBox="0 0 20 20">
           <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
         </svg>
         <?= htmlspecialchars($success_message, ENT_QUOTES, 'UTF-8') ?>
@@ -244,8 +244,8 @@ include __DIR__ . '/../partials/sidebar_admin.php';
     <?php endif; ?>
     
     <?php if (isset($error_message)): ?>
-      <div class="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-lg text-sm mb-6 flex items-center gap-3">
-        <svg class="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+      <div class="bg-red-500 bg-opacity-20 backdrop-blur-sm border border-red-400 border-opacity-30 text-red-100 px-6 py-4 rounded-lg text-sm mb-6 flex items-center gap-3">
+        <svg class="w-5 h-5 text-red-300" fill="currentColor" viewBox="0 0 20 20">
           <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
         </svg>
         <?= htmlspecialchars($error_message, ENT_QUOTES, 'UTF-8') ?>
@@ -253,28 +253,28 @@ include __DIR__ . '/../partials/sidebar_admin.php';
     <?php endif; ?>
 
     <!-- Participants Table -->
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200">
-      <div class="px-6 py-4 border-b border-slate-200">
-        <h3 class="text-lg font-semibold text-slate-800">Participant List</h3>
-        <p class="text-sm text-slate-600 mt-1">All registered participants for this pageant</p>
+    <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20">
+      <div class="px-6 py-4 border-b border-white border-opacity-20">
+        <h3 class="text-lg font-semibold text-white">Participant List</h3>
+        <p class="text-sm text-slate-200 mt-1">All registered participants for this pageant</p>
       </div>
       
       <div class="overflow-x-auto">
         <table class="min-w-full">
-          <thead class="bg-slate-50">
+          <thead class="bg-white bg-opacity-10 backdrop-blur-sm">
             <tr>
-              <th class="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Number</th>
-              <th class="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Division</th>
-              <th class="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Name</th>
-              <th class="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Advocacy</th>
-              <th class="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
-              <th class="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Actions</th>
+              <th class="px-6 py-4 text-left text-xs font-medium text-slate-200 uppercase tracking-wider">Number</th>
+              <th class="px-6 py-4 text-left text-xs font-medium text-slate-200 uppercase tracking-wider">Division</th>
+              <th class="px-6 py-4 text-left text-xs font-medium text-slate-200 uppercase tracking-wider">Name</th>
+              <th class="px-6 py-4 text-left text-xs font-medium text-slate-200 uppercase tracking-wider">Advocacy</th>
+              <th class="px-6 py-4 text-left text-xs font-medium text-slate-200 uppercase tracking-wider">Status</th>
+              <th class="px-6 py-4 text-left text-xs font-medium text-slate-200 uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
-          <tbody class="bg-white divide-y divide-slate-200">
+          <tbody class="divide-y divide-white divide-opacity-10">
             <?php if (!empty($participants)): ?>
               <?php foreach ($participants as $participant): ?>
-                <tr class="hover:bg-slate-50 transition-colors">
+                <tr class="hover:bg-white hover:bg-opacity-5 transition-colors">
                   <td class="px-6 py-4 whitespace-nowrap">
                     <div class="flex items-center">
                       <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
@@ -287,36 +287,36 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                     // Infer division from number or use default (since division column doesn't exist yet)
                     $division = isset($participant['division']) ? $participant['division'] : 'General';
                     ?>
-                    <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full <?php echo $division === 'Mr' ? 'bg-blue-100 text-blue-800' : ($division === 'Ms' ? 'bg-pink-100 text-pink-800' : 'bg-slate-100 text-slate-600'); ?>">
+                    <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full <?php echo $division === 'Mr' ? 'bg-blue-500 bg-opacity-30 text-blue-200 backdrop-blur-sm' : ($division === 'Ms' ? 'bg-pink-500 bg-opacity-30 text-pink-200 backdrop-blur-sm' : 'bg-white bg-opacity-20 text-slate-200 backdrop-blur-sm'); ?>">
                       <?php echo htmlspecialchars($division); ?>
                     </span>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap">
-                    <div class="text-sm font-medium text-slate-900"><?php echo htmlspecialchars($participant['full_name']); ?></div>
+                    <div class="text-sm font-medium text-white"><?php echo htmlspecialchars($participant['full_name']); ?></div>
                   </td>
                   <td class="px-6 py-4">
-                    <div class="text-sm text-slate-600 max-w-xs truncate" title="<?php echo htmlspecialchars($participant['advocacy']); ?>">
+                    <div class="text-sm text-slate-200 max-w-xs truncate" title="<?php echo htmlspecialchars($participant['advocacy']); ?>">
                       <?php echo htmlspecialchars($participant['advocacy'] ?: 'No advocacy'); ?>
                     </div>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap">
-                    <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full <?php echo $participant['is_active'] ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'; ?>">
+                    <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full <?php echo $participant['is_active'] ? 'bg-green-500 bg-opacity-30 text-green-200 backdrop-blur-sm' : 'bg-red-500 bg-opacity-30 text-red-200 backdrop-blur-sm'; ?>">
                       <?php echo $participant['is_active'] ? 'Active' : 'Inactive'; ?>
                     </span>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div class="flex space-x-2">
-                      <button onclick="editParticipant(<?php echo $participant['id']; ?>, '<?php echo htmlspecialchars($participant['full_name'], ENT_QUOTES); ?>', '<?php echo $participant['number_label']; ?>', '<?php echo isset($participant['division']) ? $participant['division'] : 'General'; ?>', '<?php echo htmlspecialchars($participant['advocacy'], ENT_QUOTES); ?>')" class="text-blue-600 hover:text-blue-900 font-medium">Edit</button>
+                      <button onclick="editParticipant(<?php echo $participant['id']; ?>, '<?php echo htmlspecialchars($participant['full_name'], ENT_QUOTES); ?>', '<?php echo $participant['number_label']; ?>', '<?php echo isset($participant['division']) ? $participant['division'] : 'General'; ?>', '<?php echo htmlspecialchars($participant['advocacy'], ENT_QUOTES); ?>')" class="text-blue-300 hover:text-blue-200 font-medium">Edit</button>
                       
                       <form method="POST" class="inline" onsubmit="return confirm('Are you sure you want to delete this participant?')">
                         <input type="hidden" name="participant_id" value="<?php echo $participant['id']; ?>">
-                        <button name="delete_participant" type="submit" class="text-red-600 hover:text-red-900 font-medium">Delete</button>
+                        <button name="delete_participant" type="submit" class="text-red-300 hover:text-red-200 font-medium">Delete</button>
                       </form>
                       
                       <form method="POST" class="inline">
                         <input type="hidden" name="participant_id" value="<?php echo $participant['id']; ?>">
                         <input type="hidden" name="new_status" value="<?php echo $participant['is_active'] ? '0' : '1'; ?>">
-                        <button name="toggle_participant" type="submit" class="text-slate-600 hover:text-slate-900 font-medium">
+                        <button name="toggle_participant" type="submit" class="text-slate-300 hover:text-white font-medium">
                           <?php echo $participant['is_active'] ? 'Deactivate' : 'Activate'; ?>
                         </button>
                       </form>

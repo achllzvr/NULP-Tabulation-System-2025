@@ -182,8 +182,8 @@ include __DIR__ . '/../partials/sidebar_admin.php';
     <div class="mb-8">
       <div class="flex items-center justify-between">
         <div>
-          <h1 class="text-3xl font-bold text-slate-800 mb-2">Judges</h1>
-          <p class="text-slate-600">Manage pageant judges and their credentials</p>
+          <h1 class="text-3xl font-bold text-white mb-2">Judges</h1>
+          <p class="text-slate-200">Manage pageant judges and their credentials</p>
         </div>
         <button onclick="showModal('addJudgeModal')" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-3 rounded-lg transition-colors flex items-center gap-2">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -196,48 +196,48 @@ include __DIR__ . '/../partials/sidebar_admin.php';
 
     <!-- Statistics Cards -->
     <div class="grid md:grid-cols-3 gap-6 mb-8">
-      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+      <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20 p-6">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="text-sm font-medium text-slate-600">Total Judges</h3>
-          <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <h3 class="text-sm font-medium text-slate-200">Total Judges</h3>
+          <svg class="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
           </svg>
         </div>
-        <p class="text-3xl font-bold text-slate-800 mb-1"><?php echo count($judges); ?></p>
-        <p class="text-sm text-slate-600">Assigned judges</p>
+        <p class="text-3xl font-bold text-white mb-1"><?php echo count($judges); ?></p>
+        <p class="text-sm text-slate-200">Assigned judges</p>
       </div>
 
-      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+      <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20 p-6">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="text-sm font-medium text-slate-600">Active Accounts</h3>
-          <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <h3 class="text-sm font-medium text-slate-200">Active Accounts</h3>
+          <svg class="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
           </svg>
         </div>
-        <p class="text-3xl font-bold text-slate-800 mb-1">
+        <p class="text-3xl font-bold text-white mb-1">
           <?php echo count(array_filter($judges, fn($j) => $j['is_active'] ?? 1)); ?>
         </p>
-        <p class="text-sm text-slate-600">Ready to judge</p>
+        <p class="text-sm text-slate-200">Ready to judge</p>
       </div>
 
-      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+      <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20 p-6">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="text-sm font-medium text-slate-600">Judge Status</h3>
-          <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <h3 class="text-sm font-medium text-slate-200">Judge Status</h3>
+          <svg class="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
           </svg>
         </div>
-        <p class="text-lg font-bold text-slate-800 mb-1">
+        <p class="text-lg font-bold text-white mb-1">
           <?php echo count($judges) > 0 ? 'Ready' : 'Setup Needed'; ?>
         </p>
-        <p class="text-sm text-slate-600">Judging readiness</p>
+        <p class="text-sm text-slate-200">Judging readiness</p>
       </div>
     </div>
 
     <!-- Success/Error Messages -->
     <?php if (isset($success_message)): ?>
-      <div class="bg-green-50 border border-green-200 text-green-700 px-6 py-4 rounded-lg text-sm mb-6 flex items-center gap-3">
-        <svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+      <div class="bg-green-500 bg-opacity-20 backdrop-blur-sm border border-green-400 border-opacity-30 text-green-100 px-6 py-4 rounded-lg text-sm mb-6 flex items-center gap-3">
+        <svg class="w-5 h-5 text-green-300" fill="currentColor" viewBox="0 0 20 20">
           <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
         </svg>
         <?= htmlspecialchars($success_message, ENT_QUOTES, 'UTF-8') ?>
@@ -245,8 +245,8 @@ include __DIR__ . '/../partials/sidebar_admin.php';
     <?php endif; ?>
     
     <?php if (isset($error_message)): ?>
-      <div class="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-lg text-sm mb-6 flex items-center gap-3">
-        <svg class="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+      <div class="bg-red-500 bg-opacity-20 backdrop-blur-sm border border-red-400 border-opacity-30 text-red-100 px-6 py-4 rounded-lg text-sm mb-6 flex items-center gap-3">
+        <svg class="w-5 h-5 text-red-300" fill="currentColor" viewBox="0 0 20 20">
           <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
         </svg>
         <?= htmlspecialchars($error_message, ENT_QUOTES, 'UTF-8') ?>
@@ -254,43 +254,43 @@ include __DIR__ . '/../partials/sidebar_admin.php';
     <?php endif; ?>
 
     <!-- Judges Table -->
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200">
-      <div class="px-6 py-4 border-b border-slate-200">
-        <h3 class="text-lg font-semibold text-slate-800">Judge Accounts</h3>
-        <p class="text-sm text-slate-600 mt-1">All judges assigned to this pageant</p>
+    <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20">
+      <div class="px-6 py-4 border-b border-white border-opacity-20">
+        <h3 class="text-lg font-semibold text-white">Judge Accounts</h3>
+        <p class="text-sm text-slate-200 mt-1">All judges assigned to this pageant</p>
       </div>
       
       <div class="overflow-x-auto">
         <table class="min-w-full">
-          <thead class="bg-slate-50">
+          <thead class="bg-white bg-opacity-10 backdrop-blur-sm">
             <tr>
-              <th class="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Judge</th>
-              <th class="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Contact</th>
-              <th class="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Account</th>
-              <th class="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
-              <th class="px-6 py-4 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Actions</th>
+              <th class="px-6 py-4 text-left text-xs font-medium text-slate-200 uppercase tracking-wider">Judge</th>
+              <th class="px-6 py-4 text-left text-xs font-medium text-slate-200 uppercase tracking-wider">Contact</th>
+              <th class="px-6 py-4 text-left text-xs font-medium text-slate-200 uppercase tracking-wider">Account</th>
+              <th class="px-6 py-4 text-left text-xs font-medium text-slate-200 uppercase tracking-wider">Status</th>
+              <th class="px-6 py-4 text-left text-xs font-medium text-slate-200 uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
-          <tbody class="bg-white divide-y divide-slate-200">
+          <tbody class="divide-y divide-white divide-opacity-10">
             <?php if (!empty($judges)): ?>
               <?php foreach ($judges as $judge): ?>
-                <tr class="hover:bg-slate-50 transition-colors">
+                <tr class="hover:bg-white hover:bg-opacity-5 transition-colors">
                   <td class="px-6 py-4 whitespace-nowrap">
                     <div class="flex items-center">
-                      <div class="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center">
-                        <svg class="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div class="w-10 h-10 bg-white bg-opacity-20 backdrop-blur-sm rounded-full flex items-center justify-center">
+                        <svg class="w-5 h-5 text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
                         </svg>
                       </div>
                       <div class="ml-4">
-                        <div class="text-sm font-medium text-slate-900"><?php echo htmlspecialchars($judge['full_name']); ?></div>
-                        <div class="text-sm text-slate-500">Judge ID: <?php echo $judge['id']; ?></div>
+                        <div class="text-sm font-medium text-white"><?php echo htmlspecialchars($judge['full_name']); ?></div>
+                        <div class="text-sm text-slate-200">Judge ID: <?php echo $judge['id']; ?></div>
                       </div>
                     </div>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap">
-                    <div class="text-sm text-slate-900"><?php echo htmlspecialchars($judge['email']); ?></div>
-                    <div class="text-sm text-slate-500"><?php echo htmlspecialchars($judge['username']); ?></div>
+                    <div class="text-sm text-white"><?php echo htmlspecialchars($judge['email']); ?></div>
+                    <div class="text-sm text-slate-200"><?php echo htmlspecialchars($judge['username']); ?></div>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap">
                     <div class="text-sm text-slate-900">Username: <?php echo htmlspecialchars($judge['username']); ?></div>
