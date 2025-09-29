@@ -39,25 +39,26 @@ if (isset($_POST['assign_criteria'])) {
         $stmt->execute();
         $stmt->close();
         
-        // Calculate total weight to validate it sums to 1.0
-        $total_weight = 0;
+        // Calculate total weight to validate it sums to 100% (which becomes 1.0 in database)
+        $total_weight_percent = 0;
         foreach ($criteria_data as $criterion_data) {
             if (isset($criterion_data['selected']) && $criterion_data['selected']) {
-                $weight = floatval($criterion_data['weight']);
-                $total_weight += $weight;
+                $weight_percent = floatval($criterion_data['weight']);
+                $total_weight_percent += $weight_percent;
             }
         }
         
-        // Validate total weight
-        if (abs($total_weight - 1.0) > 0.001) {
-            throw new Exception("Total weight must equal 1.0 (100%). Current total: " . number_format($total_weight, 3));
+        // Validate total weight (should be 100%)
+        if (abs($total_weight_percent - 100.0) > 0.1) {
+            throw new Exception("Total weight must equal 100%. Current total: " . number_format($total_weight_percent, 1) . "%");
         }
         
         // Insert new criteria assignments
         $display_order = 1;
         foreach ($criteria_data as $criterion_id => $criterion_data) {
             if (isset($criterion_data['selected']) && $criterion_data['selected']) {
-                $weight = floatval($criterion_data['weight']);
+                $weight_percent = floatval($criterion_data['weight']);
+                $weight = $weight_percent / 100.0; // Convert percentage to decimal for database
                 $max_score = floatval($criterion_data['max_score'] ?? 10.00);
                 
                 $stmt = $conn->prepare("INSERT INTO round_criteria (round_id, criterion_id, weight, max_score, display_order) VALUES (?, ?, ?, ?, ?)");
@@ -142,8 +143,14 @@ $result = $stmt->get_result();
 $rounds = $result->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
 
-// Fetch criteria for the pageant
-$stmt = $conn->prepare("SELECT * FROM criteria WHERE pageant_id = ? AND is_active = 1 ORDER BY sort_order");
+// Fetch criteria for the pageant with parent-child relationships
+$stmt = $conn->prepare("
+    SELECT c.*, pc.name as parent_name 
+    FROM criteria c 
+    LEFT JOIN criteria pc ON c.parent_criterion_id = pc.id 
+    WHERE c.pageant_id = ? AND c.is_active = 1 
+    ORDER BY COALESCE(c.parent_criterion_id, c.id), c.parent_criterion_id IS NULL DESC, c.sort_order
+");
 $stmt->bind_param("i", $pageant_id);
 $stmt->execute();
 $result = $stmt->get_result();
@@ -523,7 +530,7 @@ $bodyHtml = '<form method="POST" id="criteriaAssignmentForm">'
     .'<div class="bg-slate-50 rounded-lg p-4">'
       .'<div class="flex justify-between items-center">'
         .'<span class="text-sm font-medium text-slate-700">Total Weight:</span>'
-        .'<span id="totalWeight" class="text-lg font-bold text-slate-800">0.000</span>'
+        .'<span id="totalWeight" class="text-lg font-bold text-slate-800">0.0%</span>'
       .'</div>'
     .'</div>'
   .'</div>'
@@ -580,54 +587,146 @@ function populateCriteriaList(currentAssignments = []) {
     assignmentMap[assignment.criterion_id] = assignment;
   });
   
+  // Group criteria by parent
+  const parentGroups = {};
+  const orphanCriteria = [];
+  
   availableCriteria.forEach(criterion => {
-    const assignment = assignmentMap[criterion.id];
-    const isSelected = !!assignment;
-    const weight = assignment ? assignment.weight : '0.000';
-    const maxScore = assignment ? assignment.max_score : criterion.default_max_score;
+    if (criterion.parent_criterion_id) {
+      if (!parentGroups[criterion.parent_criterion_id]) {
+        parentGroups[criterion.parent_criterion_id] = [];
+      }
+      parentGroups[criterion.parent_criterion_id].push(criterion);
+    } else {
+      orphanCriteria.push(criterion);
+    }
+  });
+  
+  // Render parent criteria with their children
+  orphanCriteria.forEach(parentCriterion => {
+    const children = parentGroups[parentCriterion.id] || [];
     
-    const criterionHtml = `
-      <div class="border border-slate-200 rounded-lg p-4">
-        <div class="flex items-center gap-3 mb-3">
-          <input type="checkbox" 
-                 name="criteria[${criterion.id}][selected]" 
-                 value="1" 
-                 ${isSelected ? 'checked' : ''}
-                 onchange="updateCriteriaState(this)"
-                 class="rounded">
-          <div class="flex-1">
-            <h4 class="font-medium text-slate-800">${criterion.name}</h4>
-            ${criterion.description ? `<p class="text-sm text-slate-600">${criterion.description}</p>` : ''}
+    // If this parent has children, render as group
+    if (children.length > 0) {
+      const parentHtml = `
+        <div class="bg-slate-50 border border-slate-300 rounded-lg p-4 mb-4">
+          <h3 class="text-lg font-semibold text-slate-800 mb-3 flex items-center">
+            <svg class="w-5 h-5 mr-2 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5a2 2 0 012-2h2a2 2 0 012 2v0H8v0z"></path>
+            </svg>
+            ${parentCriterion.name}
+          </h3>
+          ${parentCriterion.description ? `<p class="text-sm text-slate-600 mb-4">${parentCriterion.description}</p>` : ''}
+          <div class="space-y-3">
+            ${children.map(child => {
+              const assignment = assignmentMap[child.id];
+              const isSelected = !!assignment;
+              const weightDecimal = assignment ? parseFloat(assignment.weight) : 0;
+              const weightPercent = (weightDecimal * 100).toFixed(1);
+              const maxScore = assignment ? assignment.max_score : child.default_max_score;
+              
+              return `
+                <div class="bg-white border border-slate-200 rounded-lg p-3 ml-4">
+                  <div class="flex items-center gap-3 mb-3">
+                    <input type="checkbox" 
+                           name="criteria[${child.id}][selected]" 
+                           value="1" 
+                           ${isSelected ? 'checked' : ''}
+                           onchange="updateCriteriaState(this)"
+                           class="rounded">
+                    <div class="flex-1">
+                      <h4 class="font-medium text-slate-700">${child.name}</h4>
+                      ${child.description ? `<p class="text-xs text-slate-500">${child.description}</p>` : ''}
+                    </div>
+                  </div>
+                  <div class="grid grid-cols-2 gap-4">
+                    <div>
+                      <label class="block text-sm font-medium text-slate-600 mb-1">Weight (%)</label>
+                      <div class="relative">
+                        <input type="number" 
+                               name="criteria[${child.id}][weight]" 
+                               value="${weightPercent}"
+                               step="0.1" 
+                               min="0" 
+                               max="100"
+                               ${!isSelected ? 'disabled' : ''}
+                               onchange="updateTotalWeight()"
+                               class="w-full px-3 py-2 pr-8 border border-slate-300 rounded-lg text-sm">
+                        <span class="absolute right-3 top-2 text-slate-500 text-sm">%</span>
+                      </div>
+                    </div>
+                    <div>
+                      <label class="block text-sm font-medium text-slate-600 mb-1">Max Score</label>
+                      <input type="number" 
+                             name="criteria[${child.id}][max_score]" 
+                             value="${maxScore}"
+                             step="0.01" 
+                             min="1"
+                             ${!isSelected ? 'disabled' : ''}
+                             class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                    </div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
           </div>
         </div>
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="block text-sm font-medium text-slate-600 mb-1">Weight</label>
-            <input type="number" 
-                   name="criteria[${criterion.id}][weight]" 
-                   value="${weight}"
-                   step="0.001" 
-                   min="0" 
-                   max="1"
-                   ${!isSelected ? 'disabled' : ''}
-                   onchange="updateTotalWeight()"
-                   class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+      `;
+      criteriaList.insertAdjacentHTML('beforeend', parentHtml);
+    } else {
+      // Render as standalone criterion
+      const assignment = assignmentMap[parentCriterion.id];
+      const isSelected = !!assignment;
+      const weightDecimal = assignment ? parseFloat(assignment.weight) : 0;
+      const weightPercent = (weightDecimal * 100).toFixed(1);
+      const maxScore = assignment ? assignment.max_score : parentCriterion.default_max_score;
+      
+      const criterionHtml = `
+        <div class="border border-slate-200 rounded-lg p-4 mb-4">
+          <div class="flex items-center gap-3 mb-3">
+            <input type="checkbox" 
+                   name="criteria[${parentCriterion.id}][selected]" 
+                   value="1" 
+                   ${isSelected ? 'checked' : ''}
+                   onchange="updateCriteriaState(this)"
+                   class="rounded">
+            <div class="flex-1">
+              <h4 class="font-medium text-slate-800">${parentCriterion.name}</h4>
+              ${parentCriterion.description ? `<p class="text-sm text-slate-600">${parentCriterion.description}</p>` : ''}
+            </div>
           </div>
-          <div>
-            <label class="block text-sm font-medium text-slate-600 mb-1">Max Score</label>
-            <input type="number" 
-                   name="criteria[${criterion.id}][max_score]" 
-                   value="${maxScore}"
-                   step="0.01" 
-                   min="1"
-                   ${!isSelected ? 'disabled' : ''}
-                   class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-slate-600 mb-1">Weight (%)</label>
+              <div class="relative">
+                <input type="number" 
+                       name="criteria[${parentCriterion.id}][weight]" 
+                       value="${weightPercent}"
+                       step="0.1" 
+                       min="0" 
+                       max="100"
+                       ${!isSelected ? 'disabled' : ''}
+                       onchange="updateTotalWeight()"
+                       class="w-full px-3 py-2 pr-8 border border-slate-300 rounded-lg text-sm">
+                <span class="absolute right-3 top-2 text-slate-500 text-sm">%</span>
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-600 mb-1">Max Score</label>
+              <input type="number" 
+                     name="criteria[${parentCriterion.id}][max_score]" 
+                     value="${maxScore}"
+                     step="0.01" 
+                     min="1"
+                     ${!isSelected ? 'disabled' : ''}
+                     class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+            </div>
           </div>
         </div>
-      </div>
-    `;
-    
-    criteriaList.insertAdjacentHTML('beforeend', criterionHtml);
+      `;
+      criteriaList.insertAdjacentHTML('beforeend', criterionHtml);
+    }
   });
   
   updateTotalWeight();
@@ -656,10 +755,10 @@ function updateTotalWeight() {
   });
   
   const totalElement = document.getElementById('totalWeight');
-  totalElement.textContent = total.toFixed(3);
+  totalElement.textContent = total.toFixed(1) + '%';
   
-  // Visual feedback for weight validation
-  if (Math.abs(total - 1.0) < 0.001) {
+  // Visual feedback for weight validation (should equal 100%)
+  if (Math.abs(total - 100.0) < 0.1) {
     totalElement.className = 'text-lg font-bold text-green-600';
   } else {
     totalElement.className = 'text-lg font-bold text-red-600';
