@@ -186,56 +186,6 @@ include __DIR__ . '/../partials/sidebar_admin.php';
     <?php endif; ?>
 
     <!-- Tie Resolution Methods -->
-    <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20 mb-8">
-      <div class="px-6 py-4 border-b border-white border-opacity-10">
-        <h3 class="text-lg font-semibold text-white">Tie Resolution Methods</h3>
-        <p class="text-sm text-slate-200 mt-1">Configure how ties should be resolved</p>
-      </div>
-      
-      <div class="p-6">
-        <div class="grid md:grid-cols-2 gap-6">
-          <div class="space-y-4">
-            <div class="border border-white border-opacity-10 bg-white bg-opacity-10 rounded-lg p-4">
-              <div class="flex items-center justify-between mb-2">
-                <h4 class="font-medium text-white">Total Score</h4>
-                <span class="px-2 py-1 text-xs bg-green-500 bg-opacity-20 text-green-100 rounded-full">Primary</span>
-              </div>
-              <p class="text-sm text-slate-200 mb-3">Resolve by highest combined score across all rounds</p>
-              <div class="text-xs text-slate-200">Most common tie-breaking method</div>
-            </div>
-
-            <div class="border border-white border-opacity-10 bg-white bg-opacity-10 rounded-lg p-4">
-              <div class="flex items-center justify-between mb-2">
-                <h4 class="font-medium text-white">Final Round Score</h4>
-                <span class="px-2 py-1 text-xs bg-blue-500 bg-opacity-20 text-blue-100 rounded-full">Secondary</span>
-              </div>
-              <p class="text-sm text-slate-200 mb-3">Use final round performance as tiebreaker</p>
-              <div class="text-xs text-slate-200">Commonly used for close competitions</div>
-            </div>
-          </div>
-
-          <div class="space-y-4">
-            <div class="border border-white border-opacity-10 bg-white bg-opacity-10 rounded-lg p-4">
-              <div class="flex items-center justify-between mb-2">
-                <h4 class="font-medium text-white">Judge's Decision</h4>
-                <span class="px-2 py-1 text-xs bg-purple-500 bg-opacity-20 text-purple-100 rounded-full">Manual</span>
-              </div>
-              <p class="text-sm text-slate-200 mb-3">Allow judges to manually resolve ties</p>
-              <div class="text-xs text-slate-200">For complex tie situations</div>
-            </div>
-
-            <div class="border border-white border-opacity-10 bg-white bg-opacity-10 rounded-lg p-4">
-              <div class="flex items-center justify-between mb-2">
-                <h4 class="font-medium text-white">Random Selection</h4>
-                <span class="px-2 py-1 text-xs bg-yellow-500 bg-opacity-20 text-yellow-100 rounded-full">Last Resort</span>
-              </div>
-              <p class="text-sm text-slate-200 mb-3">Random tie resolution when all else fails</p>
-              <div class="text-xs text-slate-200">Used as final fallback method</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
 
     <!-- Current Ties -->
     <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20">
