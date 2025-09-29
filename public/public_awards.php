@@ -50,103 +50,105 @@ if ($pid > 0) {
 
 include __DIR__ . '/../partials/head.php';
 ?>
-<main class="mx-auto max-w-6xl w-full p-6 space-y-8">
-  <div class="text-center mb-8">
-    <h1 class="text-4xl font-bold text-slate-800 mb-2">🏆 Awards & Recognition</h1>
-    <?php if ($pageant): ?>
-      <p class="text-xl text-slate-600"><?php echo htmlspecialchars($pageant['name']); ?></p>
-      <p class="text-sm text-slate-500">Code: <?php echo htmlspecialchars($pageant['code']); ?></p>
-    <?php endif; ?>
-  </div>
-
-  <?php if ($error_message): ?>
-    <div class="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-lg text-center">
-      <svg class="w-6 h-6 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 8.5c-.77.833.192 2.5 1.732 2.5z"/>
-      </svg>
-      <p class="font-medium"><?php echo htmlspecialchars($error_message); ?></p>
-    </div>
-  <?php elseif (!$visibility_flags['reveal_awards']): ?>
-    <!-- Awards not yet revealed -->
-    <div class="text-center py-16">
-      <div class="text-8xl mb-6">🏆</div>
-      <h2 class="text-3xl font-bold text-slate-800 mb-4">Awards Not Yet Revealed</h2>
-      <p class="text-lg text-slate-600 mb-6">The awards ceremony hasn't begun yet.</p>
-      <p class="text-slate-500">Please check back later or stay tuned for the announcement!</p>
-      
-      <div class="mt-8 inline-flex items-center px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg text-blue-700">
-        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-        </svg>
-        <span class="text-sm font-medium">Awards will be announced soon</span>
+<main class="min-h-screen custom-blue-gradient flex flex-col items-center justify-center py-12 px-4">
+  <div class="mx-auto max-w-3xl w-full">
+    <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-2xl shadow-xl border border-white border-opacity-20 p-8 mb-8">
+      <div class="text-center mb-8">
+        <h1 class="text-4xl font-bold text-white mb-2">🏆 Awards & Recognition</h1>
+        <?php if ($pageant): ?>
+          <p class="text-xl text-slate-200"><?php echo htmlspecialchars($pageant['name']); ?></p>
+          <p class="text-sm text-slate-300">Code: <?php echo htmlspecialchars($pageant['code']); ?></p>
+        <?php endif; ?>
       </div>
-    </div>
-  <?php elseif (!empty($awards)): ?>
-    <!-- Awards Grid -->
-    <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-      <?php foreach ($awards as $index => $award): ?>
-        <div class="bg-gradient-to-br from-white to-slate-50 border-2 border-slate-200 rounded-xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1" 
-             style="animation: fadeInUp 0.6s ease-out <?php echo $index * 0.1; ?>s both;">
-          
-          <!-- Award Header -->
-          <div class="text-center border-b border-slate-200 pb-4 mb-4">
-            <div class="text-3xl mb-2">🏅</div>
-            <h3 class="text-xl font-bold text-slate-800"><?php echo htmlspecialchars($award['name']); ?></h3>
-            <p class="text-sm text-slate-500 font-medium mt-1">
-              <?php echo htmlspecialchars($award['division_scope']); ?> Division
-            </p>
-          </div>
-          
-          <!-- Winners List -->
-          <div class="space-y-3">
-            <?php if (!empty($award['winners'])): ?>
-              <?php foreach ($award['winners'] as $winnerIndex => $winner): ?>
-                <div class="flex items-center justify-between p-3 bg-gradient-to-r <?php 
-                  echo $winnerIndex === 0 ? 'from-yellow-100 to-yellow-200 border-yellow-300' : 
-                       ($winnerIndex === 1 ? 'from-gray-100 to-gray-200 border-gray-300' : 'from-orange-100 to-orange-200 border-orange-300'); 
-                ?> border rounded-lg">
-                  <div>
-                    <p class="font-semibold text-slate-800"><?php echo htmlspecialchars($winner['full_name']); ?></p>
-                    <p class="text-sm text-slate-600">#<?php echo htmlspecialchars($winner['number_label']); ?></p>
-                  </div>
-                  <div class="flex items-center">
-                    <span class="inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold <?php 
-                      echo $winnerIndex === 0 ? 'bg-yellow-500 text-white' : 
-                           ($winnerIndex === 1 ? 'bg-gray-500 text-white' : 'bg-orange-500 text-white'); 
-                    ?>">
-                      <?php 
-                        $position = $winnerIndex + 1;
-                        echo $position . ($position === 1 ? 'st' : ($position === 2 ? 'nd' : ($position === 3 ? 'rd' : 'th')));
-                      ?>
-                    </span>
-                  </div>
-                </div>
-              <?php endforeach; ?>
-            <?php else: ?>
-              <div class="text-center py-6 text-slate-400 italic">
-                <p>To be announced</p>
-              </div>
-            <?php endif; ?>
+
+
+      <?php if ($error_message): ?>
+        <div class="bg-red-100 bg-opacity-30 border border-red-300 border-opacity-30 text-red-200 px-6 py-4 rounded-xl text-center mb-6">
+          <svg class="w-6 h-6 mx-auto mb-2 text-red-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 8.5c-.77.833.192 2.5 1.732 2.5z"/>
+          </svg>
+          <p class="font-medium"><?php echo htmlspecialchars($error_message); ?></p>
+        </div>
+      <?php elseif (!$visibility_flags['reveal_awards']): ?>
+        <!-- Awards not yet revealed -->
+        <div class="text-center py-16">
+          <div class="text-8xl mb-6">🏆</div>
+          <h2 class="text-3xl font-bold text-slate-100 mb-4">Awards Not Yet Revealed</h2>
+          <p class="text-lg text-slate-200 mb-6">The awards ceremony hasn't begun yet.</p>
+          <p class="text-slate-300">Please check back later or stay tuned for the announcement!</p>
+          <div class="mt-8 inline-flex items-center px-4 py-2 bg-blue-200 bg-opacity-30 border border-blue-300 border-opacity-30 rounded-lg text-blue-100">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <span class="text-sm font-medium">Awards will be announced soon</span>
           </div>
         </div>
-      <?php endforeach; ?>
+      <?php elseif (!empty($awards)): ?>
+        <!-- Awards Grid -->
+        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <?php foreach ($awards as $index => $award): ?>
+            <div class="bg-white bg-opacity-20 border-2 border-white border-opacity-20 rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1" 
+                 style="animation: fadeInUp 0.6s ease-out <?php echo $index * 0.1; ?>s both;">
+              <!-- Award Header -->
+              <div class="text-center border-b border-white border-opacity-20 pb-4 mb-4">
+                <div class="text-3xl mb-2">🏅</div>
+                <h3 class="text-xl font-bold text-slate-100"><?php echo htmlspecialchars($award['name']); ?></h3>
+                <p class="text-sm text-slate-200 font-medium mt-1">
+                  <?php echo htmlspecialchars($award['division_scope']); ?> Division
+                </p>
+              </div>
+              <!-- Winners List -->
+              <div class="space-y-3">
+                <?php if (!empty($award['winners'])): ?>
+                  <?php foreach ($award['winners'] as $winnerIndex => $winner): ?>
+                    <div class="flex items-center justify-between p-3 bg-gradient-to-r <?php 
+                      echo $winnerIndex === 0 ? 'from-yellow-200 to-yellow-300 border-yellow-400' : 
+                           ($winnerIndex === 1 ? 'from-gray-200 to-gray-300 border-gray-400' : 'from-orange-200 to-orange-300 border-orange-400'); 
+                    ?> border rounded-lg">
+                      <div>
+                        <p class="font-semibold text-slate-100"><?php echo htmlspecialchars($winner['full_name']); ?></p>
+                        <p class="text-sm text-slate-200">#<?php echo htmlspecialchars($winner['number_label']); ?></p>
+                      </div>
+                      <div class="flex items-center">
+                        <span class="inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold <?php 
+                          echo $winnerIndex === 0 ? 'bg-yellow-500 text-white' : 
+                               ($winnerIndex === 1 ? 'bg-gray-500 text-white' : 'bg-orange-500 text-white'); 
+                        ?>">
+                          <?php 
+                            $position = $winnerIndex + 1;
+                            echo $position . ($position === 1 ? 'st' : ($position === 2 ? 'nd' : ($position === 3 ? 'rd' : 'th')));
+                          ?>
+                        </span>
+                      </div>
+                    </div>
+                  <?php endforeach; ?>
+                <?php else: ?>
+                  <div class="text-center py-6 text-slate-300 italic">
+                    <p>To be announced</p>
+                  </div>
+                <?php endif; ?>
+              </div>
+            </div>
+          <?php endforeach; ?>
+        </div>
+      <?php else: ?>
+        <!-- No awards yet -->
+        <div class="text-center py-16">
+          <div class="text-8xl mb-6">🏅</div>
+          <h2 class="text-3xl font-bold text-slate-100 mb-4">No Awards Available</h2>
+          <p class="text-lg text-slate-200 mb-6">Awards have not been set up for this pageant yet.</p>
+          <p class="text-slate-300">Please check back later!</p>
+        </div>
+      <?php endif; ?>
+
+      <!-- Auto-refresh notice -->
+      <div class="text-center text-sm text-slate-200 mt-8">
+        <p>Awards are updated in real-time. Last updated: <?php echo date('g:i A'); ?></p>
+        <button onclick="location.reload()" class="mt-2 text-blue-200 hover:text-blue-100 font-medium transition-colors">
+          🔄 Refresh Awards
+        </button>
+      </div>
     </div>
-  <?php else: ?>
-    <!-- No awards yet -->
-    <div class="text-center py-16">
-      <div class="text-8xl mb-6">🏅</div>
-      <h2 class="text-3xl font-bold text-slate-800 mb-4">No Awards Available</h2>
-      <p class="text-lg text-slate-600 mb-6">Awards have not been set up for this pageant yet.</p>
-      <p class="text-slate-500">Please check back later!</p>
-    </div>
-  <?php endif; ?>
-  
-  <!-- Auto-refresh notice -->
-  <div class="text-center text-sm text-slate-500 mt-8">
-    <p>Awards are updated in real-time. Last updated: <?php echo date('g:i A'); ?></p>
-    <button onclick="location.reload()" class="mt-2 text-blue-600 hover:text-blue-700 font-medium transition-colors">
-      🔄 Refresh Awards
-    </button>
   </div>
 </main>
 
