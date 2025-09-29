@@ -127,10 +127,10 @@ include __DIR__ . '/../partials/sidebar_admin.php';
     <div class="mb-8">
       <div class="flex items-center justify-between">
         <div>
-          <h1 class="text-3xl font-bold text-slate-800 mb-2">Tie Resolution</h1>
-          <p class="text-slate-600">Manage and resolve scoring ties between participants</p>
+          <h1 class="text-3xl font-bold text-white mb-2">Tie Resolution</h1>
+          <p class="text-slate-200">Manage and resolve scoring ties between participants</p>
         </div>
-        <button onclick="refreshTies()" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-3 rounded-lg transition-colors flex items-center gap-2">
+  <button onclick="refreshTies()" class="bg-blue-500 bg-opacity-30 hover:bg-blue-600 hover:bg-opacity-40 text-white font-medium px-6 py-3 rounded-lg transition-colors flex items-center gap-2 border border-white border-opacity-20 backdrop-blur-md">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
           </svg>
@@ -141,44 +141,44 @@ include __DIR__ . '/../partials/sidebar_admin.php';
 
     <!-- Status Cards -->
     <div class="grid md:grid-cols-3 gap-6 mb-8">
-      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+      <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20 p-6">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="text-sm font-medium text-slate-600">Total Participants</h3>
+          <h3 class="text-sm font-medium text-slate-200">Total Participants</h3>
           <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
           </svg>
         </div>
-        <p class="text-3xl font-bold text-slate-800 mb-1"><?php echo $participants_count; ?></p>
-        <p class="text-sm text-slate-600">Active contestants</p>
+  <p class="text-3xl font-bold text-white mb-1"><?php echo $participants_count; ?></p>
+  <p class="text-sm text-slate-200">Active contestants</p>
       </div>
 
-      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+  <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20 p-6">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="text-sm font-medium text-slate-600">Scored Rounds</h3>
+          <h3 class="text-sm font-medium text-slate-200">Scored Rounds</h3>
           <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
           </svg>
         </div>
-        <p class="text-3xl font-bold text-slate-800 mb-1"><?php echo $finalized_rounds; ?></p>
-        <p class="text-sm text-slate-600">Completed rounds</p>
+  <p class="text-3xl font-bold text-white mb-1"><?php echo $finalized_rounds; ?></p>
+  <p class="text-sm text-slate-200">Completed rounds</p>
       </div>
 
-      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+  <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20 p-6">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="text-sm font-medium text-slate-600">Detected Ties</h3>
+          <h3 class="text-sm font-medium text-slate-200">Detected Ties</h3>
           <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
           </svg>
         </div>
-        <p class="text-3xl font-bold text-slate-800 mb-1"><?php echo $ties_count; ?></p>
-        <p class="text-sm text-slate-600">Pending resolution</p>
+  <p class="text-3xl font-bold text-white mb-1"><?php echo $ties_count; ?></p>
+  <p class="text-sm text-slate-200">Pending resolution</p>
       </div>
     </div>
 
     <!-- Success/Error Messages -->
     <?php if (isset($success_message)): ?>
-      <div class="bg-green-50 border border-green-200 text-green-700 px-6 py-4 rounded-lg text-sm mb-6 flex items-center gap-3">
-        <svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+      <div class="bg-green-500 bg-opacity-20 backdrop-blur-sm border border-green-400 border-opacity-30 text-green-100 px-6 py-4 rounded-lg text-sm mb-6 flex items-center gap-3">
+        <svg class="w-5 h-5 text-green-200" fill="currentColor" viewBox="0 0 20 20">
           <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
         </svg>
         <?= htmlspecialchars($success_message, ENT_QUOTES, 'UTF-8') ?>
@@ -186,51 +186,51 @@ include __DIR__ . '/../partials/sidebar_admin.php';
     <?php endif; ?>
 
     <!-- Tie Resolution Methods -->
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 mb-8">
-      <div class="px-6 py-4 border-b border-slate-200">
-        <h3 class="text-lg font-semibold text-slate-800">Tie Resolution Methods</h3>
-        <p class="text-sm text-slate-600 mt-1">Configure how ties should be resolved</p>
+    <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20 mb-8">
+      <div class="px-6 py-4 border-b border-white border-opacity-10">
+        <h3 class="text-lg font-semibold text-white">Tie Resolution Methods</h3>
+        <p class="text-sm text-slate-200 mt-1">Configure how ties should be resolved</p>
       </div>
       
       <div class="p-6">
         <div class="grid md:grid-cols-2 gap-6">
           <div class="space-y-4">
-            <div class="border border-slate-200 rounded-lg p-4">
+            <div class="border border-white border-opacity-10 bg-white bg-opacity-10 rounded-lg p-4">
               <div class="flex items-center justify-between mb-2">
-                <h4 class="font-medium text-slate-800">Total Score</h4>
-                <span class="px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">Primary</span>
+                <h4 class="font-medium text-white">Total Score</h4>
+                <span class="px-2 py-1 text-xs bg-green-500 bg-opacity-20 text-green-100 rounded-full">Primary</span>
               </div>
-              <p class="text-sm text-slate-600 mb-3">Resolve by highest combined score across all rounds</p>
-              <div class="text-xs text-slate-500">Most common tie-breaking method</div>
+              <p class="text-sm text-slate-200 mb-3">Resolve by highest combined score across all rounds</p>
+              <div class="text-xs text-slate-200">Most common tie-breaking method</div>
             </div>
 
-            <div class="border border-slate-200 rounded-lg p-4">
+            <div class="border border-white border-opacity-10 bg-white bg-opacity-10 rounded-lg p-4">
               <div class="flex items-center justify-between mb-2">
-                <h4 class="font-medium text-slate-800">Final Round Score</h4>
-                <span class="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">Secondary</span>
+                <h4 class="font-medium text-white">Final Round Score</h4>
+                <span class="px-2 py-1 text-xs bg-blue-500 bg-opacity-20 text-blue-100 rounded-full">Secondary</span>
               </div>
-              <p class="text-sm text-slate-600 mb-3">Use final round performance as tiebreaker</p>
-              <div class="text-xs text-slate-500">Commonly used for close competitions</div>
+              <p class="text-sm text-slate-200 mb-3">Use final round performance as tiebreaker</p>
+              <div class="text-xs text-slate-200">Commonly used for close competitions</div>
             </div>
           </div>
 
           <div class="space-y-4">
-            <div class="border border-slate-200 rounded-lg p-4">
+            <div class="border border-white border-opacity-10 bg-white bg-opacity-10 rounded-lg p-4">
               <div class="flex items-center justify-between mb-2">
-                <h4 class="font-medium text-slate-800">Judge's Decision</h4>
-                <span class="px-2 py-1 text-xs bg-purple-100 text-purple-800 rounded-full">Manual</span>
+                <h4 class="font-medium text-white">Judge's Decision</h4>
+                <span class="px-2 py-1 text-xs bg-purple-500 bg-opacity-20 text-purple-100 rounded-full">Manual</span>
               </div>
-              <p class="text-sm text-slate-600 mb-3">Allow judges to manually resolve ties</p>
-              <div class="text-xs text-slate-500">For complex tie situations</div>
+              <p class="text-sm text-slate-200 mb-3">Allow judges to manually resolve ties</p>
+              <div class="text-xs text-slate-200">For complex tie situations</div>
             </div>
 
-            <div class="border border-slate-200 rounded-lg p-4">
+            <div class="border border-white border-opacity-10 bg-white bg-opacity-10 rounded-lg p-4">
               <div class="flex items-center justify-between mb-2">
-                <h4 class="font-medium text-slate-800">Random Selection</h4>
-                <span class="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full">Last Resort</span>
+                <h4 class="font-medium text-white">Random Selection</h4>
+                <span class="px-2 py-1 text-xs bg-yellow-500 bg-opacity-20 text-yellow-100 rounded-full">Last Resort</span>
               </div>
-              <p class="text-sm text-slate-600 mb-3">Random tie resolution when all else fails</p>
-              <div class="text-xs text-slate-500">Used as final fallback method</div>
+              <p class="text-sm text-slate-200 mb-3">Random tie resolution when all else fails</p>
+              <div class="text-xs text-slate-200">Used as final fallback method</div>
             </div>
           </div>
         </div>
@@ -238,26 +238,26 @@ include __DIR__ . '/../partials/sidebar_admin.php';
     </div>
 
     <!-- Current Ties -->
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200">
-      <div class="px-6 py-4 border-b border-slate-200">
-        <h3 class="text-lg font-semibold text-slate-800">Current Ties</h3>
-        <p class="text-sm text-slate-600 mt-1">Detected ties requiring resolution</p>
+    <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20">
+      <div class="px-6 py-4 border-b border-white border-opacity-10">
+        <h3 class="text-lg font-semibold text-white">Current Ties</h3>
+        <p class="text-sm text-slate-200 mt-1">Detected ties requiring resolution</p>
       </div>
       
       <div class="p-6">
         <?php if (empty($ties_detected)): ?>
           <div class="text-center py-12">
-            <svg class="mx-auto h-12 w-12 text-slate-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="mx-auto h-12 w-12 text-white opacity-40 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
-            <h3 class="text-sm font-medium text-slate-900 mb-2">No ties detected</h3>
-            <p class="text-sm text-slate-500 mb-6">All participants have unique scores, or no completed rounds available.</p>
+            <h3 class="text-sm font-medium text-white mb-2">No ties detected</h3>
+            <p class="text-sm text-slate-200 mb-6">All participants have unique scores, or no completed rounds available.</p>
             
             <div class="flex flex-col sm:flex-row gap-4 justify-center">
-              <button onclick="location.reload()" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-3 rounded-lg transition-colors">
+              <button onclick="location.reload()" class="bg-blue-500 bg-opacity-30 hover:bg-blue-600 hover:bg-opacity-40 text-white font-medium px-6 py-3 rounded-lg transition-colors border border-white border-opacity-20 backdrop-blur-md">
                 Refresh Scan
               </button>
-              <a href="rounds.php" class="bg-slate-600 hover:bg-slate-700 text-white font-medium px-6 py-3 rounded-lg transition-colors">
+              <a href="rounds.php" class="bg-white bg-opacity-10 hover:bg-white hover:bg-opacity-20 text-white font-medium px-6 py-3 rounded-lg transition-colors border border-white border-opacity-10 backdrop-blur-md">
                 Manage Rounds
               </a>
             </div>
@@ -265,33 +265,33 @@ include __DIR__ . '/../partials/sidebar_admin.php';
         <?php else: ?>
           <div class="space-y-6">
             <?php foreach ($ties_detected as $index => $tie_group): ?>
-              <div class="border border-amber-200 bg-amber-50 rounded-lg p-6">
+              <div class="border border-amber-200 bg-amber-100 bg-opacity-10 rounded-lg p-6">
                 <div class="flex items-center justify-between mb-4">
-                  <h4 class="text-lg font-semibold text-amber-800">
+                  <h4 class="text-lg font-semibold text-amber-200">
                     Tie Group <?php echo $index + 1; ?> - Score: <?php echo number_format($tie_group[0]['total_score'], 2); ?>
                   </h4>
-                  <span class="px-3 py-1 text-sm bg-amber-200 text-amber-800 rounded-full">
+                  <span class="px-3 py-1 text-sm bg-amber-200 bg-opacity-20 text-amber-100 rounded-full">
                     <?php echo count($tie_group); ?> participants tied
                   </span>
                 </div>
                 
                 <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
                   <?php foreach ($tie_group as $participant): ?>
-                    <div class="bg-white border border-amber-200 rounded-lg p-4">
+                    <div class="bg-white bg-opacity-10 border border-amber-200 border-opacity-20 rounded-lg p-4">
                       <div class="flex items-center justify-between mb-2">
-                        <h5 class="font-medium text-slate-800">#<?php echo $participant['number_label']; ?></h5>
-                        <span class="text-sm text-slate-600">Score: <?php echo number_format($participant['total_score'], 2); ?></span>
+                        <h5 class="font-medium text-white">#<?php echo $participant['number_label']; ?></h5>
+                        <span class="text-sm text-slate-200">Score: <?php echo number_format($participant['total_score'], 2); ?></span>
                       </div>
-                      <p class="text-sm text-slate-600 mb-3"><?php echo htmlspecialchars($participant['full_name']); ?></p>
+                      <p class="text-sm text-slate-200 mb-3"><?php echo htmlspecialchars($participant['full_name']); ?></p>
                       <button onclick="resolveTie('<?php echo $index; ?>', <?php echo $participant['id']; ?>, '<?php echo htmlspecialchars($participant['full_name']); ?>')" 
-                              class="w-full bg-green-600 hover:bg-green-700 text-white text-sm font-medium px-3 py-2 rounded transition-colors">
+                              class="w-full bg-green-500 bg-opacity-30 hover:bg-green-600 hover:bg-opacity-40 text-white text-sm font-medium px-3 py-2 rounded transition-colors border border-white border-opacity-20 backdrop-blur-md">
                         Select as Winner
                       </button>
                     </div>
                   <?php endforeach; ?>
                 </div>
                 
-                <div class="flex items-center gap-3 text-sm text-amber-700">
+                <div class="flex items-center gap-3 text-sm text-amber-200">
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                   </svg>
@@ -305,14 +305,14 @@ include __DIR__ . '/../partials/sidebar_admin.php';
     </div>
 
     <!-- Information Panel -->
-    <div class="mt-8 bg-blue-50 border border-blue-200 rounded-xl p-6">
+    <div class="mt-8 bg-white bg-opacity-10 border border-blue-400 border-opacity-20 rounded-xl p-6 backdrop-blur-md">
       <div class="flex items-start gap-3">
-        <svg class="w-6 h-6 text-blue-600 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg class="w-6 h-6 text-blue-300 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
         </svg>
         <div>
-          <h4 class="font-semibold text-blue-800 mb-2">About Tie Resolution</h4>
-          <div class="text-sm text-blue-700 space-y-2">
+          <h4 class="font-semibold text-blue-200 mb-2">About Tie Resolution</h4>
+          <div class="text-sm text-blue-100 space-y-2">
             <p>• Ties are automatically detected when participants have identical total scores</p>
             <p>• The system supports multiple tie-breaking methods in order of priority</p>
             <p>• Manual resolution allows judges to make final decisions on close calls</p>

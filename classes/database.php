@@ -147,7 +147,7 @@ class database {
         $con = $this->opencon();
         
         // Get settings from pageant_settings table
-        $stmt = $con->prepare("SELECT setting_key, setting_value FROM pageant_settings WHERE setting_key IN ('reveal_names', 'reveal_scores', 'reveal_awards')");
+        $stmt = $con->prepare("SELECT setting_key, setting_value FROM pageant_settings WHERE setting_key IN ('reveal_names', 'reveal_scores', 'reveal_awards', 'reveal_numbers')");
         $stmt->execute();
         $result = $stmt->get_result();
         
@@ -155,7 +155,8 @@ class database {
         $flags = [
             'reveal_names' => false,
             'reveal_scores' => false,
-            'reveal_awards' => false
+            'reveal_awards' => false,
+            'reveal_numbers' => false
         ];
         
         // Update flags based on database values
