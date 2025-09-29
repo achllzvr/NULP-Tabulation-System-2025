@@ -132,15 +132,50 @@ $conn->close();
 
 $pageTitle = 'Judge Active Round';
 include __DIR__ . '/../partials/head.php';
-include __DIR__ . '/../partials/nav_judge.php';
 ?>
-<main class="mx-auto max-w-4xl w-full p-6 space-y-6">
-  <div class="flex items-center justify-between mb-6">
-    <h1 class="text-2xl font-bold text-white">Judge Scoring Panel</h1>
-    <div class="text-sm text-slate-200">
-      Welcome, <?= htmlspecialchars($_SESSION['judgeFN'] ?? 'Judge', ENT_QUOTES, 'UTF-8') ?>
+
+<!-- Judge Navigation -->
+<nav class="bg-white bg-opacity-10 backdrop-blur-sm border-b border-white border-opacity-20">
+  <div class="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 flex items-center justify-between h-14">
+    <div class="flex items-center gap-6">
+      <div class="font-semibold text-white">Judge Panel</div>
+      <ul class="flex gap-4 text-sm">
+        <li>
+          <a href="judge_active.php" class="px-2 py-1 rounded bg-blue-600 bg-opacity-80 text-white">Active Round</a>
+        </li>
+      </ul>
+    </div>
+    <div class="flex items-center gap-4">
+      <span class="text-sm text-slate-200">Welcome, <?= htmlspecialchars($_SESSION['judgeFN'] ?? 'Judge', ENT_QUOTES, 'UTF-8') ?></span>
+      <form method="post" action="../logout.php" class="inline" id="logoutForm">
+        <button type="button" class="text-sm text-slate-200 hover:text-white transition-colors" onclick="confirmLogout()">Logout</button>
+      </form>
     </div>
   </div>
+</nav>
+
+<main class="mx-auto max-w-4xl w-full p-6 space-y-6">
+  <div class="text-center mb-6">
+    <h1 class="text-2xl font-bold text-white">Judge Scoring Panel</h1>
+  </div>
+
+<script>
+function confirmLogout() {
+  if (typeof showConfirm === 'function') {
+    showConfirm('Confirm Logout', 'Are you sure you want to logout?', 'Yes, Logout', 'Cancel')
+    .then((result) => {
+      if (result.isConfirmed) {
+        document.getElementById('logoutForm').submit();
+      }
+    });
+  } else {
+    // Fallback to native confirm if SweetAlert2 isn't loaded yet
+    if (confirm('Are you sure you want to logout?')) {
+      document.getElementById('logoutForm').submit();
+    }
+  }
+}
+</script>
 
   <?php if (isset($success_message)): ?>
     <div class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded text-sm">
