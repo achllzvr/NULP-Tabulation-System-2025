@@ -53,67 +53,67 @@ $ties_detected = [];
 $ties_count = 0;
 
 if ($finalized_rounds > 0) {
-    // Query to find ties - participants with same total score
-    $tie_query = "
-        SELECT 
-            t1.id,
-            t1.full_name,
-            t1.number_label,
-            t1.total_score,
-            COUNT(*) as tie_count
-        FROM (
-            SELECT 
-                p.id,
-                p.full_name,
-                p.number_label,
-                COALESCE(SUM(COALESCE(s.override_score, s.raw_score) * (rc.weight / 100.0)), 0) as total_score
-            FROM participants p
-            LEFT JOIN scores s ON p.id = s.participant_id
-            LEFT JOIN round_criteria rc ON s.criterion_id = rc.id
-            LEFT JOIN rounds r ON rc.round_id = r.id
-            WHERE p.pageant_id = ? AND p.is_active = 1 AND (r.state = 'FINALIZED' OR r.state IS NULL)
-            GROUP BY p.id, p.full_name, p.number_label
-        ) t1
-        INNER JOIN (
-            SELECT 
-                p.id,
-                COALESCE(SUM(COALESCE(s.override_score, s.raw_score) * (rc.weight / 100.0)), 0) as total_score
-            FROM participants p
-            LEFT JOIN scores s ON p.id = s.participant_id
-            LEFT JOIN round_criteria rc ON s.criterion_id = rc.id
-            LEFT JOIN rounds r ON rc.round_id = r.id
-            WHERE p.pageant_id = ? AND p.is_active = 1 AND (r.state = 'FINALIZED' OR r.state IS NULL)
-            GROUP BY p.id
-        ) t2 ON t1.total_score = t2.total_score
-        GROUP BY t1.id, t1.full_name, t1.number_label, t1.total_score
-        HAVING tie_count > 1
-        ORDER BY t1.total_score DESC, t1.number_label ASC
-    ";
+    // First, get all participants with their total scores using the same logic as leaderboard
+    $participants_with_scores = [];
     
-    $stmt = $conn->prepare($tie_query);
-    $stmt->bind_param("ii", $pageant_id, $pageant_id);
+    // Get all finalized rounds
+    $rounds_query = "SELECT id FROM rounds WHERE pageant_id = ? AND state = 'FINALIZED'";
+    $stmt = $conn->prepare($rounds_query);
+    $stmt->bind_param("i", $pageant_id);
     $stmt->execute();
-    $result = $stmt->get_result();
+    $rounds_result = $stmt->get_result();
+    $round_ids = [];
+    while ($round = $rounds_result->fetch_assoc()) {
+        $round_ids[] = $round['id'];
+    }
+    $stmt->close();
     
-    $current_score = null;
-    $current_group = [];
-    
-    while ($row = $result->fetch_assoc()) {
-        if ($current_score !== $row['total_score']) {
-            if (!empty($current_group)) {
-                $ties_detected[] = $current_group;
+    if (!empty($round_ids)) {
+        $round_ids_placeholder = implode(',', array_fill(0, count($round_ids), '?'));
+        
+        // Get participant scores for all finalized rounds
+        $score_query = "SELECT 
+            p.id,
+            p.full_name,
+            p.number_label,
+            d.name as division,
+            COALESCE(SUM(COALESCE(s.override_score, s.raw_score) * rc.weight), 0) as total_score
+        FROM participants p
+        JOIN divisions d ON p.division_id = d.id
+        LEFT JOIN scores s ON p.id = s.participant_id
+        LEFT JOIN round_criteria rc ON s.criterion_id = rc.criterion_id AND rc.round_id IN ($round_ids_placeholder)
+        WHERE p.pageant_id = ? AND p.is_active = 1
+        GROUP BY p.id, p.full_name, p.number_label, d.name
+        HAVING total_score >= 0
+        ORDER BY total_score DESC, p.full_name ASC";
+        
+        $params = array_merge([$pageant_id], $round_ids);
+        $types = str_repeat('i', count($params));
+        
+        $stmt = $conn->prepare($score_query);
+        $stmt->bind_param($types, ...$params);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        while ($row = $result->fetch_assoc()) {
+            $score = round($row['total_score'], 2);
+            $score_key = (string)$score; // Convert to string to avoid float-to-int conversion warnings
+            if (!isset($participants_with_scores[$score_key])) {
+                $participants_with_scores[$score_key] = [];
             }
-            $current_group = [];
-            $current_score = $row['total_score'];
+            $participants_with_scores[$score_key][] = $row;
         }
-        $current_group[] = $row;
+        $stmt->close();
+        
+        // Find ties - groups with more than one participant at the same score
+        foreach ($participants_with_scores as $score => $participants) {
+            if (count($participants) > 1) {
+                $ties_detected[] = $participants;
+            }
+        }
+        
+        $ties_count = count($ties_detected);
     }
-    
-    if (!empty($current_group)) {
-        $ties_detected[] = $current_group;
-    }
-    
-    $ties_count = count($ties_detected);
 }
 
 $conn->close();
