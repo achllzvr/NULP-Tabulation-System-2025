@@ -59,28 +59,35 @@ $pageTitle = 'Admin Login';
 include __DIR__ . '/partials/head.php';
 ?>
 
-<main class="mx-auto max-w-sm w-full p-6 space-y-6">
-    <h1 class="text-xl font-semibold text-white">Admin Login</h1>
+<main class="mx-auto max-w-sm w-full p-8 space-y-6 bg-white bg-opacity-15 backdrop-blur-md rounded-2xl shadow-2xl border border-white border-opacity-20">
+    <div class="text-center">
+        <h1 class="text-2xl font-semibold text-white mb-2">Admin Login</h1>
+        <div class="w-12 h-12 bg-blue-500 bg-opacity-30 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg class="w-6 h-6 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.031 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+            </svg>
+        </div>
+    </div>
     
     <?php if (isset($error_message)): ?>
-        <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
+        <div class="bg-red-500 bg-opacity-20 backdrop-blur-sm border border-red-400 border-opacity-50 text-red-200 px-4 py-3 rounded-lg text-sm">
             <?= htmlspecialchars($error_message, ENT_QUOTES, 'UTF-8') ?>
         </div>
     <?php endif; ?>
     
     <form id="adminLoginForm" method="POST" class="space-y-4">
         <div>
-            <label class="block text-sm font-medium text-slate-200 mb-1">Username</label>
-            <input name="username" type="text" required class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring focus:border-blue-500" />
+            <label class="block text-sm font-medium text-slate-200 mb-2">Username</label>
+            <input name="username" type="text" required class="w-full bg-white bg-opacity-20 backdrop-blur-sm border border-white border-opacity-30 rounded-lg px-4 py-3 text-sm text-white placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-50 focus:border-opacity-50 transition-all" placeholder="Enter your username" />
         </div>
         <div>
-            <label class="block text-sm font-medium text-slate-200 mb-1">Password</label>
-            <input name="password" type="password" required class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring focus:border-blue-500" />
+            <label class="block text-sm font-medium text-slate-200 mb-2">Password</label>
+            <input name="password" type="password" required class="w-full bg-white bg-opacity-20 backdrop-blur-sm border border-white border-opacity-30 rounded-lg px-4 py-3 text-sm text-white placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-50 focus:border-opacity-50 transition-all" placeholder="Enter your password" />
         </div>
-        <button name="login" type="submit" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded w-full transition-all">Login</button>
+        <button name="login" type="submit" class="w-full bg-blue-500 bg-opacity-30 backdrop-blur-sm hover:bg-opacity-40 text-white font-medium px-4 py-3 rounded-lg border border-blue-400 border-opacity-50 hover:border-opacity-70 transition-all duration-300 transform hover:scale-105">Login</button>
     </form>
     
-    <p class="text-xs text-slate-300">You are accessing the administration portal.</p>
+    <p class="text-xs text-slate-300 text-center">You are accessing the administration portal.</p>
 </main>
 
 <?php if (isset($show_error_alert)): ?>

@@ -34,17 +34,17 @@ include __DIR__ . '/partials/head.php';
     <!-- Portal Cards -->
     <div class="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
       <!-- Admin Portal -->
-      <a href="login_admin.php" class="group block bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 border border-slate-200 hover:border-blue-300">
+      <a href="login_admin.php" class="group block bg-white bg-opacity-15 backdrop-blur-md rounded-2xl p-8 shadow-xl hover:shadow-2xl transition-all duration-300 border border-white border-opacity-20 hover:border-opacity-40 hover:bg-opacity-20">
         <div class="text-center">
-          <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:bg-blue-200 transition-colors">
-            <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div class="w-16 h-16 bg-blue-500 bg-opacity-20 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-6 group-hover:bg-opacity-30 transition-all duration-300">
+            <svg class="w-8 h-8 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.031 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
             </svg>
           </div>
-          <h2 class="text-xl font-semibold text-slate-800 mb-3">Admin Portal</h2>
-          <p class="text-slate-600 leading-relaxed">Manage participants, judges, rounds, and control the entire pageant flow</p>
+          <h2 class="text-xl font-semibold text-white mb-3">Admin Portal</h2>
+          <p class="text-slate-200 leading-relaxed">Manage participants, judges, rounds, and control the entire pageant flow</p>
           <div class="mt-6">
-            <span class="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-medium rounded-lg group-hover:bg-blue-700 transition-colors">
+            <span class="inline-flex items-center px-6 py-3 bg-blue-500 bg-opacity-30 backdrop-blur-sm text-white font-medium rounded-lg border border-blue-400 border-opacity-50 group-hover:bg-opacity-40 group-hover:border-opacity-70 transition-all duration-300">
               Access Admin Dashboard
             </span>
           </div>
@@ -52,17 +52,17 @@ include __DIR__ . '/partials/head.php';
       </a>
 
       <!-- Judge Portal -->
-      <a href="login_judge.php" class="group block bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 border border-slate-200 hover:border-orange-300">
+      <a href="login_judge.php" class="group block bg-white bg-opacity-15 backdrop-blur-md rounded-2xl p-8 shadow-xl hover:shadow-2xl transition-all duration-300 border border-white border-opacity-20 hover:border-opacity-40 hover:bg-opacity-20">
         <div class="text-center">
-          <div class="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:bg-orange-200 transition-colors">
-            <svg class="w-8 h-8 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div class="w-16 h-16 bg-orange-500 bg-opacity-20 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-6 group-hover:bg-opacity-30 transition-all duration-300">
+            <svg class="w-8 h-8 text-orange-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
             </svg>
           </div>
-          <h2 class="text-xl font-semibold text-slate-800 mb-3">Judge Portal</h2>
-          <p class="text-slate-600 leading-relaxed">Submit scores for active rounds and view your judging history</p>
+          <h2 class="text-xl font-semibold text-white mb-3">Judge Portal</h2>
+          <p class="text-slate-200 leading-relaxed">Submit scores for active rounds and view your judging history</p>
           <div class="mt-6">
-            <span class="inline-flex items-center px-6 py-3 bg-orange-600 text-white font-medium rounded-lg group-hover:bg-orange-700 transition-colors">
+            <span class="inline-flex items-center px-6 py-3 bg-orange-500 bg-opacity-30 backdrop-blur-sm text-white font-medium rounded-lg border border-orange-400 border-opacity-50 group-hover:bg-opacity-40 group-hover:border-opacity-70 transition-all duration-300">
               Judge Login
             </span>
           </div>
@@ -70,18 +70,18 @@ include __DIR__ . '/partials/head.php';
       </a>
 
       <!-- Public Results -->
-      <a href="public/public_select.php" class="group block bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 border border-slate-200 hover:border-green-300">
+      <a href="public/public_select.php" class="group block bg-white bg-opacity-15 backdrop-blur-md rounded-2xl p-8 shadow-xl hover:shadow-2xl transition-all duration-300 border border-white border-opacity-20 hover:border-opacity-40 hover:bg-opacity-20">
         <div class="text-center">
-          <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:bg-green-200 transition-colors">
-            <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div class="w-16 h-16 bg-green-500 bg-opacity-20 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-6 group-hover:bg-opacity-30 transition-all duration-300">
+            <svg class="w-8 h-8 text-green-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
             </svg>
           </div>
-          <h2 class="text-xl font-semibold text-slate-800 mb-3">Public Results</h2>
-          <p class="text-slate-600 leading-relaxed">View live leaderboards, final results, and award announcements</p>
+          <h2 class="text-xl font-semibold text-white mb-3">Public Results</h2>
+          <p class="text-slate-200 leading-relaxed">View live leaderboards, final results, and award announcements</p>
           <div class="mt-6">
-            <span class="inline-flex items-center px-6 py-3 bg-green-600 text-white font-medium rounded-lg group-hover:bg-green-700 transition-colors">
+            <span class="inline-flex items-center px-6 py-3 bg-green-500 bg-opacity-30 backdrop-blur-sm text-white font-medium rounded-lg border border-green-400 border-opacity-50 group-hover:bg-opacity-40 group-hover:border-opacity-70 transition-all duration-300">
               View Public Display
             </span>
           </div>
