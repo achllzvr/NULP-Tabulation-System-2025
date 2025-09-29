@@ -120,11 +120,11 @@ include __DIR__ . '/../partials/sidebar_admin.php';
     <div class="mb-8">
       <div class="flex items-center justify-between">
         <div>
-          <h1 class="text-3xl font-bold text-slate-800 mb-2">Advancement Review</h1>
-          <p class="text-slate-600">Select participants to advance to the next round</p>
+          <h1 class="text-3xl font-bold text-white mb-2">Advancement Review</h1>
+          <p class="text-slate-200">Select participants to advance to the next round</p>
         </div>
         <div class="flex gap-3">
-          <select id="advancementCount" onchange="updateAdvancementCount()" class="border border-slate-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+          <select id="advancementCount" onchange="updateAdvancementCount()" class="bg-white bg-opacity-20 backdrop-blur-sm border border-white border-opacity-30 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-50 focus:border-opacity-50 transition-all">
             <option value="3" <?php echo $advancement_count === 3 ? 'selected' : ''; ?>>Top 3</option>
             <option value="5" <?php echo $advancement_count === 5 ? 'selected' : ''; ?>>Top 5</option>
             <option value="10" <?php echo $advancement_count === 10 ? 'selected' : ''; ?>>Top 10</option>
@@ -136,8 +136,8 @@ include __DIR__ . '/../partials/sidebar_admin.php';
 
     <!-- Success/Error Messages -->
     <?php if (isset($success_message)): ?>
-      <div class="bg-green-50 border border-green-200 text-green-700 px-6 py-4 rounded-lg text-sm mb-6 flex items-center gap-3">
-        <svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+      <div class="bg-white bg-opacity-15 backdrop-blur-md border border-white border-opacity-20 text-white px-6 py-4 rounded-xl shadow-sm text-sm mb-6 flex items-center gap-3">
+        <svg class="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
           <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
         </svg>
         <?= htmlspecialchars($success_message, ENT_QUOTES, 'UTF-8') ?>
@@ -145,8 +145,8 @@ include __DIR__ . '/../partials/sidebar_admin.php';
     <?php endif; ?>
 
     <?php if (isset($error_message)): ?>
-      <div class="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-lg text-sm mb-6 flex items-center gap-3">
-        <svg class="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+      <div class="bg-white bg-opacity-15 backdrop-blur-md border border-white border-opacity-20 text-white px-6 py-4 rounded-xl shadow-sm text-sm mb-6 flex items-center gap-3">
+        <svg class="w-5 h-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
           <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
         </svg>
         <?= htmlspecialchars($error_message, ENT_QUOTES, 'UTF-8') ?>
@@ -155,18 +155,18 @@ include __DIR__ . '/../partials/sidebar_admin.php';
 
     <!-- Advancement Confirmed Warning -->
     <?php if ($advancements_confirmed): ?>
-      <div class="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
+  <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20 p-6 mb-6">
         <div class="flex items-start">
-          <svg class="w-6 h-6 text-blue-600 mt-0.5 mr-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="w-6 h-6 text-blue-400 mt-0.5 mr-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
           </svg>
           <div>
-            <h3 class="text-lg font-semibold text-blue-900 mb-2">Advancements Already Confirmed</h3>
-            <p class="text-blue-800 mb-3">
-              Participant advancements have been confirmed for <strong><?php echo htmlspecialchars($next_round_name, ENT_QUOTES, 'UTF-8'); ?></strong>. 
+            <h3 class="text-lg font-semibold text-white mb-2">Advancements Already Confirmed</h3>
+            <p class="text-slate-200 mb-3">
+              Participant advancements have been confirmed for <strong class="text-blue-200"><?php echo htmlspecialchars($next_round_name, ENT_QUOTES, 'UTF-8'); ?></strong>. 
               All advancement controls have been disabled to prevent accidental changes.
             </p>
-            <div class="text-sm text-blue-700">
+            <div class="text-sm text-slate-200">
               <p class="font-medium">If you need to modify advancements:</p>
               <ul class="list-disc list-inside mt-1 space-y-1">
                 <li>Contact system administrator</li>
@@ -183,8 +183,8 @@ include __DIR__ . '/../partials/sidebar_admin.php';
       <div class="grid lg:grid-cols-2 gap-8 mb-8">
         
         <!-- Mr Division -->
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200">
-          <div class="px-6 py-4 border-b border-slate-200 custom-blue-gradient">
+        <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20">
+          <div class="px-6 py-4 border-b border-white border-opacity-10 custom-blue-gradient">
             <h2 class="text-lg font-semibold text-white">Mr Division - Top <?php echo $advancement_count; ?></h2>
             <p class="text-sm text-slate-200 mt-1">Select participants to advance</p>
           </div>
@@ -192,7 +192,7 @@ include __DIR__ . '/../partials/sidebar_admin.php';
           <div class="p-6">
             <?php if (!empty($mr_top)): ?>
               <div class="space-y-3">
-                <div class="flex items-center justify-between text-sm font-medium text-slate-700 border-b pb-2">
+                <div class="flex items-center justify-between text-sm font-medium text-slate-200 border-b border-white border-opacity-10 pb-2">
                   <span>
                     <input type="checkbox" id="selectAllMr" onchange="toggleAllMr(this)" class="mr-2">
                     Select All
@@ -200,25 +200,21 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                   <span>Score</span>
                 </div>
                 <?php foreach ($mr_top as $participant): ?>
-                  <div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-blue-50 transition-colors">
+                  <div class="flex items-center justify-between p-3 bg-white bg-opacity-10 rounded-lg border border-white border-opacity-10 hover:bg-white hover:bg-opacity-15 transition-colors">
                     <div class="flex items-center">
                       <input type="checkbox" name="mr_participants[]" value="<?php echo $participant['id']; ?>" 
                              id="mr_<?php echo $participant['id']; ?>" class="mr-participants-checkbox mr-3">
                       <div>
                         <div class="flex items-center gap-2">
-                          <span class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold <?php 
-                            echo $participant['rank'] === 1 ? 'bg-yellow-100 text-yellow-800' : 
-                                 ($participant['rank'] === 2 ? 'bg-gray-100 text-gray-800' : 
-                                 ($participant['rank'] === 3 ? 'bg-orange-100 text-orange-800' : 'bg-slate-100 text-slate-600')); 
-                          ?>">
+                          <span class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold bg-white bg-opacity-20 text-white border border-white border-opacity-30">
                             <?php echo $participant['rank']; ?>
                           </span>
-                          <span class="font-medium text-slate-800"><?php echo htmlspecialchars($participant['name']); ?></span>
+                          <span class="font-medium text-white"><?php echo htmlspecialchars($participant['name']); ?></span>
                         </div>
-                        <div class="text-sm text-slate-600">#<?php echo htmlspecialchars($participant['number_label']); ?></div>
+                        <div class="text-sm text-slate-200">#<?php echo htmlspecialchars($participant['number_label']); ?></div>
                       </div>
                     </div>
-                    <div class="font-mono font-semibold text-slate-700">
+                    <div class="font-mono font-semibold text-white">
                       <?php echo $participant['score']; ?>
                     </div>
                   </div>
@@ -237,8 +233,8 @@ include __DIR__ . '/../partials/sidebar_admin.php';
         </div>
 
         <!-- Ms Division -->
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200">
-          <div class="px-6 py-4 border-b border-slate-200 custom-blue-gradient">
+        <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20">
+          <div class="px-6 py-4 border-b border-white border-opacity-10 custom-blue-gradient">
             <h2 class="text-lg font-semibold text-white">Ms Division - Top <?php echo $advancement_count; ?></h2>
             <p class="text-sm text-slate-200 mt-1">Select participants to advance</p>
           </div>
@@ -246,7 +242,7 @@ include __DIR__ . '/../partials/sidebar_admin.php';
           <div class="p-6">
             <?php if (!empty($ms_top)): ?>
               <div class="space-y-3">
-                <div class="flex items-center justify-between text-sm font-medium text-slate-700 border-b pb-2">
+                <div class="flex items-center justify-between text-sm font-medium text-slate-200 border-b border-white border-opacity-10 pb-2">
                   <span>
                     <input type="checkbox" id="selectAllMs" onchange="toggleAllMs(this)" class="mr-2">
                     Select All
@@ -254,25 +250,21 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                   <span>Score</span>
                 </div>
                 <?php foreach ($ms_top as $participant): ?>
-                  <div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-pink-50 transition-colors">
+                  <div class="flex items-center justify-between p-3 bg-white bg-opacity-10 rounded-lg border border-white border-opacity-10 hover:bg-white hover:bg-opacity-15 transition-colors">
                     <div class="flex items-center">
                       <input type="checkbox" name="ms_participants[]" value="<?php echo $participant['id']; ?>" 
                              id="ms_<?php echo $participant['id']; ?>" class="ms-participants-checkbox mr-3">
                       <div>
                         <div class="flex items-center gap-2">
-                          <span class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold <?php 
-                            echo $participant['rank'] === 1 ? 'bg-yellow-100 text-yellow-800' : 
-                                 ($participant['rank'] === 2 ? 'bg-gray-100 text-gray-800' : 
-                                 ($participant['rank'] === 3 ? 'bg-orange-100 text-orange-800' : 'bg-slate-100 text-slate-600')); 
-                          ?>">
+                          <span class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold bg-white bg-opacity-20 text-white border border-white border-opacity-30">
                             <?php echo $participant['rank']; ?>
                           </span>
-                          <span class="font-medium text-slate-800"><?php echo htmlspecialchars($participant['name']); ?></span>
+                          <span class="font-medium text-white"><?php echo htmlspecialchars($participant['name']); ?></span>
                         </div>
-                        <div class="text-sm text-slate-600">#<?php echo htmlspecialchars($participant['number_label']); ?></div>
+                        <div class="text-sm text-slate-200">#<?php echo htmlspecialchars($participant['number_label']); ?></div>
                       </div>
                     </div>
-                    <div class="font-mono font-semibold text-slate-700">
+                    <div class="font-mono font-semibold text-white">
                       <?php echo $participant['score']; ?>
                     </div>
                   </div>
@@ -292,22 +284,22 @@ include __DIR__ . '/../partials/sidebar_admin.php';
       </div>
 
       <!-- Action Buttons -->
-      <div class="flex justify-between items-center">
-        <div class="text-sm text-slate-600">
+      <div class="flex justify-between items-center mt-8">
+        <div class="text-sm text-slate-200">
           <span id="selectedCount">0</span> participants selected for advancement
         </div>
         <div class="flex gap-4">
           <button type="button" 
                   onclick="clearAllSelections()" 
                   <?php echo $advancements_confirmed ? 'disabled' : ''; ?>
-                  class="<?php echo $advancements_confirmed ? 'bg-slate-400 cursor-not-allowed' : 'bg-slate-600 hover:bg-slate-700'; ?> text-white font-medium px-6 py-3 rounded-lg transition-colors">
+                  class="<?php echo $advancements_confirmed ? 'bg-white bg-opacity-10 cursor-not-allowed' : 'bg-white bg-opacity-10 hover:bg-white hover:bg-opacity-15'; ?> text-white font-medium px-6 py-3 rounded-lg transition-colors">
             Clear All
           </button>
           <button type="submit" 
                   name="confirm_advancement" 
                   id="confirmButton" 
                   disabled 
-                  class="bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 disabled:cursor-not-allowed text-white font-medium px-6 py-3 rounded-lg transition-colors">
+                  class="bg-blue-500 bg-opacity-30 backdrop-blur-sm hover:bg-blue-500/40 disabled:bg-white disabled:bg-opacity-10 disabled:text-slate-400 disabled:cursor-not-allowed text-white font-medium px-6 py-3 rounded-lg border border-blue-400 border-opacity-50 transition-colors">
             <?php echo $advancements_confirmed ? 'Advancement Confirmed' : 'Confirm Advancement'; ?>
           </button>
         </div>
