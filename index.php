@@ -76,7 +76,7 @@ include __DIR__ . '/partials/head.php';
       </button>
 
       <!-- Public Results -->
-      <a href="public/public_select.php" class="group block bg-white bg-opacity-15 backdrop-blur-md rounded-2xl p-8 shadow-xl hover:shadow-2xl transition-all duration-300 border border-white border-opacity-20 hover:border-opacity-40 hover:bg-opacity-20 w-80 min-h-[340px] flex-shrink-0">
+      <button onclick="openPublicResultsModal()" class="group block bg-white bg-opacity-15 backdrop-blur-md rounded-2xl p-8 shadow-xl hover:shadow-2xl transition-all duration-300 border border-white border-opacity-20 hover:border-opacity-40 hover:bg-opacity-20 w-80 min-h-[340px] flex-shrink-0">
         <div class="text-center flex flex-col h-full justify-between">
           <div>
             <div class="w-16 h-16 bg-green-500 bg-opacity-20 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-6 group-hover:bg-opacity-30 transition-all duration-300">
@@ -94,7 +94,8 @@ include __DIR__ . '/partials/head.php';
             </span>
           </div>
         </div>
-      </a>
+      </button>
+<?php include __DIR__ . '/components/public_results_modal.php'; ?>
     </div>
   </div>
 </main>
