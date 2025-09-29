@@ -184,9 +184,9 @@ include __DIR__ . '/../partials/sidebar_admin.php';
         
         <!-- Mr Division -->
         <div class="bg-white rounded-xl shadow-sm border border-slate-200">
-          <div class="px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-blue-100">
-            <h2 class="text-lg font-semibold text-slate-800">Mr Division - Top <?php echo $advancement_count; ?></h2>
-            <p class="text-sm text-slate-600 mt-1">Select participants to advance</p>
+          <div class="px-6 py-4 border-b border-slate-200 custom-blue-gradient">
+            <h2 class="text-lg font-semibold text-white">Mr Division - Top <?php echo $advancement_count; ?></h2>
+            <p class="text-sm text-slate-200 mt-1">Select participants to advance</p>
           </div>
           
           <div class="p-6">
@@ -238,9 +238,9 @@ include __DIR__ . '/../partials/sidebar_admin.php';
 
         <!-- Ms Division -->
         <div class="bg-white rounded-xl shadow-sm border border-slate-200">
-          <div class="px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-pink-50 to-pink-100">
-            <h2 class="text-lg font-semibold text-slate-800">Ms Division - Top <?php echo $advancement_count; ?></h2>
-            <p class="text-sm text-slate-600 mt-1">Select participants to advance</p>
+          <div class="px-6 py-4 border-b border-slate-200 custom-blue-gradient">
+            <h2 class="text-lg font-semibold text-white">Ms Division - Top <?php echo $advancement_count; ?></h2>
+            <p class="text-sm text-slate-200 mt-1">Select participants to advance</p>
           </div>
           
           <div class="p-6">

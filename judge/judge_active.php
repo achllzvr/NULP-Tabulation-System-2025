@@ -136,8 +136,8 @@ include __DIR__ . '/../partials/nav_judge.php';
 ?>
 <main class="mx-auto max-w-4xl w-full p-6 space-y-6">
   <div class="flex items-center justify-between mb-6">
-    <h1 class="text-2xl font-bold text-slate-800">Judge Scoring Panel</h1>
-    <div class="text-sm text-slate-600">
+    <h1 class="text-2xl font-bold text-white">Judge Scoring Panel</h1>
+    <div class="text-sm text-slate-200">
       Welcome, <?= htmlspecialchars($_SESSION['judgeFN'] ?? 'Judge', ENT_QUOTES, 'UTF-8') ?>
     </div>
   </div>
@@ -187,7 +187,7 @@ include __DIR__ . '/../partials/nav_judge.php';
 
     <!-- Participant Navigation -->
     <div class="bg-white border border-slate-200 rounded-lg p-4 mb-6">
-      <h3 class="text-lg font-semibold text-slate-800 mb-4">Select Participant to Score</h3>
+      <h3 class="text-lg font-semibold text-white mb-4">Select Participant to Score</h3>
       <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
         <?php foreach ($participants as $index => $participant): ?>
           <a href="?participant=<?= $index ?>" 
@@ -204,10 +204,10 @@ include __DIR__ . '/../partials/nav_judge.php';
       <div class="bg-white border border-slate-200 rounded-lg p-6">
         <div class="flex items-center justify-between mb-6">
           <div>
-            <h3 class="text-lg font-semibold text-slate-800">Scoring: Participant #<?= htmlspecialchars($current_participant['number_label'], ENT_QUOTES, 'UTF-8') ?></h3>
-            <p class="text-slate-600"><?= htmlspecialchars($current_participant['full_name'], ENT_QUOTES, 'UTF-8') ?> (<?= htmlspecialchars($current_participant['division'], ENT_QUOTES, 'UTF-8') ?>)</p>
+            <h3 class="text-lg font-semibold text-white">Scoring: Participant #<?= htmlspecialchars($current_participant['number_label'], ENT_QUOTES, 'UTF-8') ?></h3>
+            <p class="text-slate-200"><?= htmlspecialchars($current_participant['full_name'], ENT_QUOTES, 'UTF-8') ?> (<?= htmlspecialchars($current_participant['division'], ENT_QUOTES, 'UTF-8') ?>)</p>
           </div>
-          <div class="text-sm text-slate-500">
+          <div class="text-sm text-slate-300">
             Participant <?= $participant_index + 1 ?> of <?= count($participants) ?>
           </div>
         </div>
@@ -220,7 +220,7 @@ include __DIR__ . '/../partials/nav_judge.php';
       </div>
     <?php else: ?>
       <div class="bg-slate-50 border border-slate-200 rounded-lg p-6 text-center">
-        <p class="text-slate-600">Select a participant above to begin scoring.</p>
+        <p class="text-slate-200">Select a participant above to begin scoring.</p>
       </div>
     <?php endif; ?>
   <?php endif; ?>

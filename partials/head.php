@@ -2,7 +2,7 @@
 /** head.php : Shared <head> section and opening <body>. Expects $pageTitle */
 if (!isset($pageTitle)) { $pageTitle = 'Pageant Tabulation System'; }
 ?><!DOCTYPE html>
-<html lang="en" class="h-full bg-slate-100">
+<html lang="en" class="h-full">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -12,11 +12,19 @@ if (!isset($pageTitle)) { $pageTitle = 'Pageant Tabulation System'; }
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<style>
+  .custom-blue-gradient {
+    background: linear-gradient(135deg, rgba(53, 64, 142, 1) 0%, rgba(26, 32, 73, 1) 100%);
+  }
+  body {
+    background: linear-gradient(135deg, rgba(53, 64, 142, 1) 0%, rgba(26, 32, 73, 1) 100%);
+  }
+</style>
 <script>
 window.APP_DEBUG = <?= (getenv('APP_DEBUG') === 'true' || ini_get('display_errors')) ? 'true' : 'false' ?>;
 </script>
 <?php include __DIR__ . '/../components/loading.php'; ?>
 </head>
-<body class="min-h-full font-[Inter] text-slate-800">
+<body class="min-h-full font-[Inter] text-slate-200">
 <div id="toast-root" class="fixed top-4 right-4 z-50 space-y-2"></div>
 <div id="app" class="min-h-full flex flex-col">

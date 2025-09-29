@@ -54,7 +54,7 @@ $pageTitle = 'Enter Pageant Code';
 include __DIR__ . '/../partials/head.php';
 ?>
 <main class="mx-auto max-w-sm w-full p-6 space-y-6">
-  <h1 class="text-xl font-semibold text-slate-800">View Public Results</h1>
+  <h1 class="text-xl font-semibold text-white">View Public Results</h1>
   
   <?php if (isset($error_message)): ?>
     <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
@@ -64,11 +64,11 @@ include __DIR__ . '/../partials/head.php';
   
   <form id="pageantForm" method="POST" class="space-y-4">
     <div>
-      <label class="block text-sm font-medium text-slate-700 mb-1">Pageant Code</label>
+      <label class="block text-sm font-medium text-slate-200 mb-1">Pageant Code</label>
       <input name="code" type="text" required class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring focus:border-blue-500 uppercase tracking-wide" />
     </div>
     <div>
-      <label class="block text-sm font-medium text-slate-700 mb-1">Section</label>
+      <label class="block text-sm font-medium text-slate-200 mb-1">Section</label>
       <select name="section" class="w-full border border-slate-300 rounded px-3 py-2 text-sm">
         <option value="prelim">Preliminary Standings</option>
         <option value="final">Final Results</option>
@@ -77,7 +77,7 @@ include __DIR__ . '/../partials/head.php';
     </div>
     <button name="lookup_pageant" type="submit" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded w-full transition-all">Continue</button>
   </form>
-  <p class="text-xs text-slate-500">Enter the official code distributed by event organizers.</p>
+  <p class="text-xs text-slate-300">Enter the official code distributed by event organizers.</p>
 </main>
 
 <?php if (isset($show_error_alert)): ?>

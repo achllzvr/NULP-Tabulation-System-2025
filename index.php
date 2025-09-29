@@ -10,19 +10,22 @@ session_start();
 $pageTitle = 'Landing | Pageant Tabulation System';
 include __DIR__ . '/partials/head.php';
 ?>
-<main class="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-12 px-4">
+<style>
+  .custom-blue-gradient {
+    background: linear-gradient(135deg, rgba(53, 64, 142, 1) 0%, rgba(26, 32, 73, 1) 100%);
+  }
+</style>
+<main class="min-h-screen custom-blue-gradient py-12 px-4">
   <div class="mx-auto max-w-6xl">
     <!-- Header Section -->
     <div class="text-center mb-16">
       <div class="inline-flex items-center gap-3 mb-6">
-        <div class="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center">
-          <svg class="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M5 16L3 14l5.5-5.5L10 10l4-4h3l2 2v3l-4 4 1.5 1.5L11 22l-2-2h-3l-1-1z"/>
-          </svg>
+        <div class="w-12 h-12 rounded-lg flex items-center justify-center">
+        <img src="assets/media/NU_white_logo.png" alt="NULP Logo" class="h-full w-auto object-contain bg-transparent" style="max-height:100%; max-width:100%;">
         </div>
-        <h1 class="text-4xl font-bold text-slate-800">Pageant Tabulation System</h1>
+        <h1 class="text-4xl font-bold text-white">NULP Tabulation System 2025</h1>
       </div>
-      <p class="text-lg text-slate-600 max-w-3xl mx-auto leading-relaxed">
+      <p class="text-lg text-slate-200 max-w-3xl mx-auto leading-relaxed">
         Professional scoring and management system for beauty pageants, talent competitions, and 
         similar events requiring real-time judging and public displays.
       </p>

@@ -96,7 +96,7 @@ include __DIR__ . '/../partials/head.php';
   <?php elseif (!empty($leaderboard)): ?>
     <!-- Leaderboard Table -->
     <div class="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
-      <div class="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4">
+      <div class="custom-blue-gradient px-6 py-4">
         <h2 class="text-white font-semibold text-lg">Current Rankings</h2>
         <p class="text-blue-100 text-sm">Live preliminary standings</p>
       </div>
