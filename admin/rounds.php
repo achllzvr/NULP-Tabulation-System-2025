@@ -173,8 +173,8 @@ include __DIR__ . '/../partials/sidebar_admin.php';
     <div class="mb-8">
       <div class="flex items-center justify-between">
         <div>
-          <h1 class="text-3xl font-bold text-slate-800 mb-2">Rounds & Criteria</h1>
-          <p class="text-slate-600">Manage judging rounds and scoring criteria</p>
+          <h1 class="text-3xl font-bold text-white mb-2">Rounds & Criteria</h1>
+          <p class="text-slate-200">Manage judging rounds and scoring criteria</p>
         </div>
         <div class="flex gap-3">
           <button onclick="showModal('manageCriteriaModal')" class="bg-slate-600 hover:bg-slate-700 text-white font-medium px-6 py-3 rounded-lg transition-colors flex items-center gap-2">
@@ -190,48 +190,48 @@ include __DIR__ . '/../partials/sidebar_admin.php';
 
     <!-- Statistics Cards -->
     <div class="grid md:grid-cols-4 gap-6 mb-8">
-      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+  <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20 p-6">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="text-sm font-medium text-slate-600">Total Rounds</h3>
+          <h3 class="text-sm font-medium text-slate-200">Total Rounds</h3>
           <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
           </svg>
         </div>
-        <p class="text-3xl font-bold text-slate-800 mb-1"><?php echo $total_rounds; ?></p>
-        <p class="text-sm text-slate-600">Created rounds</p>
+  <p class="text-3xl font-bold text-white mb-1"><?php echo $total_rounds; ?></p>
+  <p class="text-sm text-slate-200">Created rounds</p>
       </div>
 
-      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+  <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20 p-6">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="text-sm font-medium text-slate-600">Open Rounds</h3>
+          <h3 class="text-sm font-medium text-slate-200">Open Rounds</h3>
           <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"/>
           </svg>
         </div>
-        <p class="text-3xl font-bold text-slate-800 mb-1"><?php echo $open_rounds; ?></p>
-        <p class="text-sm text-slate-600">Currently judging</p>
+  <p class="text-3xl font-bold text-white mb-1"><?php echo $open_rounds; ?></p>
+  <p class="text-sm text-slate-200">Currently judging</p>
       </div>
 
-      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+  <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20 p-6">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="text-sm font-medium text-slate-600">Completed</h3>
+          <h3 class="text-sm font-medium text-slate-200">Completed</h3>
           <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
           </svg>
         </div>
-        <p class="text-3xl font-bold text-slate-800 mb-1"><?php echo $closed_rounds; ?></p>
-        <p class="text-sm text-slate-600">Finished rounds</p>
+  <p class="text-3xl font-bold text-white mb-1"><?php echo $closed_rounds; ?></p>
+  <p class="text-sm text-slate-200">Finished rounds</p>
       </div>
 
-      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+  <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20 p-6">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="text-sm font-medium text-slate-600">Criteria</h3>
+          <h3 class="text-sm font-medium text-slate-200">Criteria</h3>
           <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
           </svg>
         </div>
-        <p class="text-3xl font-bold text-slate-800 mb-1"><?php echo count($criteria); ?></p>
-        <p class="text-sm text-slate-600">Scoring criteria</p>
+  <p class="text-3xl font-bold text-white mb-1"><?php echo count($criteria); ?></p>
+  <p class="text-sm text-slate-200">Scoring criteria</p>
       </div>
     </div>
 
@@ -258,41 +258,41 @@ include __DIR__ . '/../partials/sidebar_admin.php';
     <div class="grid lg:grid-cols-3 gap-8">
       <!-- Rounds List -->
       <div class="lg:col-span-2">
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200">
-          <div class="px-6 py-4 border-b border-slate-200">
-            <h3 class="text-lg font-semibold text-slate-800">Judging Rounds</h3>
-            <p class="text-sm text-slate-600 mt-1">Control round status and monitor progress</p>
+        <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20">
+          <div class="px-6 py-4 border-b border-white border-opacity-10">
+            <h3 class="text-lg font-semibold text-white">Judging Rounds</h3>
+            <p class="text-sm text-slate-200 mt-1">Control round status and monitor progress</p>
           </div>
           
           <div class="p-6">
             <?php if (!empty($rounds)): ?>
               <div class="space-y-4">
                 <?php foreach ($rounds as $round): ?>
-                  <div class="border border-slate-200 rounded-lg p-6">
+                  <div class="border border-white border-opacity-10 rounded-lg p-6 bg-white bg-opacity-10">
                     <div class="flex items-center justify-between mb-4">
                       <div>
-                        <h4 class="text-lg font-semibold text-slate-800"><?php echo htmlspecialchars($round['name']); ?></h4>
-                        <p class="text-sm text-slate-600">
+                        <h4 class="text-lg font-semibold text-white"><?php echo htmlspecialchars($round['name']); ?></h4>
+                        <p class="text-sm text-slate-200">
                           Round <?php echo $round['sequence']; ?> • 
-                          <span class="<?php echo $round['criteria_count'] > 0 ? 'text-green-600 font-medium' : 'text-red-600 font-medium'; ?>">
+                          <span class="<?php echo $round['criteria_count'] > 0 ? 'text-green-300 font-medium' : 'text-red-300 font-medium'; ?>">
                             <?php echo $round['criteria_count']; ?> criteria assigned
                           </span>
                           <?php if ($round['criteria_count'] == 0): ?>
-                            <span class="text-red-600">⚠️ Cannot open without criteria</span>
+                            <span class="text-red-300">⚠️ Cannot open without criteria</span>
                           <?php endif; ?>
                         </p>
                       </div>
                       <span class="px-3 py-1 text-sm font-medium rounded-full <?php 
                         switch ($round['state']) {
                           case 'OPEN':
-                            echo 'bg-blue-100 text-blue-800';
+                            echo 'bg-blue-500 bg-opacity-30 text-blue-200 backdrop-blur-sm';
                             break;
                           case 'CLOSED':
                           case 'FINALIZED':
-                            echo 'bg-green-100 text-green-800';
+                            echo 'bg-green-500 bg-opacity-30 text-green-200 backdrop-blur-sm';
                             break;
                           default:
-                            echo 'bg-slate-100 text-slate-600';
+                            echo 'bg-white bg-opacity-20 text-slate-200 backdrop-blur-sm';
                         }
                       ?>">
                         <?php echo $round['state']; ?>
@@ -300,19 +300,19 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                     </div>
                     
                     <div class="mb-4">
-                      <p class="text-sm text-slate-600">
+                      <p class="text-sm text-slate-200">
                         <strong>Type:</strong> <?php echo ucfirst(strtolower($round['scoring_mode'])); ?> Round
                         <?php if ($round['advancement_limit']): ?>
                           • <strong>Advances:</strong> Top <?php echo $round['advancement_limit']; ?>
                         <?php endif; ?>
                       </p>
                       <?php if ($round['opened_at']): ?>
-                        <p class="text-sm text-slate-600 mt-1">
+                        <p class="text-sm text-slate-200 mt-1">
                           <strong>Opened:</strong> <?php echo date('M j, Y g:i A', strtotime($round['opened_at'])); ?>
                         </p>
                       <?php endif; ?>
                       <?php if ($round['closed_at']): ?>
-                        <p class="text-sm text-slate-600 mt-1">
+                        <p class="text-sm text-slate-200 mt-1">
                           <strong>Closed:</strong> <?php echo date('M j, Y g:i A', strtotime($round['closed_at'])); ?>
                         </p>
                       <?php endif; ?>
@@ -366,10 +366,10 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                           </button>
                         </form>
                       <?php endif; ?>
-                      <button onclick="manageCriteria(<?php echo $round['id']; ?>, '<?php echo htmlspecialchars($round['name'], ENT_QUOTES); ?>')" class="bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+                      <button onclick="manageCriteria(<?php echo $round['id']; ?>, '<?php echo htmlspecialchars($round['name'], ENT_QUOTES); ?>')" class="bg-purple-500 bg-opacity-30 hover:bg-purple-500/40 text-white text-sm font-medium px-4 py-2 rounded-lg border border-purple-400 border-opacity-50 backdrop-blur-sm transition-colors">
                         Manage Criteria
                       </button>
-                      <button onclick="viewRoundDetails(<?php echo $round['id']; ?>, '<?php echo htmlspecialchars($round['name'], ENT_QUOTES); ?>', '<?php echo $round['state']; ?>', '<?php echo $round['criteria_count']; ?>')" class="bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+                      <button onclick="viewRoundDetails(<?php echo $round['id']; ?>, '<?php echo htmlspecialchars($round['name'], ENT_QUOTES); ?>', '<?php echo $round['state']; ?>', '<?php echo $round['criteria_count']; ?>')" class="bg-white bg-opacity-10 hover:bg-white hover:bg-opacity-20 text-white text-sm font-medium px-4 py-2 rounded-lg border border-white border-opacity-20 backdrop-blur-sm transition-colors">
                         View Details
                       </button>
                     </div>
@@ -391,23 +391,23 @@ include __DIR__ . '/../partials/sidebar_admin.php';
 
       <!-- Criteria Panel -->
       <div class="lg:col-span-1">
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200">
-          <div class="px-6 py-4 border-b border-slate-200">
-            <h3 class="text-lg font-semibold text-slate-800">Scoring Criteria</h3>
-            <p class="text-sm text-slate-600 mt-1">Active judging criteria</p>
+        <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20">
+          <div class="px-6 py-4 border-b border-white border-opacity-10">
+            <h3 class="text-lg font-semibold text-white">Scoring Criteria</h3>
+            <p class="text-sm text-slate-200 mt-1">Active judging criteria</p>
           </div>
           
           <div class="p-6">
             <?php if (!empty($criteria)): ?>
               <div class="space-y-4">
                 <?php foreach ($criteria as $criterion): ?>
-                  <div class="border border-slate-200 rounded-lg p-4">
+                  <div class="border border-white border-opacity-10 rounded-lg p-4 bg-white bg-opacity-10">
                     <div class="flex items-center justify-between mb-2">
-                      <h4 class="font-medium text-slate-800"><?php echo htmlspecialchars($criterion['name']); ?></h4>
-                      <span class="text-sm text-slate-600"><?php echo $criterion['default_max_score']; ?> pts</span>
+                      <h4 class="font-medium text-white"><?php echo htmlspecialchars($criterion['name']); ?></h4>
+                      <span class="text-sm text-slate-200"><?php echo $criterion['default_max_score']; ?> pts</span>
                     </div>
                     <?php if ($criterion['description']): ?>
-                      <p class="text-sm text-slate-600"><?php echo htmlspecialchars($criterion['description']); ?></p>
+                      <p class="text-sm text-slate-200"><?php echo htmlspecialchars($criterion['description']); ?></p>
                     <?php endif; ?>
                   </div>
                 <?php endforeach; ?>
@@ -426,14 +426,14 @@ include __DIR__ . '/../partials/sidebar_admin.php';
     </div>
 
     <!-- Information Panel -->
-    <div class="mt-8 bg-blue-50 border border-blue-200 rounded-xl p-6">
+  <div class="mt-8 bg-white bg-opacity-10 border border-blue-400 border-opacity-20 rounded-xl p-6 backdrop-blur-md">
       <div class="flex items-start gap-3">
         <svg class="w-6 h-6 text-blue-600 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
         </svg>
         <div>
-          <h4 class="font-semibold text-blue-800 mb-2">Round Management Guide</h4>
-          <div class="text-sm text-blue-700 space-y-2">
+          <h4 class="font-semibold text-blue-300 mb-2">Round Management Guide</h4>
+          <div class="text-sm text-blue-200 space-y-2">
             <p>• <strong>Manage Criteria:</strong> Assign scoring criteria to rounds before opening them</p>
             <p>• <strong>Weight Validation:</strong> Criteria weights must sum to exactly 1.0 (100%)</p>
             <p>• <strong>Opening Rounds:</strong> Rounds can only be opened if they have criteria assigned</p>
@@ -450,26 +450,26 @@ include __DIR__ . '/../partials/sidebar_admin.php';
 $modalId = 'manageCriteriaModal';
 $title = 'Manage Scoring Criteria';
 $bodyHtml = '<div class="space-y-6">'
-  .'<div class="bg-blue-50 border border-blue-200 rounded-lg p-4">'
+  .'<div class="bg-white bg-opacity-10 border border-blue-400 border-opacity-20 rounded-lg p-4 backdrop-blur-md">'
     .'<div class="flex items-center gap-2 mb-2">'
-      .'<svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">'
+      .'<svg class="w-5 h-5 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">'
         .'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>'
       .'</svg>'
-      .'<h4 class="text-sm font-medium text-blue-800">Current Criteria</h4>'
+      .'<h4 class="text-sm font-medium text-blue-300">Current Criteria</h4>'
     .'</div>'
-    .'<p class="text-sm text-blue-700">The following criteria are currently active for judging rounds:</p>'
+    .'<p class="text-sm text-blue-200">The following criteria are currently active for judging rounds:</p>'
   .'</div>';
 
 if (!empty($criteria)) {
     $bodyHtml .= '<div class="space-y-3">';
     foreach ($criteria as $criterion) {
-        $bodyHtml .= '<div class="border border-slate-200 rounded-lg p-4">'
+        $bodyHtml .= '<div class="border border-white border-opacity-10 rounded-lg p-4 bg-white bg-opacity-10">'
           .'<div class="flex items-center justify-between mb-2">'
-            .'<h4 class="font-medium text-slate-800">'.htmlspecialchars($criterion['name']).'</h4>'
-            .'<span class="text-sm text-slate-600">'.$criterion['default_max_score'].' points</span>'
+            .'<h4 class="font-medium text-white">'.htmlspecialchars($criterion['name']).'</h4>'
+            .'<span class="text-sm text-slate-200">'.$criterion['default_max_score'].' points</span>'
           .'</div>';
         if ($criterion['description']) {
-            $bodyHtml .= '<p class="text-sm text-slate-600">'.htmlspecialchars($criterion['description']).'</p>';
+            $bodyHtml .= '<p class="text-sm text-slate-200">'.htmlspecialchars($criterion['description']).'</p>';
         }
         $bodyHtml .= '</div>';
     }
@@ -484,7 +484,7 @@ if (!empty($criteria)) {
 }
 
 $bodyHtml .= '<div class="pt-4">'
-    .'<button onclick="hideModal(\'manageCriteriaModal\')" class="w-full bg-slate-200 hover:bg-slate-300 text-slate-800 font-medium px-6 py-3 rounded-lg transition-colors">Close</button>'
+  .'<button onclick="hideModal(\'manageCriteriaModal\')" class="w-full bg-white bg-opacity-10 hover:bg-white hover:bg-opacity-20 text-white font-medium px-6 py-3 rounded-lg border border-white border-opacity-20 backdrop-blur-sm transition-colors">Close</button>'
   .'</div>'
   .'</div>';
 $footerHtml = '';
@@ -498,7 +498,7 @@ $bodyHtml = '<div class="space-y-6">'
     .'<!-- Content will be populated by JavaScript -->'
   .'</div>'
   .'<div class="pt-4">'
-    .'<button onclick="hideModal(\'roundDetailsModal\')" class="w-full bg-slate-200 hover:bg-slate-300 text-slate-800 font-medium px-6 py-3 rounded-lg transition-colors">Close</button>'
+  .'<button onclick="hideModal(\'roundDetailsModal\')" class="w-full bg-white bg-opacity-10 hover:bg-white hover:bg-opacity-20 text-white font-medium px-6 py-3 rounded-lg border border-white border-opacity-20 backdrop-blur-sm transition-colors">Close</button>'
   .'</div>'
   .'</div>';
 $footerHtml = '';
@@ -511,30 +511,30 @@ $bodyHtml = '<form method="POST" id="criteriaAssignmentForm">'
   .'<input type="hidden" name="assign_criteria" value="1">'
   .'<input type="hidden" name="round_id" id="modalRoundId">'
   .'<div class="space-y-6">'
-    .'<div class="bg-blue-50 border border-blue-200 rounded-lg p-4">'
+    .'<div class="bg-white bg-opacity-10 border border-blue-400 border-opacity-20 rounded-lg p-4 backdrop-blur-md">'
       .'<div class="flex items-center gap-2 mb-2">'
-        .'<svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">'
+        .'<svg class="w-5 h-5 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">'
           .'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>'
         .'</svg>'
-        .'<h4 class="text-sm font-medium text-blue-800">Weight Instructions</h4>'
+        .'<h4 class="text-sm font-medium text-blue-300">Weight Instructions</h4>'
       .'</div>'
-      .'<p class="text-sm text-blue-700">• Select criteria to assign to this round</p>'
-      .'<p class="text-sm text-blue-700">• Assign weights (0.0 to 1.0) - total must equal 1.0</p>'
-      .'<p class="text-sm text-blue-700">• Set maximum scores for each criterion</p>'
+      .'<p class="text-sm text-blue-200">• Select criteria to assign to this round</p>'
+      .'<p class="text-sm text-blue-200">• Assign weights (0.0 to 1.0) - total must equal 1.0</p>'
+      .'<p class="text-sm text-blue-200">• Set maximum scores for each criterion</p>'
     .'</div>'
     .'<div id="criteriaList" class="space-y-4">'
       .'<!-- Criteria will be populated by JavaScript -->'
     .'</div>'
-    .'<div class="bg-slate-50 rounded-lg p-4">'
+    .'<div class="bg-white bg-opacity-10 rounded-lg p-4">'
       .'<div class="flex justify-between items-center">'
-        .'<span class="text-sm font-medium text-slate-700">Total Weight:</span>'
-        .'<span id="totalWeight" class="text-lg font-bold text-slate-800">0.0%</span>'
+        .'<span class="text-sm font-medium text-slate-200">Total Weight:</span>'
+        .'<span id="totalWeight" class="text-lg font-bold text-white">0.0%</span>'
       .'</div>'
     .'</div>'
   .'</div>'
   .'<div class="flex gap-3 mt-6">'
     .'<button type="submit" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium px-6 py-3 rounded-lg transition-colors">Save Criteria Assignment</button>'
-    .'<button type="button" onclick="hideModal(\'criteriaAssignmentModal\')" class="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-800 font-medium px-6 py-3 rounded-lg transition-colors">Cancel</button>'
+  .'<button type="button" onclick="hideModal(\'criteriaAssignmentModal\')" class="flex-1 bg-white bg-opacity-10 hover:bg-white hover:bg-opacity-20 text-white font-medium px-6 py-3 rounded-lg border border-white border-opacity-20 backdrop-blur-sm transition-colors">Cancel</button>'
   .'</div>'
   .'</form>';
 $footerHtml = '';
