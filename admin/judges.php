@@ -293,8 +293,8 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                     <div class="text-sm text-slate-200"><?php echo htmlspecialchars($judge['username']); ?></div>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap">
-                    <div class="text-sm text-slate-900">Username: <?php echo htmlspecialchars($judge['username']); ?></div>
-                    <div class="text-sm text-slate-500">Role: <?php echo ucfirst($judge['role']); ?></div>
+                    <div class="text-sm text-white">Username: <?php echo htmlspecialchars($judge['username']); ?></div>
+                    <div class="text-sm text-slate-200">Role: <?php echo ucfirst($judge['role']); ?></div>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap">
                     <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full <?php echo ($judge['is_active'] ?? 1) ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'; ?>">
@@ -319,12 +319,12 @@ include __DIR__ . '/../partials/sidebar_admin.php';
             <?php else: ?>
               <tr>
                 <td colspan="5" class="px-6 py-12 text-center">
-                  <div class="text-slate-400">
+                  <div class="text-slate-200">
                     <svg class="mx-auto h-12 w-12 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
                     </svg>
                     <h3 class="text-sm font-medium text-slate-900 mb-2">No judges found</h3>
-                    <p class="text-sm text-slate-500 mb-4">Get started by adding your first judge.</p>
+                    <p class="text-sm text-slate-200 mb-4">Get started by adding your first judge.</p>
                     <button onclick="showModal('addJudgeModal')" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg transition-colors">
                       Add Judge
                     </button>
