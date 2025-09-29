@@ -101,10 +101,9 @@ $steps = [
 ];
 $pageTitle = 'Admin Dashboard';
 include __DIR__ . '/../partials/head.php';
-include __DIR__ . '/../partials/nav_admin.php';
+include __DIR__ . '/../partials/sidebar_admin.php';
 ?>
-<main class="bg-slate-50 min-h-screen">
-  <div class="mx-auto max-w-7xl px-6 py-8">
+      <div class="px-6 py-8">
     <!-- Header -->
     <div class="mb-8">
       <h1 class="text-3xl font-bold text-slate-800 mb-2">Dashboard</h1>
@@ -491,5 +490,6 @@ include __DIR__ . '/../partials/nav_admin.php';
       </div>
     </div>
   </div>
-</main>
-<?php include __DIR__ . '/../partials/footer.php';
+<?php 
+include __DIR__ . '/../partials/sidebar_close.php';
+include __DIR__ . '/../partials/footer.php';

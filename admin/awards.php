@@ -44,14 +44,29 @@ $stmt->execute();
 $result = $stmt->get_result();
 $finalized_rounds = $result->fetch_assoc()['count'];
 
+// Check if final round is completed
+$stmt = $conn->prepare("SELECT COUNT(*) as count FROM rounds WHERE pageant_id = ? AND scoring_mode = 'FINAL' AND state = 'FINALIZED'");
+$stmt->bind_param("i", $pageant_id);
+$stmt->execute();
+$result = $stmt->get_result();
+$final_rounds_completed = $result->fetch_assoc()['count'];
+
+// Check total final rounds
+$stmt = $conn->prepare("SELECT COUNT(*) as count FROM rounds WHERE pageant_id = ? AND scoring_mode = 'FINAL'");
+$stmt->bind_param("i", $pageant_id);
+$stmt->execute();
+$result = $stmt->get_result();
+$total_final_rounds = $result->fetch_assoc()['count'];
+
+$all_final_rounds_completed = ($total_final_rounds > 0 && $final_rounds_completed >= $total_final_rounds);
+
 $conn->close();
 
 $pageTitle = 'Awards Management';
 include __DIR__ . '/../partials/head.php';
-include __DIR__ . '/../partials/nav_admin.php';
+include __DIR__ . '/../partials/sidebar_admin.php';
 ?>
-<main class="bg-slate-50 min-h-screen">
-  <div class="mx-auto max-w-7xl px-6 py-8">
+      <div class="px-6 py-8">
     <!-- Header -->
     <div class="mb-8">
       <div class="flex items-center justify-between">
@@ -198,10 +213,38 @@ include __DIR__ . '/../partials/nav_admin.php';
           </div>
         </div>
 
+        <!-- Final Round Status Alert -->
+        <?php if (!$all_final_rounds_completed): ?>
+          <div class="mt-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <div class="flex items-start">
+              <svg class="w-5 h-5 text-yellow-600 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+              </svg>
+              <div>
+                <h4 class="text-sm font-medium text-yellow-800">Final Round Not Complete</h4>
+                <p class="text-sm text-yellow-700 mt-1">
+                  Awards generation is disabled until all final rounds are completed. 
+                  <?php if ($total_final_rounds > 0): ?>
+                    Currently <?php echo $final_rounds_completed; ?> of <?php echo $total_final_rounds; ?> final rounds completed.
+                  <?php else: ?>
+                    No final rounds have been configured yet.
+                  <?php endif; ?>
+                </p>
+              </div>
+            </div>
+          </div>
+        <?php endif; ?>
+
         <!-- Action Buttons -->
         <div class="mt-8 flex gap-4">
           <form method="POST" class="inline">
-            <button name="generate_awards" type="submit" class="bg-green-600 hover:bg-green-700 text-white font-medium px-6 py-3 rounded-lg transition-colors flex items-center gap-2">
+            <button name="generate_awards" 
+                    type="submit" 
+                    <?php echo !$all_final_rounds_completed ? 'disabled' : ''; ?>
+                    class="<?php echo $all_final_rounds_completed ? 'bg-green-600 hover:bg-green-700' : 'bg-slate-400 cursor-not-allowed'; ?> text-white font-medium px-6 py-3 rounded-lg transition-colors flex items-center gap-2"
+                    <?php if (!$all_final_rounds_completed): ?>
+                      title="Final round must be completed before generating awards"
+                    <?php endif; ?>>
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
               </svg>
@@ -238,7 +281,6 @@ include __DIR__ . '/../partials/nav_admin.php';
       </div>
     </div>
   </div>
-</main>
 
 <?php
 // Preview Modal
@@ -276,4 +318,6 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 <?php endif; ?>
 
-<?php include __DIR__ . '/../partials/footer.php'; ?>
+<?php 
+include __DIR__ . '/../partials/sidebar_close.php';
+include __DIR__ . '/../partials/footer.php'; ?>

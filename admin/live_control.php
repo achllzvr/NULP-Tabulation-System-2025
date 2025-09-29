@@ -84,10 +84,9 @@ $conn->close();
 
 $pageTitle = 'Live Control Center';
 include __DIR__ . '/../partials/head.php';
-include __DIR__ . '/../partials/nav_admin.php';
+include __DIR__ . '/../partials/sidebar_admin.php';
 ?>
-<main class="bg-slate-50 min-h-screen">
-  <div class="mx-auto max-w-7xl px-6 py-8">
+      <div class="px-6 py-8">
     <!-- Header -->
     <div class="mb-8">
       <div class="flex items-center justify-between">
@@ -265,7 +264,6 @@ include __DIR__ . '/../partials/nav_admin.php';
       </div>
     </div>
   </div>
-</main>
 
 <script>
 // Auto-refresh functionality
@@ -328,4 +326,6 @@ window.addEventListener('beforeunload', function() {
 });
 </script>
 
-<?php include __DIR__ . '/../partials/footer.php'; ?>
+<?php 
+include __DIR__ . '/../partials/sidebar_close.php';
+include __DIR__ . '/../partials/footer.php'; ?>

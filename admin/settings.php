@@ -82,30 +82,116 @@ try {
     // Settings table might not exist yet, that's okay
 }
 
-$pageTitle = 'Settings';
+$pageTitle = 'Settings - Admin';
 include __DIR__ . '/../partials/head.php';
-include __DIR__ . '/../partials/nav_admin.php';
+include __DIR__ . '/../partials/sidebar_admin.php';
 ?>
-<main class="mx-auto max-w-4xl w-full p-6 space-y-6">
-  <h1 class="text-xl font-semibold text-slate-800">Visibility & Settings</h1>
-  <form id="visibilityForm" class="space-y-4 max-w-md" onsubmit="return saveVisibility(event)">
-    <input type="hidden" name="action" value="save_settings">
-    <label class="flex items-center gap-2 text-sm">
-      <input type="checkbox" name="show_participant_names" class="rounded" <?php echo isset($settings['reveal_names']) && $settings['reveal_names'] ? 'checked' : ''; ?> /> 
-      <span>Reveal Participant Names</span>
-    </label>
-    <label class="flex items-center gap-2 text-sm">
-      <input type="checkbox" name="show_scores" class="rounded" <?php echo isset($settings['reveal_scores']) && $settings['reveal_scores'] ? 'checked' : ''; ?> /> 
-      <span>Reveal Scores</span>
-    </label>
-    <label class="flex items-center gap-2 text-sm">
-      <input type="checkbox" name="show_awards" class="rounded" <?php echo isset($settings['reveal_awards']) && $settings['reveal_awards'] ? 'checked' : ''; ?> /> 
-      <span>Reveal Awards</span>
-    </label>
-    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded">Apply</button>
-  </form>
-</main>
-<?php include __DIR__ . '/../partials/footer.php'; ?>
+      <div class="px-6 py-8">
+    <!-- Header -->
+    <div class="mb-8">
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-3xl font-bold text-slate-800 mb-2">Settings</h1>
+          <p class="text-slate-600">Configure pageant display and visibility options</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings Form -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200">
+      <div class="px-6 py-4 border-b border-slate-200">
+        <h3 class="text-lg font-semibold text-slate-800">Public Display Settings</h3>
+        <p class="text-sm text-slate-600 mt-1">Control what information is visible on public pages</p>
+      </div>
+      
+      <form onsubmit="saveVisibility(event)" class="p-6">
+        <input type="hidden" name="action" value="save_settings">
+        
+        <div class="space-y-6">
+          <!-- Show Participant Names -->
+          <div class="flex items-center justify-between p-4 border border-slate-200 rounded-lg">
+            <div class="flex-1">
+              <label class="block text-sm font-medium text-slate-800 mb-1">Show Participant Names</label>
+              <p class="text-sm text-slate-600">Display participant names on public leaderboard and results</p>
+            </div>
+            <div class="flex items-center">
+              <input type="checkbox" 
+                     name="show_participant_names" 
+                     id="show_participant_names"
+                     <?php echo (isset($settings['reveal_names']) && $settings['reveal_names']) ? 'checked' : ''; ?>
+                     class="w-4 h-4 text-blue-600 bg-white border-slate-300 rounded focus:ring-blue-500 focus:ring-2">
+              <label for="show_participant_names" class="ml-2 text-sm text-slate-600">Enable</label>
+            </div>
+          </div>
+
+          <!-- Show Scores -->
+          <div class="flex items-center justify-between p-4 border border-slate-200 rounded-lg">
+            <div class="flex-1">
+              <label class="block text-sm font-medium text-slate-800 mb-1">Show Scores</label>
+              <p class="text-sm text-slate-600">Display scores and rankings on public pages</p>
+            </div>
+            <div class="flex items-center">
+              <input type="checkbox" 
+                     name="show_scores" 
+                     id="show_scores"
+                     <?php echo (isset($settings['reveal_scores']) && $settings['reveal_scores']) ? 'checked' : ''; ?>
+                     class="w-4 h-4 text-blue-600 bg-white border-slate-300 rounded focus:ring-blue-500 focus:ring-2">
+              <label for="show_scores" class="ml-2 text-sm text-slate-600">Enable</label>
+            </div>
+          </div>
+
+          <!-- Show Awards -->
+          <div class="flex items-center justify-between p-4 border border-slate-200 rounded-lg">
+            <div class="flex-1">
+              <label class="block text-sm font-medium text-slate-800 mb-1">Show Awards</label>
+              <p class="text-sm text-slate-600">Display awards and winners on public pages</p>
+            </div>
+            <div class="flex items-center">
+              <input type="checkbox" 
+                     name="show_awards" 
+                     id="show_awards"
+                     <?php echo (isset($settings['reveal_awards']) && $settings['reveal_awards']) ? 'checked' : ''; ?>
+                     class="w-4 h-4 text-blue-600 bg-white border-slate-300 rounded focus:ring-blue-500 focus:ring-2">
+              <label for="show_awards" class="ml-2 text-sm text-slate-600">Enable</label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Save Button -->
+        <div class="mt-8 flex justify-end">
+          <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-3 rounded-lg transition-colors flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+            </svg>
+            Save Settings
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Information Panel -->
+    <div class="mt-8 bg-blue-50 border border-blue-200 rounded-xl p-6">
+      <div class="flex items-start gap-3">
+        <svg class="w-6 h-6 text-blue-600 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <div>
+          <h4 class="font-semibold text-blue-800 mb-2">About Public Display Settings</h4>
+          <div class="text-sm text-blue-700 space-y-2">
+            <p>• <strong>Show Participant Names:</strong> Controls whether participant names are visible on public pages</p>
+            <p>• <strong>Show Scores:</strong> Controls whether scores and rankings are displayed publicly</p>
+            <p>• <strong>Show Awards:</strong> Controls whether award winners and results are shown publicly</p>
+            <p>• Settings are applied immediately to all public pages</p>
+            <p>• These settings do not affect admin pages - admins can always see all information</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<?php 
+include __DIR__ . '/../partials/sidebar_close.php';
+include __DIR__ . '/../partials/footer.php'; ?>
 <script>
 function saveVisibility(e) {
   e.preventDefault();

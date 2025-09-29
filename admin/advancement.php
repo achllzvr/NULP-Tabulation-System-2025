@@ -93,12 +93,29 @@ $advancement_count = isset($_GET['count']) ? max(1, min(20, (int)$_GET['count'])
 $mr_top = $con->getTopParticipants($pageant_id, 'Mr', $advancement_count);
 $ms_top = $con->getTopParticipants($pageant_id, 'Ms', $advancement_count);
 
+// Check if advancements have already been confirmed
+$conn = $con->opencon();
+$stmt = $conn->prepare("SELECT COUNT(*) as count, r.name as next_round_name FROM advancements a 
+                        JOIN rounds r ON a.to_round_id = r.id 
+                        WHERE r.pageant_id = ? 
+                        GROUP BY a.to_round_id 
+                        ORDER BY a.to_round_id DESC 
+                        LIMIT 1");
+$stmt->bind_param("i", $pageant_id);
+$stmt->execute();
+$result = $stmt->get_result();
+$advancement_result = $result->fetch_assoc();
+$stmt->close();
+$conn->close();
+
+$advancements_confirmed = $advancement_result && $advancement_result['count'] > 0;
+$next_round_name = $advancement_result['next_round_name'] ?? 'Next Round';
+
 $pageTitle = 'Advancement Review';
 include __DIR__ . '/../partials/head.php';
-include __DIR__ . '/../partials/nav_admin.php';
+include __DIR__ . '/../partials/sidebar_admin.php';
 ?>
-<main class="bg-slate-50 min-h-screen">
-  <div class="mx-auto max-w-7xl px-6 py-8">
+      <div class="px-6 py-8">
     <!-- Header -->
     <div class="mb-8">
       <div class="flex items-center justify-between">
@@ -136,8 +153,33 @@ include __DIR__ . '/../partials/nav_admin.php';
       </div>
     <?php endif; ?>
 
+    <!-- Advancement Confirmed Warning -->
+    <?php if ($advancements_confirmed): ?>
+      <div class="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
+        <div class="flex items-start">
+          <svg class="w-6 h-6 text-blue-600 mt-0.5 mr-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <div>
+            <h3 class="text-lg font-semibold text-blue-900 mb-2">Advancements Already Confirmed</h3>
+            <p class="text-blue-800 mb-3">
+              Participant advancements have been confirmed for <strong><?php echo htmlspecialchars($next_round_name, ENT_QUOTES, 'UTF-8'); ?></strong>. 
+              All advancement controls have been disabled to prevent accidental changes.
+            </p>
+            <div class="text-sm text-blue-700">
+              <p class="font-medium">If you need to modify advancements:</p>
+              <ul class="list-disc list-inside mt-1 space-y-1">
+                <li>Contact system administrator</li>
+                <li>Or revert advancements through database management</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    <?php endif; ?>
+
     <!-- Advancement Form -->
-    <form method="POST" id="advancementForm">
+    <form method="POST" id="advancementForm" <?php echo $advancements_confirmed ? 'style="pointer-events: none; opacity: 0.6;"' : ''; ?>>
       <div class="grid lg:grid-cols-2 gap-8 mb-8">
         
         <!-- Mr Division -->
@@ -255,18 +297,23 @@ include __DIR__ . '/../partials/nav_admin.php';
           <span id="selectedCount">0</span> participants selected for advancement
         </div>
         <div class="flex gap-4">
-          <button type="button" onclick="clearAllSelections()" class="bg-slate-600 hover:bg-slate-700 text-white font-medium px-6 py-3 rounded-lg transition-colors">
+          <button type="button" 
+                  onclick="clearAllSelections()" 
+                  <?php echo $advancements_confirmed ? 'disabled' : ''; ?>
+                  class="<?php echo $advancements_confirmed ? 'bg-slate-400 cursor-not-allowed' : 'bg-slate-600 hover:bg-slate-700'; ?> text-white font-medium px-6 py-3 rounded-lg transition-colors">
             Clear All
           </button>
-          <button type="submit" name="confirm_advancement" id="confirmButton" disabled 
+          <button type="submit" 
+                  name="confirm_advancement" 
+                  id="confirmButton" 
+                  disabled 
                   class="bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 disabled:cursor-not-allowed text-white font-medium px-6 py-3 rounded-lg transition-colors">
-            Confirm Advancement
+            <?php echo $advancements_confirmed ? 'Advancement Confirmed' : 'Confirm Advancement'; ?>
           </button>
         </div>
       </div>
     </form>
   </div>
-</main>
 
 <script>
 function updateAdvancementCount() {
@@ -346,4 +393,6 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
-<?php include __DIR__ . '/../partials/footer.php'; ?>
+<?php 
+include __DIR__ . '/../partials/sidebar_close.php';
+include __DIR__ . '/../partials/footer.php'; ?>

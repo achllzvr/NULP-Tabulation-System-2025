@@ -67,10 +67,9 @@ $conn->close();
 
 $pageTitle = 'Leaderboard';
 include __DIR__ . '/../partials/head.php';
-include __DIR__ . '/../partials/nav_admin.php';
+include __DIR__ . '/../partials/sidebar_admin.php';
 ?>
-<main class="bg-slate-50 min-h-screen">
-  <div class="mx-auto max-w-7xl px-6 py-8">
+      <div class="px-6 py-8">
     <!-- Header -->
     <div class="mb-8">
       <div class="flex items-center justify-between">
@@ -120,8 +119,8 @@ include __DIR__ . '/../partials/nav_admin.php';
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
           </svg>
         </div>
-        <p class="text-lg font-bold text-slate-800 mb-1"><?php echo $current_leader ? htmlspecialchars($current_leader['name']) : 'TBD'; ?></p>
-        <p class="text-sm text-slate-600"><?php echo $current_leader ? 'Score: ' . $current_leader['score'] : 'When scores available'; ?></p>
+        <p class="text-lg font-bold text-slate-800 mb-1"><?php echo ($current_leader && isset($current_leader['full_name'])) ? htmlspecialchars($current_leader['full_name']) : 'TBD'; ?></p>
+        <p class="text-sm text-slate-600"><?php echo ($current_leader && isset($current_leader['total_score'])) ? 'Score: ' . number_format($current_leader['total_score'], 2) : 'When scores available'; ?></p>
       </div>
 
       <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
@@ -282,7 +281,6 @@ include __DIR__ . '/../partials/nav_admin.php';
       </div>
     </div>
   </div>
-</main>
 
 <script>
 function refreshLeaderboard() {
@@ -360,4 +358,6 @@ setInterval(function() {
 }, 30000);
 </script>
 
-<?php include __DIR__ . '/../partials/footer.php'; ?>
+<?php 
+include __DIR__ . '/../partials/sidebar_close.php';
+include __DIR__ . '/../partials/footer.php'; ?>
