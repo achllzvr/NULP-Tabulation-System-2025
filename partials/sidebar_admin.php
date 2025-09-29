@@ -61,21 +61,21 @@ $current = basename($_SERVER['PHP_SELF']);
 ?>
 
 <!-- Sidebar Layout Container -->
-<div class="flex h-screen bg-slate-100">
+<div class="flex h-screen">
   <!-- Sidebar -->
   <div class="hidden md:flex md:w-64 md:flex-col">
-    <div class="flex flex-col flex-grow pt-5 overflow-y-auto bg-white border-r border-slate-200">
+    <div class="flex flex-col flex-grow pt-5 overflow-y-auto bg-white bg-opacity-15 backdrop-blur-md border-r border-white border-opacity-20">
       <!-- Logo/Brand Section -->
       <div class="flex items-center flex-shrink-0 px-6 pb-4">
         <div class="flex items-center">
           <div class="flex-shrink-0">
-            <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-8 h-8 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
             </svg>
           </div>
           <div class="ml-3">
-            <h1 class="text-lg font-semibold text-slate-800">NULP Tabulation</h1>
-            <p class="text-xs text-slate-500">Admin Panel</p>
+            <h1 class="text-lg font-semibold text-white">NULP Tabulation</h1>
+            <p class="text-xs text-slate-200">Admin Panel</p>
           </div>
         </div>
       </div>
@@ -86,8 +86,8 @@ $current = basename($_SERVER['PHP_SELF']);
           $active = ($item['href'] === $current || str_ends_with($item['href'], $current)); 
         ?>
           <a href="<?= $item['href'] ?>" 
-             class="<?= $active ? 'bg-blue-50 border-r-4 border-blue-600 text-blue-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900' ?> group flex items-center px-3 py-2 text-sm font-medium rounded-l-lg transition-colors duration-150 ease-in-out">
-            <svg class="<?= $active ? 'text-blue-500' : 'text-slate-400 group-hover:text-slate-500' ?> mr-3 flex-shrink-0 h-5 w-5 transition-colors duration-150 ease-in-out" 
+             class="<?= $active ? 'bg-blue-500 bg-opacity-30 border-r-4 border-blue-300 text-white backdrop-blur-sm' : 'text-slate-200 hover:bg-white hover:bg-opacity-10 hover:text-white hover:backdrop-blur-sm' ?> group flex items-center px-3 py-2 text-sm font-medium rounded-l-lg transition-all duration-150 ease-in-out">
+            <svg class="<?= $active ? 'text-blue-200' : 'text-slate-300 group-hover:text-slate-100' ?> mr-3 flex-shrink-0 h-5 w-5 transition-colors duration-150 ease-in-out" 
                  fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="<?= $item['icon'] ?>"/>
             </svg>
@@ -97,21 +97,21 @@ $current = basename($_SERVER['PHP_SELF']);
       </nav>
 
       <!-- User Profile Section -->
-      <div class="flex-shrink-0 border-t border-slate-200 p-4">
+      <div class="flex-shrink-0 border-t border-white border-opacity-20 p-4">
         <div class="flex items-center">
           <div class="flex-shrink-0">
-            <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-              <span class="text-sm font-medium text-blue-600">
+            <div class="w-8 h-8 bg-blue-400 bg-opacity-30 backdrop-blur-sm rounded-full flex items-center justify-center">
+              <span class="text-sm font-medium text-white">
                 <?= strtoupper(substr($_SESSION['adminFN'] ?? 'A', 0, 1)) ?>
               </span>
             </div>
           </div>
           <div class="ml-3 flex-1">
-            <p class="text-sm font-medium text-slate-700">
+            <p class="text-sm font-medium text-white">
               <?= htmlspecialchars($_SESSION['adminFN'] ?? 'Admin', ENT_QUOTES, 'UTF-8') ?>
             </p>
             <form method="post" action="<?= $isInAdminDir ? '../logout.php' : 'logout.php' ?>" class="inline" id="logoutForm">
-              <button type="button" class="text-xs text-slate-500 hover:text-slate-700 transition-colors duration-150" onclick="confirmLogout()">
+              <button type="button" class="text-xs text-slate-200 hover:text-white transition-colors duration-150" onclick="confirmLogout()">
                 Sign out
               </button>
             </form>
@@ -134,7 +134,7 @@ $current = basename($_SERVER['PHP_SELF']);
   <!-- Mobile Sidebar Overlay -->
   <div class="fixed inset-0 flex z-40 md:hidden hidden" id="mobile-sidebar">
     <div class="fixed inset-0 bg-slate-600 bg-opacity-75" id="mobile-overlay"></div>
-    <div class="relative flex-1 flex flex-col max-w-xs w-full bg-white">
+    <div class="relative flex-1 flex flex-col max-w-xs w-full bg-white bg-opacity-15 backdrop-blur-md">
       <div class="absolute top-0 right-0 -mr-12 pt-2">
         <button type="button" class="ml-1 flex items-center justify-center h-10 w-10 rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white" id="mobile-close-button">
           <span class="sr-only">Close sidebar</span>
@@ -147,18 +147,18 @@ $current = basename($_SERVER['PHP_SELF']);
       <!-- Mobile sidebar content (duplicate of desktop) -->
       <div class="flex-1 h-0 pt-5 pb-4 overflow-y-auto">
         <div class="flex-shrink-0 flex items-center px-4">
-          <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="w-8 h-8 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
           </svg>
-          <h1 class="ml-3 text-lg font-semibold text-slate-800">NULP Tabulation</h1>
+          <h1 class="ml-3 text-lg font-semibold text-white">NULP Tabulation</h1>
         </div>
         <nav class="mt-5 px-2 space-y-1">
           <?php foreach ($navItems as $item): 
             $active = ($item['href'] === $current || str_ends_with($item['href'], $current)); 
           ?>
             <a href="<?= $item['href'] ?>" 
-               class="<?= $active ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900' ?> group flex items-center px-2 py-2 text-base font-medium rounded-md">
-              <svg class="<?= $active ? 'text-blue-500' : 'text-slate-400 group-hover:text-slate-500' ?> mr-4 flex-shrink-0 h-6 w-6" 
+               class="<?= $active ? 'bg-blue-500 bg-opacity-30 text-white backdrop-blur-sm' : 'text-slate-200 hover:bg-white hover:bg-opacity-10 hover:text-white hover:backdrop-blur-sm' ?> group flex items-center px-2 py-2 text-base font-medium rounded-md transition-all duration-150">
+              <svg class="<?= $active ? 'text-blue-200' : 'text-slate-300 group-hover:text-slate-100' ?> mr-4 flex-shrink-0 h-6 w-6" 
                    fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="<?= $item['icon'] ?>"/>
               </svg>
@@ -169,18 +169,18 @@ $current = basename($_SERVER['PHP_SELF']);
       </div>
       
       <!-- Mobile user section -->
-      <div class="flex-shrink-0 flex border-t border-slate-200 p-4">
+      <div class="flex-shrink-0 flex border-t border-white border-opacity-20 p-4">
         <div class="flex items-center">
-          <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-            <span class="text-sm font-medium text-blue-600">
+          <div class="w-8 h-8 bg-blue-400 bg-opacity-30 backdrop-blur-sm rounded-full flex items-center justify-center">
+            <span class="text-sm font-medium text-white">
               <?= strtoupper(substr($_SESSION['adminFN'] ?? 'A', 0, 1)) ?>
             </span>
           </div>
           <div class="ml-3">
-            <p class="text-base font-medium text-slate-700">
+            <p class="text-base font-medium text-white">
               <?= htmlspecialchars($_SESSION['adminFN'] ?? 'Admin', ENT_QUOTES, 'UTF-8') ?>
             </p>
-            <button type="button" class="text-sm text-slate-500 hover:text-slate-700" onclick="confirmLogout()">
+            <button type="button" class="text-sm text-slate-200 hover:text-white transition-colors duration-150" onclick="confirmLogout()">
               Sign out
             </button>
           </div>
@@ -192,12 +192,12 @@ $current = basename($_SERVER['PHP_SELF']);
   <!-- Main Content Area (to be wrapped around page content) -->
   <div class="flex flex-col flex-1 overflow-hidden">
     <!-- Top bar for mobile -->
-    <div class="md:hidden bg-white shadow-sm border-b border-slate-200 px-4 py-3">
-      <h1 class="text-lg font-semibold text-slate-800">NULP Tabulation</h1>
+    <div class="md:hidden bg-white bg-opacity-15 backdrop-blur-md shadow-sm border-b border-white border-opacity-20 px-4 py-3">
+      <h1 class="text-lg font-semibold text-white">NULP Tabulation</h1>
     </div>
     
     <!-- Page content will go here -->
-    <main class="flex-1 relative overflow-y-auto focus:outline-none bg-slate-50">
+    <main class="flex-1 relative overflow-y-auto focus:outline-none">
 
 <script>
 // Mobile menu functionality
