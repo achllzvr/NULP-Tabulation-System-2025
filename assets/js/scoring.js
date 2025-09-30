@@ -1,21 +1,33 @@
 // Auto-save and refresh logic for judge panel
+
 window.judgeAutoSaveOnTimerEnd = function() {
+  // Use a sessionStorage flag to prevent repeated auto-save/refresh
+  const roundKey = document.body.getAttribute('data-tie-group-id') || 'default';
+  const flagKey = 'judgeAutoSaved_' + roundKey;
+  if (sessionStorage.getItem(flagKey)) return;
+
   const form = document.getElementById('score-form');
-  if (!form) return;
-  // Prevent double auto-save
-  if (form._autoSaved) return;
+  if (!form || form._autoSaved || form.offsetParent === null) return;
   form._autoSaved = true;
-  // Mark as saved for other logic
+  sessionStorage.setItem(flagKey, '1');
   if (typeof window.scoresSaved !== 'undefined') window.scoresSaved = true;
-  // Optionally show a toast
   if (typeof showToast === 'function') showToast('Time is up! Auto-saving your scores...', 'info');
-  // Submit the form (bypass SweetAlert)
   form.submit();
-  // After a short delay, refresh the page to show no ongoing round
   setTimeout(function() {
-    window.location.reload();
+    if (document.getElementById('score-form')) {
+      window.location.reload();
+    }
   }, 2000);
 };
+
+// On page load, clear the flag if the form is not present (i.e., round is over)
+document.addEventListener('DOMContentLoaded', function() {
+  const roundKey = document.body.getAttribute('data-tie-group-id') || 'default';
+  const flagKey = 'judgeAutoSaved_' + roundKey;
+  if (!document.getElementById('score-form')) {
+    sessionStorage.removeItem(flagKey);
+  }
+});
 // --- Judge Score Form Logic ---
 
 function attachJudgeScoreFormHandler() {
