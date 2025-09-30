@@ -20,59 +20,62 @@ $leaderboard = [];
 $error_message = '';
 
 if ($pid > 0) {
-    // Get pageant information
-    $pageant = $con->getPageantByCode(''); // We'll get by ID instead
-    
-    // Get pageant by ID directly
-    $conn = $con->opencon();
-    $stmt = $conn->prepare("SELECT * FROM pageants WHERE id = ?");
-    $stmt->bind_param("i", $pid);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    
-    if ($result->num_rows > 0) {
-        $pageant = $result->fetch_assoc();
-        
-        // Get visibility flags
-        $visibility_flags = $con->getVisibilityFlags($pid);
-        
-        // Get rounds for this pageant
-        $rounds = $con->getPageantRounds($pid);
-        
-        // Find the best round to show (CLOSED first, then OPEN)
-        $target_round = null;
-        foreach ($rounds as $round) {
-            if ($round['state'] === 'CLOSED' || $round['state'] === 'FINALIZED') {
-                $target_round = $round;
-                break;
-            }
-        }
-        
-        if (!$target_round) {
-            foreach ($rounds as $round) {
-                if ($round['state'] === 'OPEN') {
-                    $target_round = $round;
-                    break;
-                }
-            }
-        }
-        
-        if ($target_round) {
-            $leaderboard = $con->getRoundLeaderboard($target_round['id']);
-        } elseif (!empty($rounds)) {
-            $error_message = 'No active rounds available for scoring yet.';
-        } else {
-            $error_message = 'No rounds have been created for this pageant yet.';
-        }
-    } else {
-        $error_message = 'Pageant not found.';
+  // Use a single connection for all queries
+  $conn = $con->opencon();
+  // Check for tie breaker in progress
+  $stmt = $conn->prepare("SELECT COUNT(*) as cnt FROM tie_groups WHERE pageant_id = ? AND state = 'in_progress'");
+  $stmt->bind_param("i", $pid);
+  $stmt->execute();
+  $result = $stmt->get_result();
+  $row = $result->fetch_assoc();
+  $tie_breaker_in_progress = ($row && $row['cnt'] > 0);
+  $stmt->close();
+
+  // Get pageant by ID directly
+  $stmt = $conn->prepare("SELECT * FROM pageants WHERE id = ?");
+  $stmt->bind_param("i", $pid);
+  $stmt->execute();
+  $result = $stmt->get_result();
+
+  if ($result->num_rows > 0 && !$tie_breaker_in_progress) {
+    $pageant = $result->fetch_assoc();
+    // Get visibility flags
+    $visibility_flags = $con->getVisibilityFlags($pid);
+    // Get rounds for this pageant
+    $rounds = $con->getPageantRounds($pid);
+    // Find the best round to show (CLOSED first, then OPEN)
+    $target_round = null;
+    foreach ($rounds as $round) {
+      if ($round['state'] === 'CLOSED' || $round['state'] === 'FINALIZED') {
+        $target_round = $round;
+        break;
+      }
     }
-    
-    $stmt->close();
-    $conn->close();
+    if (!$target_round) {
+      foreach ($rounds as $round) {
+        if ($round['state'] === 'OPEN') {
+          $target_round = $round;
+          break;
+        }
+      }
+    }
+    if ($target_round) {
+      $leaderboard = $con->getRoundLeaderboard($target_round['id']);
+    } elseif (!empty($rounds)) {
+      $error_message = 'No active rounds available for scoring yet.';
+    } else {
+      $error_message = 'No rounds have been created for this pageant yet.';
+    }
+  } elseif ($tie_breaker_in_progress) {
+    $error_message = 'Public viewing is temporarily disabled during tie breaker.';
+  } else {
+    $error_message = 'Pageant not found.';
+  }
+  $stmt->close();
+  $conn->close();
 } else {
-    header('Location: public_select.php');
-    exit();
+  header('Location: public_select.php');
+  exit();
 }
 
 include __DIR__ . '/../partials/head.php';

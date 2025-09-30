@@ -4,8 +4,10 @@ ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
+
 $pageTitle = 'Public Final Results';
 $pid = isset($_GET['pageant_id']) ? (int)$_GET['pageant_id'] : 0;
+$tie_breaker_in_progress = false;
 
 // Include the database class file
 require_once('../classes/database.php');
@@ -20,6 +22,15 @@ $leaderboard = [];
 $error_message = '';
 
 if ($pid > 0) {
+  // Check for tie breaker in progress
+  $conn = $con->opencon();
+  $stmt = $conn->prepare("SELECT COUNT(*) as cnt FROM tie_groups WHERE pageant_id = ? AND state = 'in_progress'");
+  $stmt->bind_param("i", $pid);
+  $stmt->execute();
+  $result = $stmt->get_result();
+  $row = $result->fetch_assoc();
+  $tie_breaker_in_progress = ($row && $row['cnt'] > 0);
+  $stmt->close();
     // Get pageant information
     $conn = $con->opencon();
     $stmt = $conn->prepare("SELECT * FROM pageants WHERE id = ?");
@@ -27,34 +38,31 @@ if ($pid > 0) {
     $stmt->execute();
     $result = $stmt->get_result();
     
-    if ($result->num_rows > 0) {
+  if ($result->num_rows > 0 && !$tie_breaker_in_progress) {
         $pageant = $result->fetch_assoc();
         
-        // Get visibility flags
-        $visibility_flags = $con->getVisibilityFlags($pid);
+  // Get visibility flags
+  $visibility_flags = $con->getVisibilityFlags($pid);
+  // Get rounds for this pageant
+  $rounds = $con->getPageantRounds($pid);
         
-        // Get rounds for this pageant
-        $rounds = $con->getPageantRounds($pid);
-        
-        // Find the last CLOSED/FINALIZED round for final results
-        $target_round = null;
-        $closed_rounds = array_filter($rounds, function($round) {
-            return $round['state'] === 'CLOSED' || $round['state'] === 'FINALIZED';
-        });
-        
-        if (!empty($closed_rounds)) {
-            // Get the last closed round
-            $target_round = end($closed_rounds);
-        } elseif (!empty($rounds)) {
-            // Fallback to the last round if no closed rounds
-            $target_round = end($rounds);
-        }
-        
-        if ($target_round) {
-            $leaderboard = $con->getRoundLeaderboard($target_round['id']);
-        } else {
-            $error_message = 'No final results available yet.';
-        }
+    // Find the last CLOSED/FINALIZED round for final results
+    $target_round = null;
+    $closed_rounds = array_filter($rounds, function($round) {
+      return $round['state'] === 'CLOSED' || $round['state'] === 'FINALIZED';
+    });
+    if (!empty($closed_rounds)) {
+      $target_round = end($closed_rounds);
+    } elseif (!empty($rounds)) {
+      $target_round = end($rounds);
+    }
+    if ($target_round) {
+      $leaderboard = $con->getRoundLeaderboard($target_round['id']);
+    } else {
+      $error_message = 'No final results available yet.';
+    }
+  } elseif ($tie_breaker_in_progress) {
+    $error_message = 'Public viewing is temporarily disabled during tie breaker.';
     } else {
         $error_message = 'Pageant not found.';
     }
@@ -85,7 +93,6 @@ include __DIR__ . '/../partials/head.php';
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 8.5c-.77.833.192 2.5 1.732 2.5z"/>
           </svg>
           <p class="font-medium"><?php echo htmlspecialchars($error_message); ?></p>
-          <p class="text-sm mt-2">Final results will be available once judging is complete.</p>
         </div>
       <?php elseif (!empty($leaderboard)): ?>
     

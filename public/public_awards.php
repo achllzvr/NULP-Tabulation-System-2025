@@ -4,8 +4,10 @@ ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
+
 $pageTitle = 'Public Awards';
 $pid = isset($_GET['pageant_id']) ? (int)$_GET['pageant_id'] : 0;
+$tie_breaker_in_progress = false;
 
 // Include the database class file
 require_once('../classes/database.php');
@@ -20,32 +22,41 @@ $visibility_flags = [];
 $error_message = '';
 
 if ($pid > 0) {
-    // Get pageant information
-    $conn = $con->opencon();
-    $stmt = $conn->prepare("SELECT * FROM pageants WHERE id = ?");
-    $stmt->bind_param("i", $pid);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    
-    if ($result->num_rows > 0) {
-        $pageant = $result->fetch_assoc();
-        
-        // Get visibility flags
-        $visibility_flags = $con->getVisibilityFlags($pid);
-        
-        // Get awards if they should be revealed
-        if ($visibility_flags['reveal_awards']) {
-            $awards = $con->getPublicAwards($pid);
-        }
-    } else {
-        $error_message = 'Pageant not found.';
+  // Use a single connection for all queries
+  $conn = $con->opencon();
+  // Check for tie breaker in progress
+  $stmt = $conn->prepare("SELECT COUNT(*) as cnt FROM tie_groups WHERE pageant_id = ? AND state = 'in_progress'");
+  $stmt->bind_param("i", $pid);
+  $stmt->execute();
+  $result = $stmt->get_result();
+  $row = $result->fetch_assoc();
+  $tie_breaker_in_progress = ($row && $row['cnt'] > 0);
+  $stmt->close();
+
+  // Get pageant by ID directly
+  $stmt = $conn->prepare("SELECT * FROM pageants WHERE id = ?");
+  $stmt->bind_param("i", $pid);
+  $stmt->execute();
+  $result = $stmt->get_result();
+
+  if ($result->num_rows > 0 && !$tie_breaker_in_progress) {
+    $pageant = $result->fetch_assoc();
+    // Get visibility flags
+    $visibility_flags = $con->getVisibilityFlags($pid);
+    // Get awards if they should be revealed
+    if ($visibility_flags['reveal_awards']) {
+      $awards = $con->getPublicAwards($pid);
     }
-    
-    $stmt->close();
-    $conn->close();
+  } elseif ($tie_breaker_in_progress) {
+    $error_message = 'Public viewing is temporarily disabled during tie breaker.';
+  } else {
+    $error_message = 'Pageant not found.';
+  }
+  $stmt->close();
+  $conn->close();
 } else {
-    header('Location: public_select.php');
-    exit();
+  header('Location: public_select.php');
+  exit();
 }
 
 include __DIR__ . '/../partials/head.php';
@@ -63,8 +74,8 @@ include __DIR__ . '/../partials/head.php';
 
 
       <?php if ($error_message): ?>
-        <div class="bg-red-100 bg-opacity-30 border border-red-300 border-opacity-30 text-red-200 px-6 py-4 rounded-xl text-center mb-6">
-          <svg class="w-6 h-6 mx-auto mb-2 text-red-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="bg-yellow-100 bg-opacity-20 border border-yellow-300 text-yellow-200 px-6 py-4 rounded-lg text-center">
+          <svg class="w-6 h-6 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 8.5c-.77.833.192 2.5 1.732 2.5z"/>
           </svg>
           <p class="font-medium"><?php echo htmlspecialchars($error_message); ?></p>
