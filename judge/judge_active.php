@@ -296,6 +296,7 @@ function confirmLogout() {
         function startTieTimer_<?= $active_round['tie_group_id'] ?>(startTime) {
           const timerEl = document.getElementById('tie-timer-<?= $active_round['tie_group_id'] ?>');
           const duration = 2 * 60; // 2 minutes in seconds
+          let timerEnded = false;
           function updateTimer() {
             const now = Math.floor(Date.now() / 1000);
             const start = Math.floor(new Date(startTime).getTime() / 1000);
@@ -309,6 +310,13 @@ function confirmLogout() {
               setTimeout(updateTimer, 1000);
             } else {
               timerEl.textContent = '00:00';
+              if (!timerEnded) {
+                timerEnded = true;
+                // Auto-save if form is present and not already saved
+                if (window.judgeAutoSaveOnTimerEnd) {
+                  window.judgeAutoSaveOnTimerEnd();
+                }
+              }
             }
           }
           updateTimer();

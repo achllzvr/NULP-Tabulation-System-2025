@@ -1,3 +1,21 @@
+// Auto-save and refresh logic for judge panel
+window.judgeAutoSaveOnTimerEnd = function() {
+  const form = document.getElementById('score-form');
+  if (!form) return;
+  // Prevent double auto-save
+  if (form._autoSaved) return;
+  form._autoSaved = true;
+  // Mark as saved for other logic
+  if (typeof window.scoresSaved !== 'undefined') window.scoresSaved = true;
+  // Optionally show a toast
+  if (typeof showToast === 'function') showToast('Time is up! Auto-saving your scores...', 'info');
+  // Submit the form (bypass SweetAlert)
+  form.submit();
+  // After a short delay, refresh the page to show no ongoing round
+  setTimeout(function() {
+    window.location.reload();
+  }, 2000);
+};
 // --- Judge Score Form Logic ---
 
 function attachJudgeScoreFormHandler() {
