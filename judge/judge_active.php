@@ -151,6 +151,9 @@ if ($tie_group) {
   }
   $active_round = [
     'name' => 'Tie Breaker Round (Score: ' . $tie_group['score'] . ')',
+    'start_time' => $tie_group['start_time'] ?? null,
+    'tie_group_id' => $tie_group['id'],
+    'state' => $tie_group['state'],
   ];
 } else {
   // Fallback to normal round logic
@@ -281,7 +284,40 @@ function confirmLogout() {
     <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20 p-6 mb-6">
       <h2 class="text-lg font-semibold text-white mb-2"><?= htmlspecialchars($active_round['name'], ENT_QUOTES, 'UTF-8') ?></h2>
       <p class="text-slate-200 text-sm">Currently judging: <?= count($participants) ?> participants • <?= count($criteria) ?> criteria</p>
-    </div>
+      <?php if (!empty($active_round['start_time']) && $active_round['state'] === 'in_progress'): ?>
+        <div class="mt-4">
+          <div class="text-sm text-slate-200 mb-1">Tie Breaker Timer</div>
+          <div class="w-full flex items-center gap-3">
+            <div id="tie-timer-<?= $active_round['tie_group_id'] ?>" class="text-2xl font-mono font-bold text-blue-200 bg-blue-900 bg-opacity-30 px-6 py-2 rounded-lg shadow-inner border border-blue-400 border-opacity-30"></div>
+            <span class="text-slate-300">(2 minutes)</span>
+          </div>
+        </div>
+        <script>
+        function startTieTimer_<?= $active_round['tie_group_id'] ?>(startTime) {
+          const timerEl = document.getElementById('tie-timer-<?= $active_round['tie_group_id'] ?>');
+          const duration = 2 * 60; // 2 minutes in seconds
+          function updateTimer() {
+            const now = Math.floor(Date.now() / 1000);
+            const start = Math.floor(new Date(startTime).getTime() / 1000);
+            let elapsed = now - start;
+            let remaining = duration - elapsed;
+            if (remaining < 0) remaining = 0;
+            const min = Math.floor(remaining / 60).toString().padStart(2, '0');
+            const sec = (remaining % 60).toString().padStart(2, '0');
+            timerEl.textContent = `${min}:${sec}`;
+            if (remaining > 0) {
+              setTimeout(updateTimer, 1000);
+            } else {
+              timerEl.textContent = '00:00';
+            }
+          }
+          updateTimer();
+        }
+        document.addEventListener('DOMContentLoaded', function() {
+          startTieTimer_<?= $active_round['tie_group_id'] ?>(<?= json_encode($active_round['start_time']) ?>);
+        });
+        </script>
+      <?php endif; ?>
 
     <!-- Participant Navigation -->
     <div class="bg-white bg-opacity-10 border border-white border-opacity-20 rounded-xl p-4 mb-6 backdrop-blur-md">

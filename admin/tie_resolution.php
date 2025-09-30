@@ -47,9 +47,14 @@ if (isset($_POST['update_tie_group']) && isset($_POST['tie_group_index']) && iss
       $participant_ids[] = $prow['participant_id'];
     }
     $pstmt->close();
-    // Update state/score/round_id
-    $upd = $conn->prepare("UPDATE tie_groups SET state = ?, score = ?, round_id = ?, updated_at = NOW() WHERE id = ?");
-    $upd->bind_param("sdii", $state, $score, $finalized_round_id, $tie_group_id);
+    // Update state/score/round_id, and set start_time if action is 'start'
+    if ($action === 'start') {
+      $upd = $conn->prepare("UPDATE tie_groups SET state = ?, score = ?, round_id = ?, start_time = NOW(), updated_at = NOW() WHERE id = ?");
+      $upd->bind_param("sdii", $state, $score, $finalized_round_id, $tie_group_id);
+    } else {
+      $upd = $conn->prepare("UPDATE tie_groups SET state = ?, score = ?, round_id = ?, updated_at = NOW() WHERE id = ?");
+      $upd->bind_param("sdii", $state, $score, $finalized_round_id, $tie_group_id);
+    }
     $upd->execute();
     $upd->close();
     $resp = ['success' => true, 'state' => $state, 'tie_group_id' => $tie_group_id];
@@ -309,6 +314,41 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                   ?>
                   </ul>
                 </div>
+                <!-- Tie Breaker Timer -->
+                <?php if (!empty($tie_group['start_time']) && $state === 'in_progress'): ?>
+                  <div class="mb-6">
+                    <div class="text-sm text-slate-200 mb-2">Tie Breaker Timer</div>
+                    <div class="w-full flex items-center gap-3">
+                      <div id="tie-timer-<?= $tie_group['id'] ?>" class="text-2xl font-mono font-bold text-blue-200 bg-blue-900 bg-opacity-30 px-6 py-2 rounded-lg shadow-inner border border-blue-400 border-opacity-30"></div>
+                      <span class="text-slate-300">(2 minutes)</span>
+                    </div>
+                  </div>
+                  <script>
+                  function startTieTimer_<?= $tie_group['id'] ?>(startTime) {
+                    const timerEl = document.getElementById('tie-timer-<?= $tie_group['id'] ?>');
+                    const duration = 2 * 60; // 2 minutes in seconds
+                    function updateTimer() {
+                      const now = Math.floor(Date.now() / 1000);
+                      const start = Math.floor(new Date(startTime).getTime() / 1000);
+                      let elapsed = now - start;
+                      let remaining = duration - elapsed;
+                      if (remaining < 0) remaining = 0;
+                      const min = Math.floor(remaining / 60).toString().padStart(2, '0');
+                      const sec = (remaining % 60).toString().padStart(2, '0');
+                      timerEl.textContent = `${min}:${sec}`;
+                      if (remaining > 0) {
+                        setTimeout(updateTimer, 1000);
+                      } else {
+                        timerEl.textContent = '00:00';
+                      }
+                    }
+                    updateTimer();
+                  }
+                  document.addEventListener('DOMContentLoaded', function() {
+                    startTieTimer_<?= $tie_group['id'] ?>(<?= json_encode($tie_group['start_time']) ?>);
+                  });
+                  </script>
+                <?php endif; ?>
                 <!-- Judge Progress Bar (static for now, dynamic in next step) -->
                 <div class="mb-6">
                   <div class="text-sm text-slate-200 mb-2">Judge Progress</div>
