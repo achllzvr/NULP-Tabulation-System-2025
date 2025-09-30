@@ -326,7 +326,9 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                   <script>
                   function startTieTimer_<?= $tie_group['id'] ?>(startTime) {
                     const timerEl = document.getElementById('tie-timer-<?= $tie_group['id'] ?>');
-                    const duration = 2 * 60; // 2 minutes in seconds
+                    const closeBtn = document.querySelector('[data-close-tie-group="<?= $index ?>"]');
+                    let autoClosed = false;
+                    const duration = 1 * 15; // 2 minutes in seconds
                     function updateTimer() {
                       const now = Math.floor(Date.now() / 1000);
                       const start = Math.floor(new Date(startTime).getTime() / 1000);
@@ -340,6 +342,13 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                         setTimeout(updateTimer, 1000);
                       } else {
                         timerEl.textContent = '00:00';
+                        if (!autoClosed) {
+                          autoClosed = true;
+                          setTimeout(function() {
+                            updateTieGroupStatus(<?= $index ?>, 'close');
+                            if (closeBtn) closeBtn.style.display = 'none';
+                          }, 2000);
+                        }
                       }
                     }
                     updateTimer();
@@ -361,7 +370,6 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                 </div>
                 <div class="flex gap-3 mb-6">
                   <button class="px-5 py-2 rounded-lg bg-blue-500 bg-opacity-30 hover:bg-blue-600 hover:bg-opacity-40 text-white font-semibold border border-white border-opacity-20 backdrop-blur-md transition" onclick="updateTieGroupStatus(<?php echo $index; ?>, 'start')" <?php echo ($state !== 'pending' && $state !== 'revert') ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : ''; ?>>Start Tie Breaker</button>
-                  <button class="px-5 py-2 rounded-lg bg-yellow-400 bg-opacity-30 hover:bg-yellow-500 hover:bg-opacity-40 text-white font-semibold border border-white border-opacity-20 backdrop-blur-md transition" onclick="updateTieGroupStatus(<?php echo $index; ?>, 'close')" <?php echo ($state !== 'in_progress') ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : ''; ?>>Close Tie Breaker</button>
                   <button class="px-5 py-2 rounded-lg bg-green-600 bg-opacity-30 hover:bg-green-700 hover:bg-opacity-40 text-white font-semibold border border-white border-opacity-20 backdrop-blur-md transition" onclick="updateTieGroupStatus(<?php echo $index; ?>, 'finalize')" <?php echo ($state !== 'closed') ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : ''; ?>>Finalize</button>
                   <button class="px-5 py-2 rounded-lg bg-red-600 bg-opacity-30 hover:bg-red-700 hover:bg-opacity-40 text-white font-semibold border border-white border-opacity-20 backdrop-blur-md transition" onclick="updateTieGroupStatus(<?php echo $index; ?>, 'revert')" <?php echo ($state === 'finalized') ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : ''; ?>>Revert</button>
                 </div>

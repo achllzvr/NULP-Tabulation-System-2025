@@ -17,7 +17,7 @@ window.judgeAutoSaveOnTimerEnd = function() {
     if (document.getElementById('score-form')) {
       window.location.reload();
     }
-  }, 2000);
+  }, 5000); // Wait 5 seconds before refreshing
 };
 
 // On page load, clear the flag if the form is not present (i.e., round is over)

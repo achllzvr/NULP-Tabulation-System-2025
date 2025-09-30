@@ -212,6 +212,10 @@ include __DIR__ . '/../partials/head.php';
       </ul>
     </div>
     <div class="flex items-center gap-4">
+      <button type="button" class="text-sm px-3 py-1 rounded bg-blue-500 bg-opacity-70 hover:bg-blue-600 text-white transition-colors" onclick="window.location.reload()">
+        <svg class="inline w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+        Refresh
+      </button>
       <span class="text-sm text-slate-200">Welcome, <?= htmlspecialchars($_SESSION['judgeFN'] ?? 'Judge', ENT_QUOTES, 'UTF-8') ?></span>
       <form method="post" action="../logout.php" class="inline" id="logoutForm">
         <button type="button" class="text-sm text-slate-200 hover:text-white transition-colors" onclick="confirmLogout()">Logout</button>
@@ -295,7 +299,7 @@ function confirmLogout() {
         <script>
         function startTieTimer_<?= $active_round['tie_group_id'] ?>(startTime) {
           const timerEl = document.getElementById('tie-timer-<?= $active_round['tie_group_id'] ?>');
-          const duration = 2 * 60; // 2 minutes in seconds
+          const duration = 1 * 15; // 2 minutes in seconds
           let timerEnded = false;
           function updateTimer() {
             const now = Math.floor(Date.now() / 1000);
