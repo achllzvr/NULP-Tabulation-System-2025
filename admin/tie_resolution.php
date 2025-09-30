@@ -358,16 +358,6 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                   });
                   </script>
                 <?php endif; ?>
-                <!-- Judge Progress Bar (static for now, dynamic in next step) -->
-                <div class="mb-6">
-                  <div class="text-sm text-slate-200 mb-2">Judge Progress</div>
-                  <div class="w-full h-8 flex rounded-lg overflow-hidden border border-white border-opacity-20 bg-white bg-opacity-10 backdrop-blur-md">
-                    <div class="flex-1 flex items-center justify-center bg-green-500 bg-opacity-60 text-white font-bold transition-all">Judge A</div>
-                    <div class="flex-1 flex items-center justify-center bg-yellow-400 bg-opacity-60 text-white font-bold transition-all">Judge B</div>
-                    <div class="flex-1 flex items-center justify-center bg-gray-300 bg-opacity-60 text-slate-700 font-bold transition-all">Judge C</div>
-                  </div>
-                  <div class="text-xs text-slate-200 mt-2">Green: Saved, Yellow: Pending, Gray: Not started</div>
-                </div>
                 <div class="flex gap-3 mb-6">
                   <button class="px-5 py-2 rounded-lg bg-blue-500 bg-opacity-30 hover:bg-blue-600 hover:bg-opacity-40 text-white font-semibold border border-white border-opacity-20 backdrop-blur-md transition" onclick="updateTieGroupStatus(<?php echo $index; ?>, 'start')" <?php echo ($state !== 'pending' && $state !== 'revert') ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : ''; ?>>Start Tie Breaker</button>
                   <button class="px-5 py-2 rounded-lg bg-green-600 bg-opacity-30 hover:bg-green-700 hover:bg-opacity-40 text-white font-semibold border border-white border-opacity-20 backdrop-blur-md transition" onclick="updateTieGroupStatus(<?php echo $index; ?>, 'finalize')" <?php echo ($state !== 'closed') ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : ''; ?>>Finalize</button>
