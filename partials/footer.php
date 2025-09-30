@@ -1,8 +1,16 @@
+
 <?php
 /** footer.php : Closes layout */
-// Determine the correct path to assets based on current directory
-// Always use absolute path for assets to avoid 404 errors
-$assetsPath = '/assets';
+// Dynamically determine the correct path to assets based on current directory and project folder
+$projectBase = '';
+if (isset($_SERVER['SCRIPT_NAME'])) {
+	$scriptPath = $_SERVER['SCRIPT_NAME'];
+	$parts = explode('/', trim($scriptPath, '/'));
+	if (count($parts) > 1) {
+		$projectBase = '/' . $parts[0];
+	}
+}
+$assetsPath = $projectBase . '/assets';
 ?>
 </div><!-- /#app -->
 <footer class="mt-auto py-6 text-center text-xs text-slate-500">&copy; <?= date('Y') ?> Pageant Tabulation System</footer>

@@ -3,7 +3,7 @@
  * Expected: $criteria (array), $participant (array), $existingScores (criterion_id=>score_value)
  */
 ?>
-<form id="score-form" method="POST" class="space-y-4">
+<form id="score-form" method="POST" class="space-y-4" autocomplete="off">
   <input type="hidden" name="submit_scores" value="1" />
   <input type="hidden" name="participant_id" value="<?= (int)($participant['id'] ?? 0) ?>" />
   
@@ -49,7 +49,7 @@
     </div>
     
     <div class="flex gap-3 pt-4">
-      <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-3 rounded-lg transition-colors flex items-center gap-2">
+      <button id="save-scores-btn" type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-3 rounded-lg transition-colors flex items-center gap-2">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
         </svg>
@@ -62,33 +62,5 @@
   <?php endif; ?>
 </form>
 
-<script>
-function clearScores() {
-  const inputs = document.querySelectorAll('#score-form input[type="number"]');
-  inputs.forEach(input => {
-    input.value = '';
-    // Update progress bar
-    const progressBar = input.closest('.bg-slate-50').querySelector('.bg-blue-600');
-    if (progressBar) {
-      progressBar.style.width = '0%';
-    }
-  });
-}
 
-// Update progress bars when scores change
-document.addEventListener('DOMContentLoaded', function() {
-  const scoreInputs = document.querySelectorAll('#score-form input[type="number"]');
-  scoreInputs.forEach(input => {
-    input.addEventListener('input', function() {
-      const maxScore = parseFloat(this.max);
-      const currentScore = parseFloat(this.value) || 0;
-      const percentage = Math.min((currentScore / maxScore) * 100, 100);
-      
-      const progressBar = this.closest('.bg-slate-50').querySelector('.bg-blue-600');
-      if (progressBar) {
-        progressBar.style.width = percentage + '%';
-      }
-    });
-  });
-});
-</script>
+<!-- JS moved to scoring.js -->
