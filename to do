@@ -1,0 +1,72 @@
+To Do for Tabulation System
+
+- [ ] Participants Photo Upload - Admin
+- [ ] Participants Photo Display - Judges, Public Viewing
+
+- [ ] Criteria for Final Round in Database
+- [ ] Create First Round - Admin, DB
+    - [ ] Adjust Consequential Rounds
+
+- [ ] New Tie Resolution Logic and Flow
+    - [ ] If tie, admin opens Tie Breaker UI for Judges Panels for each respective Tie Group
+        - [ ] 2 min countdown will start when admin clicks on the respective "Open Tie Breaker Round for Group Tie __"
+        - [ ] Durign this time period/ whenever a tie breaker is ongoing, public viewing is disabled
+        - [ ] All judge pages are now refreshed and will show the newly opened Tie Breaker Round
+            - [ ] Judges will have the same interface they had for the scoring but this time, only the tie group participants and the judges' respective scores for those participants for the corresponding round they tied at are displayed and all scores are editable.
+            - [ ] Judges can save or wait for timer to finish and system will automatically refresh and update scores based on new scores from judges.
+            - [ ] When Judges are saving, have modals saying/ confirming “By clicking save, you confirm your…”
+            - [ ] If judge waited for time to finish and didn't save their scores, when it's the last 10 seconds on the timer, modal will appear that indicates "Your scores will be saved in... <timer>"
+        - [ ] Admin side, can see which judges have saved their scores via a progress bar separated into the number of judges actively renewing their scores.
+        - [ ] Once timer is done
+            - [ ] For admin panel/ page, admin’s close tie breaker panel button activates.
+            - [ ] For judges, page/ system saves their new set of scores, whether updated or not, updates the corresponding columns in the database, and refreshes the page for the judges to show no ongoing round
+        - [ ] Once closed, finalize button will be activated for admin
+            - [ ] Modal “You confirm…”
+            - [ ] Have revert buttons for fallbacks
+    - [ ] If not tie, system will not show it
+
+- [ ] Once preliminary round is done, admin can now open advancements validation panel for judges
+    - [ ] Judges’ panel, shows the scores they’ve put for each participant.
+    - [ ] One central button that says “By pressing this button, you confirm and sign that the scores you’ve placed are correct and participants can proceed to advancements”
+        - [ ] Judges will save and will wait for admin/ host to close advancements validation.
+            - [ ] your…”
+    - [ ] Admin side, can see which judges have saved their scores.
+    - [ ] Once all judges have saved their scores, button for Close Advancements Validation Panel will activate
+    - [ ] Once closed, finalize button will be activated
+        - [ ] Modal “You confirm…”
+        - [ ] Have revert buttons for fallbacks
+
+- [ ] Gate for Final Round
+    - [ ] Final Round can’t open without Advancements Validations being complete
+- [ ] Gate for Ties
+    - [ ] With the ongoing current round, the next round will not be available unless all ties have been settled.
+
+- [ ] Leaderboards and Awards Page rework
+    - [ ] Centralized Leaderboards and Awards Page
+    - [ ] Also have “Tabulated Data View” and will show the tabulated form of the scores per judge, per participant and can be filtered by round, by criteria
+        - [ ] In case of major/ minor errors in score calculation/ saving, manual override can be made for the editing of the scores through a password protected gate
+            - [ ] For extra security, the respective judge the score is being fixed/ edited should be required to input their credentials to allow the edit to happen
+    - [ ] Leaderboards are automatically calculated by the scores saved
+    - [ ] Awards are automatically calculated but has toggle switch for public viewing display to whether show or hide
+
+- [ ] Participants Page Filter by button/ dropdown.
+- [ ] Activity Cards/ Containers - live_control Live Activity, Recent Activity - index, Scoring Criteria - rounds
+    - [ ] Have a limit/ make scrollable after 4 entries
+    - [ ] For Scoring Criteria, have More Details to show card modal of all  criteria
+- [ ] Ensure Public Display Settings are functional.
+- [ ] Add “NU x AVR” in footer for landing page and public viewing page.
+
+- [ ] Redo Portfolio for new visitors.
+    - [ ] Logo show up in first 2 seconds then animate out
+    - [ ] A live loop of background of a moving grid
+    - [ ] Bento Box style with modals/ expansions per click on cards
+    - [ ] Responsive
+    - [ ] White and Red
+    - [ ] Cards:
+        - [ ] About Me
+        - [ ] Certifications
+        - [ ] Technical Skills with Proficiency
+        - [ ] My Works
+        - [ ] Experiences
+        - [ ] Testimonials
+        - [ ] My Links

@@ -7,6 +7,112 @@ error_reporting(E_ALL);
 // Start the session
 session_start();
 
+// Handle AJAX tie group update actions (start, close, finalize, revert)
+if (isset($_POST['update_tie_group']) && isset($_POST['tie_group_index']) && isset($_POST['action'])) {
+  header('Content-Type: application/json');
+  require_once('../classes/database.php');
+  $con = new database();
+  $conn = $con->opencon();
+  $tie_group_index = intval($_POST['tie_group_index']);
+  $action = $_POST['action'];
+  $pageant_id = $_SESSION['pageant_id'] ?? 1;
+  $valid_actions = ['start', 'close', 'finalize', 'revert'];
+  $state_map = [
+    'start' => 'in_progress',
+    'close' => 'closed',
+    'finalize' => 'finalized',
+    'revert' => 'pending'
+  ];
+  if (!in_array($action, $valid_actions)) {
+    $resp = ['success' => false, 'message' => 'Invalid action.', 'errorCode' => 'V001'];
+    echo json_encode($resp); exit;
+  }
+  // Get tie group info (score, participant_ids) from POST or recalculate
+  // For now, recalculate from leaderboard logic (same as below)
+  $rounds_query = "SELECT id FROM rounds WHERE pageant_id = ? AND state = 'FINALIZED'";
+  $stmt = $conn->prepare($rounds_query);
+  $stmt->bind_param("i", $pageant_id);
+  $stmt->execute();
+  $rounds_result = $stmt->get_result();
+  $round_ids = [];
+  while ($round = $rounds_result->fetch_assoc()) {
+    $round_ids[] = $round['id'];
+  }
+  $stmt->close();
+  $score = 0; $participant_ids = []; $finalized_round_id = null;
+  if (!empty($round_ids)) {
+    $round_ids_placeholder = implode(',', array_fill(0, count($round_ids), '?'));
+    $score_query = "SELECT 
+        p.id,
+        COALESCE(SUM(COALESCE(s.override_score, s.raw_score) * rc.weight), 0) as total_score
+      FROM participants p
+      LEFT JOIN scores s ON p.id = s.participant_id
+      LEFT JOIN round_criteria rc ON s.criterion_id = rc.criterion_id AND rc.round_id IN ($round_ids_placeholder)
+      WHERE p.pageant_id = ? AND p.is_active = 1
+      GROUP BY p.id
+      HAVING total_score >= 0
+      ORDER BY total_score DESC, p.full_name ASC";
+    $params = array_merge($round_ids, [$pageant_id]);
+    $types = str_repeat('i', count($params));
+    $stmt = $conn->prepare($score_query);
+    $stmt->bind_param($types, ...$params);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $score_groups = [];
+    while ($row = $result->fetch_assoc()) {
+      $score = round($row['total_score'], 2);
+      $score_groups[(string)$score][] = $row['id'];
+    }
+    $stmt->close();
+    $tie_groups = array_values(array_filter($score_groups, function($arr){ return count($arr) > 1; }));
+    if (isset($tie_groups[$tie_group_index])) {
+      $participant_ids = $tie_groups[$tie_group_index];
+      $score = array_keys($score_groups)[$tie_group_index];
+      // Use the most recent finalized round for this tie group
+      $finalized_round_id = end($round_ids);
+    }
+  }
+  // Upsert tie group in DB (normalized schema)
+  $state = $state_map[$action];
+  if (!empty($participant_ids)) {
+    // Check if tie group exists (by pageant, score, and state not finalized)
+  $sel = $conn->prepare("SELECT id FROM tie_groups WHERE pageant_id = ? AND score = ? AND round_id = ? AND state != 'finalized'");
+  $sel->bind_param("idi", $pageant_id, $score, $finalized_round_id);
+    $sel->execute();
+    $sel_result = $sel->get_result();
+    if ($row = $sel_result->fetch_assoc()) {
+      // Update state/score
+  $upd = $conn->prepare("UPDATE tie_groups SET state = ?, score = ?, round_id = ?, updated_at = NOW() WHERE id = ?");
+  $upd->bind_param("sdii", $state, $score, $finalized_round_id, $row['id']);
+      $upd->execute();
+      $upd->close();
+      $tie_group_id = $row['id'];
+      // Remove old participants for this group
+  $conn->query("DELETE FROM tie_group_participants WHERE tie_group_id = " . intval($tie_group_id));
+    } else {
+      // Insert new tie group
+      $ins = $conn->prepare("INSERT INTO tie_groups (pageant_id, round_id, score, state, created_at) VALUES (?, ?, ?, ?, NOW())");
+      $ins->bind_param("iids", $pageant_id, $finalized_round_id, $score, $state);
+      $ins->execute();
+      $tie_group_id = $ins->insert_id;
+      $ins->close();
+    }
+    $sel->close();
+    // Insert participants into tie_group_participants
+    $ins_p = $conn->prepare("INSERT INTO tie_group_participants (tie_group_id, participant_id, original_score) VALUES (?, ?, ?)");
+    foreach ($participant_ids as $pid) {
+      $ins_p->bind_param("iid", $tie_group_id, $pid, $score);
+      $ins_p->execute();
+    }
+    $ins_p->close();
+    $resp = ['success' => true, 'state' => $state, 'tie_group_id' => $tie_group_id];
+  } else {
+    $resp = ['success' => false, 'message' => 'Tie group not found or no participants.', 'errorCode' => 'TIE_NOT_FOUND'];
+  }
+  $conn->close();
+  echo json_encode($resp); exit;
+}
+
 // Check if admin is logged in
 if (!isset($_SESSION['adminID'])) {
     $currentPage = urlencode('admin/' . basename($_SERVER['PHP_SELF'])); 
@@ -215,17 +321,30 @@ include __DIR__ . '/../partials/sidebar_admin.php';
         <?php else: ?>
           <div class="space-y-6">
             <?php foreach ($ties_detected as $index => $tie_group): ?>
-              <div class="border border-amber-200 bg-amber-100 bg-opacity-10 rounded-lg p-6">
+              <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-amber-200 border-opacity-30 p-6">
                 <div class="flex items-center justify-between mb-4">
-                  <h4 class="text-lg font-semibold text-amber-200">
-                    Tie Group <?php echo $index + 1; ?> - Score: <?php echo number_format($tie_group[0]['total_score'], 2); ?>
-                  </h4>
-                  <span class="px-3 py-1 text-sm bg-amber-200 bg-opacity-20 text-amber-100 rounded-full">
-                    <?php echo count($tie_group); ?> participants tied
+                  <h4 class="text-lg font-semibold text-amber-200">Tie Group <?php echo $index + 1; ?> - Score: <?php echo number_format($tie_group[0]['total_score'], 2); ?></h4>
+                  <span class="px-3 py-1 text-sm bg-amber-200 bg-opacity-20 text-amber-100 rounded-full"><?php echo count($tie_group); ?> participants tied</span>
+                  <?php
+                    $state = $_SESSION['tie_group_states'][$index] ?? 'pending';
+                    $stateColors = [
+                      'pending' => 'bg-slate-400 text-slate-900',
+                      'in_progress' => 'bg-blue-400 text-blue-900',
+                      'closed' => 'bg-yellow-400 text-yellow-900',
+                      'finalized' => 'bg-green-400 text-green-900'
+                    ];
+                    $stateLabels = [
+                      'pending' => 'Pending',
+                      'in_progress' => 'In Progress',
+                      'closed' => 'Closed',
+                      'finalized' => 'Finalized'
+                    ];
+                  ?>
+                  <span class="ml-2 px-3 py-1 text-xs font-semibold rounded-full <?php echo $stateColors[$state] ?? 'bg-slate-400 text-slate-900'; ?>">
+                    <?php echo $stateLabels[$state] ?? ucfirst($state); ?>
                   </span>
                 </div>
-                
-                <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                <div class="grid md:grid-cols-2 gap-4 mb-6">
                   <?php foreach ($tie_group as $participant): ?>
                     <div class="bg-white bg-opacity-10 border border-amber-200 border-opacity-20 rounded-lg p-4">
                       <div class="flex items-center justify-between mb-2">
@@ -233,19 +352,31 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                         <span class="text-sm text-slate-200">Score: <?php echo number_format($participant['total_score'], 2); ?></span>
                       </div>
                       <p class="text-sm text-slate-200 mb-3"><?php echo htmlspecialchars($participant['full_name']); ?></p>
-                      <button onclick="resolveTie('<?php echo $index; ?>', <?php echo $participant['id']; ?>, '<?php echo htmlspecialchars($participant['full_name']); ?>')" 
-                              class="w-full bg-green-500 bg-opacity-30 hover:bg-green-600 hover:bg-opacity-40 text-white text-sm font-medium px-3 py-2 rounded transition-colors border border-white border-opacity-20 backdrop-blur-md">
-                        Select as Winner
-                      </button>
                     </div>
                   <?php endforeach; ?>
                 </div>
-                
+                <!-- Judge Progress Bar (static for now) -->
+                <div class="mb-6">
+                  <div class="text-sm text-slate-200 mb-2">Judge Progress</div>
+                  <div class="w-full h-8 flex rounded-lg overflow-hidden border border-white border-opacity-20 bg-white bg-opacity-10 backdrop-blur-md">
+                    <div class="flex-1 flex items-center justify-center bg-green-500 bg-opacity-60 text-white font-bold transition-all">Judge A</div>
+                    <div class="flex-1 flex items-center justify-center bg-yellow-400 bg-opacity-60 text-white font-bold transition-all">Judge B</div>
+                    <div class="flex-1 flex items-center justify-center bg-gray-300 bg-opacity-60 text-slate-700 font-bold transition-all">Judge C</div>
+                  </div>
+                  <div class="text-xs text-slate-200 mt-2">Green: Saved, Yellow: Pending, Gray: Not started</div>
+                </div>
+                <!-- Round Control Buttons (dynamic, AJAX hooks) -->
+                <div class="flex gap-3 mb-6">
+                  <button class="px-5 py-2 rounded-lg bg-blue-500 bg-opacity-30 hover:bg-blue-600 hover:bg-opacity-40 text-white font-semibold border border-white border-opacity-20 backdrop-blur-md transition" onclick="updateTieGroupStatus(<?php echo $index; ?>, 'start')">Start Tie Breaker</button>
+                  <button class="px-5 py-2 rounded-lg bg-yellow-400 bg-opacity-30 hover:bg-yellow-500 hover:bg-opacity-40 text-white font-semibold border border-white border-opacity-20 backdrop-blur-md transition" onclick="updateTieGroupStatus(<?php echo $index; ?>, 'close')">Close Tie Breaker</button>
+                  <button class="px-5 py-2 rounded-lg bg-green-600 bg-opacity-30 hover:bg-green-700 hover:bg-opacity-40 text-white font-semibold border border-white border-opacity-20 backdrop-blur-md transition" onclick="updateTieGroupStatus(<?php echo $index; ?>, 'finalize')">Finalize</button>
+                  <button class="px-5 py-2 rounded-lg bg-red-600 bg-opacity-30 hover:bg-red-700 hover:bg-opacity-40 text-white font-semibold border border-white border-opacity-20 backdrop-blur-md transition" onclick="updateTieGroupStatus(<?php echo $index; ?>, 'revert')">Revert</button>
+                </div>
                 <div class="flex items-center gap-3 text-sm text-amber-200">
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                   </svg>
-                  Select the participant who should be ranked higher in this tie situation.
+                  The winner will be automatically determined once the tie breaker round ends.
                 </div>
               </div>
             <?php endforeach; ?>
@@ -307,6 +438,45 @@ function resolveTie(tieGroup, winnerId, winnerName) {
 
 function refreshTies() {
   location.reload();
+}
+function updateTieGroupStatus(tieGroupIndex, action) {
+  // Show loading toast
+  let loadingSwal;
+  if (window.Swal) {
+    loadingSwal = Swal.fire({
+      title: 'Updating tie group...',
+      allowOutsideClick: false,
+      didOpen: () => Swal.showLoading(),
+      customClass: { popup: 'font-[Inter]' }
+    });
+  }
+  fetch('tie_resolution.php', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `update_tie_group=1&tie_group_index=${encodeURIComponent(tieGroupIndex)}&action=${encodeURIComponent(action)}`
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (window.Swal) Swal.close();
+    if (data.success) {
+      showNotification('Tie group updated!','success',true);
+      setTimeout(refreshTies, 600);
+    } else {
+      if (window.showError) {
+        showError('Failed to update tie group', data.message||'Unknown error', data.errorCode||null, data.debugInfo||null);
+      } else {
+        alert(data.message || 'Failed to update tie group.');
+      }
+    }
+  })
+  .catch((err) => {
+    if (window.Swal) Swal.close();
+    if (window.showError) {
+      showError('Network error', 'Could not update tie group.', null, err);
+    } else {
+      alert('Failed to update tie group.');
+    }
+  });
 }
 </script>
 
