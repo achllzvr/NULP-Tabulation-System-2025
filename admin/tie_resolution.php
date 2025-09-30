@@ -28,7 +28,7 @@ if (isset($_POST['update_tie_group']) && isset($_POST['tie_group_index']) && iss
     echo json_encode($resp); exit;
   }
   // Get tie group info (score, participant_ids) from POST or recalculate
-  // For now, recalculate from leaderboard logic (same as below)
+  // Try to get finalized rounds first, then fallback to active tie breaker round
   $rounds_query = "SELECT id FROM rounds WHERE pageant_id = ? AND state = 'FINALIZED'";
   $stmt = $conn->prepare($rounds_query);
   $stmt->bind_param("i", $pageant_id);
@@ -39,6 +39,18 @@ if (isset($_POST['update_tie_group']) && isset($_POST['tie_group_index']) && iss
     $round_ids[] = $round['id'];
   }
   $stmt->close();
+
+  // If no finalized rounds, try to get the round_id from an in-progress tie group
+  if (empty($round_ids)) {
+    $tg_stmt = $conn->prepare("SELECT round_id FROM tie_groups WHERE pageant_id = ? AND state = 'in_progress' LIMIT 1");
+    $tg_stmt->bind_param("i", $pageant_id);
+    $tg_stmt->execute();
+    $tg_result = $tg_stmt->get_result();
+    if ($tg_row = $tg_result->fetch_assoc()) {
+      $round_ids[] = $tg_row['round_id'];
+    }
+    $tg_stmt->close();
+  }
   $score = 0; $participant_ids = []; $finalized_round_id = null;
   if (!empty($round_ids)) {
     $round_ids_placeholder = implode(',', array_fill(0, count($round_ids), '?'));

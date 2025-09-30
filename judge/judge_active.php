@@ -30,47 +30,55 @@ if (isset($_POST['submit_scores'])) {
     $success_count = 0;
     $error_count = 0;
     
-    // Get the active round
+  // Try to get the round_id from an in-progress tie_group first
+  $stmt = $conn->prepare("SELECT round_id FROM tie_groups WHERE pageant_id = ? AND state = 'in_progress' ORDER BY created_at DESC LIMIT 1");
+  $stmt->bind_param("i", $pageant_id);
+  $stmt->execute();
+  $tg_result = $stmt->get_result();
+  $tg_row = $tg_result->fetch_assoc();
+  $stmt->close();
+
+  if ($tg_row) {
+    $round_id = $tg_row['round_id'];
+  } else {
+    // Fallback to OPEN round
     $stmt = $conn->prepare("SELECT id FROM rounds WHERE pageant_id = ? AND state = 'OPEN' LIMIT 1");
     $stmt->bind_param("i", $pageant_id);
     $stmt->execute();
     $result = $stmt->get_result();
     $round = $result->fetch_assoc();
     $stmt->close();
-    
-    if ($round) {
-        $round_id = $round['id'];
-        
-        // Process each criterion score
-        foreach ($_POST as $key => $value) {
-            if (strpos($key, 'criterion_') === 0) {
-                $criterion_id = intval(str_replace('criterion_', '', $key));
-                $score = floatval($value);
-                
-                if ($score >= 0) { // Only save non-negative scores
-                    // Insert or update score
-                    $stmt = $conn->prepare("INSERT INTO scores (round_id, criterion_id, participant_id, judge_user_id, raw_score) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE raw_score = VALUES(raw_score), updated_at = CURRENT_TIMESTAMP");
-                    $stmt->bind_param("iiiid", $round_id, $criterion_id, $participant_id, $judge_id, $score);
-                    
-                    if ($stmt->execute()) {
-                        $success_count++;
-                    } else {
-                        $error_count++;
-                    }
-                    $stmt->close();
-                }
-            }
+    $round_id = $round ? $round['id'] : null;
+  }
+
+  if ($round_id) {
+    // Process each criterion score
+    foreach ($_POST as $key => $value) {
+      if (strpos($key, 'criterion_') === 0) {
+        $criterion_id = intval(str_replace('criterion_', '', $key));
+        $score = floatval($value);
+        if ($score >= 0) { // Only save non-negative scores
+          // Insert or update score
+          $stmt = $conn->prepare("INSERT INTO scores (round_id, criterion_id, participant_id, judge_user_id, raw_score) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE raw_score = VALUES(raw_score), updated_at = CURRENT_TIMESTAMP");
+          $stmt->bind_param("iiiid", $round_id, $criterion_id, $participant_id, $judge_id, $score);
+          if ($stmt->execute()) {
+            $success_count++;
+          } else {
+            $error_count++;
+          }
+          $stmt->close();
         }
-        
-        if ($success_count > 0) {
-            $success_message = "Saved $success_count score(s) successfully.";
-        }
-        if ($error_count > 0) {
-            $error_message = "Failed to save $error_count score(s).";
-        }
-    } else {
-        $error_message = "No active round found.";
+      }
     }
+    if ($success_count > 0) {
+      $success_message = "Saved $success_count score(s) successfully.";
+    }
+    if ($error_count > 0) {
+      $error_message = "Failed to save $error_count score(s).";
+    }
+  } else {
+    $error_message = "No active round found.";
+  }
     
     $conn->close();
 }
