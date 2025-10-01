@@ -19,6 +19,8 @@ require_once('../classes/database.php');
 
 // Create an instance of the database class
 $con = new database();
+
+require_once __DIR__ . '/advancement_helpers.php';
 $conn = $con->opencon();
 
 // Get pageant ID from session
@@ -143,19 +145,27 @@ $result = $stmt->get_result();
 $rounds = $result->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
 
+
 // Fetch criteria for the pageant with parent-child relationships
 $stmt = $conn->prepare("
-    SELECT c.*, pc.name as parent_name 
-    FROM criteria c 
-    LEFT JOIN criteria pc ON c.parent_criterion_id = pc.id 
-    WHERE c.pageant_id = ? AND c.is_active = 1 
-    ORDER BY COALESCE(c.parent_criterion_id, c.id), c.parent_criterion_id IS NULL DESC, c.sort_order
+  SELECT c.*, pc.name as parent_name 
+  FROM criteria c 
+  LEFT JOIN criteria pc ON c.parent_criterion_id = pc.id 
+  WHERE c.pageant_id = ? AND c.is_active = 1 
+  ORDER BY COALESCE(c.parent_criterion_id, c.id), c.parent_criterion_id IS NULL DESC, c.sort_order
 ");
 $stmt->bind_param("i", $pageant_id);
 $stmt->execute();
 $result = $stmt->get_result();
 $criteria = $result->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
+
+// Pre-fetch advancements for all rounds (by round_id)
+require_once __DIR__ . '/advancement_helpers.php';
+$advancements_by_round = [];
+foreach ($rounds as $r) {
+  $advancements_by_round[$r['id']] = get_advancements_for_round($conn, $r['id']);
+}
 
 // Calculate statistics
 $total_rounds = count($rounds);
@@ -168,6 +178,35 @@ $pageTitle = 'Rounds & Criteria - Admin';
 include __DIR__ . '/../partials/head.php';
 include __DIR__ . '/../partials/sidebar_admin.php';
 ?>
+<?php // ...existing code... ?>
+<style>
+  [data-tooltip] {
+    position: relative;
+    cursor: not-allowed;
+  }
+  [data-tooltip]::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    left: 50%;
+    bottom: 120%;
+    transform: translateX(-50%);
+    background: rgba(30,41,59,0.95);
+    color: #fff;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    white-space: pre-line;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+    z-index: 50;
+    min-width: 180px;
+    text-align: center;
+  }
+  [data-tooltip]:hover::after {
+    opacity: 1;
+  }
+</style>
       <div class="px-6 py-8">
     <!-- Header -->
     <div class="mb-8">
@@ -267,8 +306,20 @@ include __DIR__ . '/../partials/sidebar_admin.php';
           <div class="p-6">
             <?php if (!empty($rounds)): ?>
               <div class="space-y-4">
-                <?php foreach ($rounds as $round): ?>
-                  <div class="border border-white border-opacity-10 rounded-lg p-6 bg-white bg-opacity-10">
+                <?php foreach ($rounds as $round):
+                  // Check if this is the Final Round (last in sequence)
+                  $is_final_round = false;
+                  if (!empty($rounds)) {
+                    $max_seq = max(array_column($rounds, 'sequence'));
+                    $is_final_round = ($round['sequence'] == $max_seq);
+                  }
+                  $advancements = $advancements_by_round[$round['id']] ?? [];
+                ?>
+                  <?php
+                    $final_blocked = $is_final_round && count($advancements) === 0;
+                    $tooltip = $final_blocked ? 'Cannot open/close/finalize Final Round until advancements are set.' : '';
+                  ?>
+                  <div class="border border-white border-opacity-10 rounded-lg p-6 bg-white bg-opacity-10 relative group"<?php if($final_blocked) echo ' data-tooltip="' . htmlspecialchars($tooltip) . '"'; ?>>
                     <div class="flex items-center justify-between mb-4">
                       <div>
                         <h4 class="text-lg font-semibold text-white"><?php echo htmlspecialchars($round['name']); ?></h4>
@@ -323,7 +374,7 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                         <form method="POST" class="inline">
                           <input type="hidden" name="round_id" value="<?php echo $round['id']; ?>">
                           <input type="hidden" name="action" value="open">
-                          <button name="toggle_round" type="submit" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+                          <button name="toggle_round" type="submit" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors" <?php if($final_blocked) echo 'disabled style="opacity:0.6;cursor:not-allowed;"'; ?>>
                             Open Round
                           </button>
                         </form>
@@ -331,14 +382,14 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                         <form method="POST" class="inline">
                           <input type="hidden" name="round_id" value="<?php echo $round['id']; ?>">
                           <input type="hidden" name="action" value="close">
-                          <button name="toggle_round" type="submit" class="bg-red-600 hover:bg-red-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+                          <button name="toggle_round" type="submit" class="bg-red-600 hover:bg-red-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors" <?php if($final_blocked) echo 'disabled style="opacity:0.6;cursor:not-allowed;"'; ?>>
                             Close Round
                           </button>
                         </form>
                         <form method="POST" class="inline" onsubmit="return confirm('Are you sure you want to revert this round to pending status?')">
                           <input type="hidden" name="round_id" value="<?php echo $round['id']; ?>">
                           <input type="hidden" name="action" value="pending">
-                          <button name="toggle_round" type="submit" class="bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+                          <button name="toggle_round" type="submit" class="bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors" <?php if($final_blocked) echo 'disabled style="opacity:0.6;cursor:not-allowed;"'; ?>>
                             Revert to Pending
                           </button>
                         </form>
@@ -346,14 +397,14 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                         <form method="POST" class="inline">
                           <input type="hidden" name="round_id" value="<?php echo $round['id']; ?>">
                           <input type="hidden" name="action" value="finalize">
-                          <button name="toggle_round" type="submit" class="bg-green-600 hover:bg-green-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+                          <button name="toggle_round" type="submit" class="bg-green-600 hover:bg-green-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors" <?php if($final_blocked) echo 'disabled style="opacity:0.6;cursor:not-allowed;"'; ?>>
                             Finalize
                           </button>
                         </form>
                         <form method="POST" class="inline" onsubmit="return confirm('Are you sure you want to reopen this round?')">
                           <input type="hidden" name="round_id" value="<?php echo $round['id']; ?>">
                           <input type="hidden" name="action" value="open">
-                          <button name="toggle_round" type="submit" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+                          <button name="toggle_round" type="submit" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors" <?php if($final_blocked) echo 'disabled style="opacity:0.6;cursor:not-allowed;"'; ?>>
                             Reopen Round
                           </button>
                         </form>
@@ -456,37 +507,9 @@ $bodyHtml = '<div class="space-y-6">'
         .'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>'
       .'</svg>'
       .'<h4 class="text-sm font-medium text-blue-300">Current Criteria</h4>'
-    .'</div>'
-    .'<p class="text-sm text-blue-200">The following criteria are currently active for judging rounds:</p>'
-  .'</div>';
-
-if (!empty($criteria)) {
-    $bodyHtml .= '<div class="space-y-3">';
-    foreach ($criteria as $criterion) {
-        $bodyHtml .= '<div class="border border-white border-opacity-10 rounded-lg p-4 bg-white bg-opacity-10">'
-          .'<div class="flex items-center justify-between mb-2">'
-            .'<h4 class="font-medium text-white">'.htmlspecialchars($criterion['name']).'</h4>'
-            .'<span class="text-sm text-slate-200">'.$criterion['default_max_score'].' points</span>'
-          .'</div>';
-        if ($criterion['description']) {
-            $bodyHtml .= '<p class="text-sm text-slate-200">'.htmlspecialchars($criterion['description']).'</p>';
-        }
-        $bodyHtml .= '</div>';
-    }
-    $bodyHtml .= '</div>';
-} else {
-    $bodyHtml .= '<div class="text-center py-8">'
-      .'<svg class="mx-auto h-8 w-8 text-slate-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">'
-        .'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>'
-      .'</svg>'
-      .'<p class="text-sm text-slate-500">No criteria configured</p>'
     .'</div>';
-}
-
-$bodyHtml .= '<div class="pt-4">'
-  .'<button onclick="hideModal(\'manageCriteriaModal\')" class="w-full bg-white bg-opacity-10 hover:bg-white hover:bg-opacity-20 text-white font-medium px-6 py-3 rounded-lg border border-white border-opacity-20 backdrop-blur-sm transition-colors">Close</button>'
-  .'</div>'
-  .'</div>';
+$bodyHtml .= '<p class="text-sm text-blue-200">The following criteria are currently active for judging rounds:</p>';
+$bodyHtml .= '</div>';
 $footerHtml = '';
 include __DIR__ . '/../components/modal.php';
 
@@ -540,6 +563,38 @@ $bodyHtml = '<form method="POST" id="criteriaAssignmentForm">'
 $footerHtml = '';
 include __DIR__ . '/../components/modal.php';
 ?>
+<!-- Tooltip CSS for Final Round gating -->
+<style>
+  [data-tooltip] {
+    position: relative;
+    cursor: not-allowed;
+  }
+  [data-tooltip]::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    left: 50%;
+    top: 100%;
+    margin-top: 12px;
+    transform: translateX(-50%);
+    background: rgba(30,41,59,0.95);
+    color: #fff;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    white-space: pre-line;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+    z-index: 50;
+    min-width: 220px;
+    text-align: center;
+    box-shadow: 0 4px 16px 0 rgba(0,0,0,0.18);
+  }
+  [data-tooltip]:hover::after,
+  [data-tooltip]:focus::after {
+    opacity: 1;
+  }
+</style>
 
 <script>
 // Available criteria data (populated from PHP)
