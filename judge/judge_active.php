@@ -20,6 +20,21 @@ require_once('../classes/database.php');
 // Create an instance of the database class
 $con = new database();
 
+// Fetch judge panel visibility settings
+$settings = [];
+try {
+  $conn_settings = $con->opencon();
+  $result = $conn_settings->query("SELECT setting_key, setting_value FROM pageant_settings");
+  if ($result) {
+    while ($row = $result->fetch_assoc()) {
+      $settings[$row['setting_key']] = $row['setting_value'];
+    }
+  }
+  $conn_settings->close();
+} catch (Exception $e) {
+  // Ignore if settings table does not exist
+}
+
 // Handle score submissions
 if (isset($_POST['submit_scores'])) {
     $participant_id = $_POST['participant_id'];
@@ -287,7 +302,7 @@ function confirmLogout() {
     <!-- Round Information -->
     <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20 p-6 mb-6">
       <h2 class="text-lg font-semibold text-white mb-2"><?= htmlspecialchars($active_round['name'], ENT_QUOTES, 'UTF-8') ?></h2>
-      <p class="text-slate-200 text-sm">Currently judging: <?= count($participants) ?> participants • <?= count($criteria) ?> criteria</p>
+      <p class="text-slate-200 text-sm mb-4">Currently judging: <?= count($participants) ?> participants • <?= count($criteria) ?> criteria</p>
       <?php if (!empty($active_round['start_time']) && $active_round['state'] === 'in_progress'): ?>
         <div class="mt-4">
           <div class="text-sm text-slate-200 mb-1">Tie Breaker Timer</div>
@@ -335,11 +350,33 @@ function confirmLogout() {
     <div class="bg-white bg-opacity-10 border border-white border-opacity-20 rounded-xl p-4 mb-6 backdrop-blur-md">
       <h3 class="text-lg font-semibold text-white mb-4">Select Participant to Score</h3>
       <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-        <?php foreach ($participants as $index => $participant): ?>
-          <a href="?participant=<?= $index ?>" 
-             class="block text-center p-3 rounded-lg border transition-colors <?= ($current_participant && $current_participant['id'] == $participant['id']) ? 'bg-blue-500 bg-opacity-20 text-white border-blue-400 border-opacity-30' : 'bg-white bg-opacity-10 text-slate-200 border-white border-opacity-10 hover:bg-white hover:bg-opacity-20' ?> font-semibold shadow-sm">
+        <?php foreach ($participants as $index => $participant):
+          $isSelected = ($current_participant && $current_participant['id'] == $participant['id']);
+          $baseClass = 'block text-center p-3 rounded-lg border transition-colors font-semibold shadow-sm';
+          $selectedClass = 'bg-blue-500 bg-opacity-20 text-white border-2 border-yellow-400 drop-shadow-lg';
+          $unselectedClass = 'bg-white bg-opacity-10 text-slate-200 border-white border-opacity-10 hover:bg-white hover:bg-opacity-20';
+        ?>
+          <a href="?participant=<?= $index ?>"
+             class="<?= $baseClass . ' ' . ($isSelected ? $selectedClass : $unselectedClass) ?> group"
+             style="<?= $isSelected ? 'box-shadow: 0 0 0 4px rgba(255,215,0,0.25), 0 4px 24px 0 rgba(0,0,0,0.10); min-width: 8rem;' : 'min-width: 8rem;' ?>">
+            <?php if (!empty($settings['judge_reveal_photos']) && $settings['judge_reveal_photos']): ?>
+              <div class="relative flex justify-center">
+                <div class="mx-auto mb-2 w-36 h-36 bg-slate-300 rounded-md flex items-center justify-center text-slate-500 text-base transition-transform duration-200 group-hover:scale-105" style="object-fit:cover;">Photo</div>
+                <div class="absolute left-1/2 top-1/2 z-50 pointer-events-none opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-300 ease-in-out -translate-x-1/2 -translate-y-1/2">
+                  <div class="w-72 h-72 bg-slate-300 rounded-md flex items-center justify-center text-slate-500 text-lg shadow-2xl border-4 border-yellow-300" style="object-fit:cover;">Photo Zoom</div>
+                </div>
+              </div>
+            <?php endif; ?>
             <div class="font-semibold">#<?= htmlspecialchars($participant['number_label'], ENT_QUOTES, 'UTF-8') ?></div>
-            <div class="text-xs mt-1 text-slate-200"><?= htmlspecialchars($participant['division'], ENT_QUOTES, 'UTF-8') ?></div>
+            <div class="text-xs mt-1 text-slate-200">
+              <?php if (!empty($settings['judge_reveal_names']) && $settings['judge_reveal_names']): ?>
+                <?= htmlspecialchars($participant['full_name'], ENT_QUOTES, 'UTF-8') ?>
+              <?php endif; ?>
+              <?php if (!empty($settings['judge_reveal_names']) && $settings['judge_reveal_names']): ?>
+                &nbsp;|&nbsp;
+              <?php endif; ?>
+              <?= htmlspecialchars($participant['division'], ENT_QUOTES, 'UTF-8') ?>
+            </div>
           </a>
         <?php endforeach; ?>
       </div>
@@ -351,7 +388,6 @@ function confirmLogout() {
         <div class="flex items-center justify-between mb-6">
           <div>
             <h3 class="text-lg font-semibold text-white">Scoring: Participant #<?= htmlspecialchars($current_participant['number_label'], ENT_QUOTES, 'UTF-8') ?></h3>
-            <p class="text-slate-200"><?= htmlspecialchars($current_participant['full_name'], ENT_QUOTES, 'UTF-8') ?> (<?= htmlspecialchars($current_participant['division'], ENT_QUOTES, 'UTF-8') ?>)</p>
           </div>
           <div class="text-sm text-slate-300">
             Participant <?= $participant_index + 1 ?> of <?= count($participants) ?>

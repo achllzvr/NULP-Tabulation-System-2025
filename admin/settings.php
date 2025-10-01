@@ -27,10 +27,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     
   if ($_POST['action'] === 'save_settings') {
     try {
-      $reveal_names = isset($_POST['show_participant_names']) ? 1 : 0;
-      $reveal_scores = isset($_POST['show_scores']) ? 1 : 0;
-      $reveal_awards = isset($_POST['show_awards']) ? 1 : 0;
-      $reveal_numbers = isset($_POST['show_participant_numbers']) ? 1 : 0;
+  $reveal_names = isset($_POST['show_participant_names']) ? 1 : 0;
+  $reveal_scores = isset($_POST['show_scores']) ? 1 : 0;
+  $reveal_awards = isset($_POST['show_awards']) ? 1 : 0;
+  $reveal_numbers = isset($_POST['show_participant_numbers']) ? 1 : 0;
+  $judge_reveal_names = isset($_POST['judge_show_names']) ? 1 : 0;
+  $judge_reveal_photos = isset($_POST['judge_show_photos']) ? 1 : 0;
 
       $mysqli = $con->opencon();
 
@@ -47,7 +49,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         'reveal_names' => $reveal_names,
         'reveal_scores' => $reveal_scores,
         'reveal_awards' => $reveal_awards,
-        'reveal_numbers' => $reveal_numbers
+        'reveal_numbers' => $reveal_numbers,
+        'judge_reveal_names' => $judge_reveal_names,
+        'judge_reveal_photos' => $judge_reveal_photos
       ];
 
       foreach ($settings as $key => $value) {
@@ -73,7 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 $settings = [];
 try {
     $mysqli = $con->opencon();
-    $result = $mysqli->query("SELECT setting_key, setting_value FROM pageant_settings");
+  $result = $mysqli->query("SELECT setting_key, setting_value FROM pageant_settings");
     if ($result) {
         while ($row = $result->fetch_assoc()) {
             $settings[$row['setting_key']] = $row['setting_value'];
@@ -102,15 +106,44 @@ include __DIR__ . '/../partials/sidebar_admin.php';
     <!-- Settings Form -->
     <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20">
       <div class="px-6 py-4 border-b border-white border-opacity-10">
-        <h3 class="text-lg font-semibold text-white">Public Display Settings</h3>
-        <p class="text-sm text-slate-200 mt-1">Control what information is visible on public pages</p>
+        <h3 class="text-lg font-semibold text-white">Display Settings</h3>
+        <p class="text-sm text-slate-200 mt-1">Control what information is visible on the judge and public pages</p>
       </div>
-      
       <form onsubmit="saveVisibility(event)" class="p-6">
         <input type="hidden" name="action" value="save_settings">
-        
         <div class="space-y-6">
+          <h3 class="text-lg font-semibold text-white">Judge Page Settings</h3>
+          <!-- Judge Panel Settings -->
+          <div class="flex items-center justify-between p-4 bg-blue-900 bg-opacity-10 border border-blue-400 border-opacity-10 rounded-lg">
+            <div class="flex-1">
+              <label class="block text-sm font-medium text-blue-100 mb-1">Show Participant Names to Judges</label>
+              <p class="text-sm text-blue-200">Allow judges to see participant names in their scoring panel</p>
+            </div>
+            <div class="flex items-center">
+              <input type="checkbox" 
+                     name="judge_show_names" 
+                     id="judge_show_names"
+                     <?php echo (isset($settings['judge_reveal_names']) && $settings['judge_reveal_names']) ? 'checked' : ''; ?>
+                     class="w-4 h-4 text-blue-400 bg-white bg-opacity-20 border-white border-opacity-30 rounded focus:ring-blue-400 focus:ring-2">
+              <label for="judge_show_names" class="ml-2 text-sm text-blue-200">Enable</label>
+            </div>
+          </div>
+          <div class="flex items-center justify-between p-4 bg-blue-900 bg-opacity-10 border border-blue-400 border-opacity-10 rounded-lg">
+            <div class="flex-1">
+              <label class="block text-sm font-medium text-blue-100 mb-1">Show Participant Photos to Judges</label>
+              <p class="text-sm text-blue-200">Allow judges to see participant photos in their scoring panel (UI only, coming soon)</p>
+            </div>
+            <div class="flex items-center">
+              <input type="checkbox" 
+                     name="judge_show_photos" 
+                     id="judge_show_photos"
+                     <?php echo (isset($settings['judge_reveal_photos']) && $settings['judge_reveal_photos']) ? 'checked' : ''; ?>
+                     class="w-4 h-4 text-blue-400 bg-white bg-opacity-20 border-white border-opacity-30 rounded focus:ring-blue-400 focus:ring-2">
+              <label for="judge_show_photos" class="ml-2 text-sm text-blue-200">Enable</label>
+            </div>
+          </div>
           <!-- Show Participant Names -->
+          <h3 class="text-lg font-semibold text-white">Public Display Settings</h3>
           <div class="flex items-center justify-between p-4 bg-white bg-opacity-10 border border-white border-opacity-10 rounded-lg">
             <div class="flex-1">
               <label class="block text-sm font-medium text-white mb-1">Show Participant Names</label>
