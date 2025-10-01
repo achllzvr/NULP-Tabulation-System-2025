@@ -23,6 +23,119 @@ $con = new database();
 // Get pageant ID from session
 $pageant_id = $_SESSION['pageant_id'] ?? 1;
 
+// --- Advancements Validation Panel Logic ---
+// Helper: Get all judges for this pageant
+function getPageantJudges($con, $pageant_id) {
+  $conn = $con->opencon();
+  $stmt = $conn->prepare("SELECT u.id, u.full_name FROM users u JOIN pageant_users pu ON pu.user_id = u.id WHERE pu.pageant_id = ? AND pu.role = 'JUDGE'");
+  $stmt->bind_param("i", $pageant_id);
+  $stmt->execute();
+  $result = $stmt->get_result();
+  $judges = $result->fetch_all(MYSQLI_ASSOC);
+  $stmt->close();
+  $conn->close();
+  return $judges;
+}
+
+// Helper: Get active advancement verification session
+function getActiveAdvancementVerification($con, $pageant_id) {
+  $conn = $con->opencon();
+  $stmt = $conn->prepare("SELECT * FROM advancement_verification WHERE pageant_id = ? AND is_active = 1 LIMIT 1");
+  $stmt->bind_param("i", $pageant_id);
+  $stmt->execute();
+  $result = $stmt->get_result();
+  $row = $result->fetch_assoc();
+  $stmt->close();
+  $conn->close();
+  return $row;
+}
+
+// Helper: Get judge confirmations for a session
+function getAdvancementJudgeConfirmations($con, $verification_id) {
+  $conn = $con->opencon();
+  $stmt = $conn->prepare("SELECT avj.*, u.full_name FROM advancement_verification_judges avj JOIN users u ON avj.judge_user_id = u.id WHERE avj.advancement_verification_id = ?");
+  $stmt->bind_param("i", $verification_id);
+  $stmt->execute();
+  $result = $stmt->get_result();
+  $rows = $result->fetch_all(MYSQLI_ASSOC);
+  $stmt->close();
+  $conn->close();
+  return $rows;
+}
+
+// Handle: Open Advancements Validation Panel
+if (isset($_POST['open_advancement_validation'])) {
+  $conn = $con->opencon();
+  $conn->begin_transaction();
+  try {
+    // Create advancement_verification if not already active
+    $stmt = $conn->prepare("SELECT id FROM advancement_verification WHERE pageant_id = ? AND is_active = 1 LIMIT 1");
+    $stmt->bind_param("i", $pageant_id);
+    $stmt->execute();
+    $stmt->bind_result($existing_id);
+    $stmt->fetch();
+    $stmt->close();
+    if (!$existing_id) {
+      $stmt = $conn->prepare("INSERT INTO advancement_verification (pageant_id, is_active, activated_at) VALUES (?, 1, NOW())");
+      $stmt->bind_param("i", $pageant_id);
+      $stmt->execute();
+      $verification_id = $stmt->insert_id;
+      $stmt->close();
+      // Insert judge confirmations
+      $judges = getPageantJudges($con, $pageant_id);
+      foreach ($judges as $judge) {
+        $stmt = $conn->prepare("INSERT INTO advancement_verification_judges (advancement_verification_id, judge_user_id, confirmed) VALUES (?, ?, 0)");
+        $stmt->bind_param("ii", $verification_id, $judge['id']);
+        $stmt->execute();
+        $stmt->close();
+      }
+    }
+    $conn->commit();
+    $success_message = "Advancements validation panel activated.";
+    $show_success_alert = true;
+  } catch (Exception $e) {
+    $conn->rollback();
+    $error_message = "Failed to activate advancements validation: " . $e->getMessage();
+    $show_error_alert = true;
+  }
+  $conn->close();
+}
+
+// Handle: Close Advancements Validation
+if (isset($_POST['close_advancement_validation'])) {
+  $conn = $con->opencon();
+  $conn->begin_transaction();
+  try {
+    // Find active session
+    $stmt = $conn->prepare("SELECT id FROM advancement_verification WHERE pageant_id = ? AND is_active = 1 LIMIT 1");
+    $stmt->bind_param("i", $pageant_id);
+    $stmt->execute();
+    $stmt->bind_result($verification_id);
+    $stmt->fetch();
+    $stmt->close();
+    if ($verification_id) {
+      // Set is_active=0, closed_at=NOW()
+      $stmt = $conn->prepare("UPDATE advancement_verification SET is_active = 0, closed_at = NOW() WHERE id = ?");
+      $stmt->bind_param("i", $verification_id);
+      $stmt->execute();
+      $stmt->close();
+    }
+    $conn->commit();
+    $success_message = "Advancements validation finalized. Final round can now be opened.";
+    $show_success_alert = true;
+  } catch (Exception $e) {
+    $conn->rollback();
+    $error_message = "Failed to finalize advancements validation: " . $e->getMessage();
+    $show_error_alert = true;
+  }
+  $conn->close();
+}
+
+// Get current/active advancement verification session
+$active_verification = getActiveAdvancementVerification($con, $pageant_id);
+$judge_confirmations = $active_verification ? getAdvancementJudgeConfirmations($con, $active_verification['id']) : [];
+$all_judges_confirmed = $active_verification && $judge_confirmations && count($judge_confirmations) > 0 && !array_filter($judge_confirmations, function($j) { return !$j['confirmed']; });
+
 // Handle advancement confirmation
 if (isset($_POST['confirm_advancement'])) {
     $mr_participants = $_POST['mr_participants'] ?? [];
@@ -115,6 +228,44 @@ $pageTitle = 'Advancement Review';
 include __DIR__ . '/../partials/head.php';
 include __DIR__ . '/../partials/sidebar_admin.php';
 ?>
+<!-- Advancements Validation Panel (Admin) -->
+<div class="mb-8">
+  <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20 p-6">
+    <h2 class="text-lg font-semibold text-white mb-2">Advancements Validation Panel</h2>
+    <?php if (!$active_verification): ?>
+      <form method="POST">
+        <button type="submit" name="open_advancement_validation" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg transition-colors">
+          Open Advancements Validation Panel
+        </button>
+      </form>
+    <?php else: ?>
+      <div class="mb-4">
+        <h3 class="text-base font-medium text-white mb-1">Judge Confirmations</h3>
+        <ul class="list-disc list-inside text-slate-200">
+          <?php foreach ($judge_confirmations as $j): ?>
+            <li>
+              <span class="font-semibold"><?php echo htmlspecialchars($j['full_name']); ?></span>:
+              <?php if ($j['confirmed']): ?>
+                <span class="text-green-400">Confirmed</span>
+                <span class="text-xs text-slate-400">(<?php echo $j['confirmed_at'] ? htmlspecialchars($j['confirmed_at']) : ''; ?>)</span>
+              <?php else: ?>
+                <span class="text-yellow-300">Pending</span>
+              <?php endif; ?>
+            </li>
+          <?php endforeach; ?>
+        </ul>
+      </div>
+      <form method="POST">
+        <button type="submit" name="close_advancement_validation" class="bg-green-600 hover:bg-green-700 text-white font-medium px-4 py-2 rounded-lg transition-colors" <?php if(!$all_judges_confirmed) echo 'disabled style="opacity:0.6;cursor:not-allowed;"'; ?>>
+          Close Advancements Validation
+        </button>
+        <?php if(!$all_judges_confirmed): ?>
+          <p class="text-sm text-yellow-200 mt-2">All judges must confirm before closing validation.</p>
+        <?php endif; ?>
+      </form>
+    <?php endif; ?>
+  </div>
+</div>
       <div class="px-6 py-8">
     <!-- Header -->
     <div class="mb-8">

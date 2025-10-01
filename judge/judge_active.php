@@ -22,6 +22,77 @@ $con = new database();
 
 // Fetch judge panel visibility settings
 $settings = [];
+
+// Ensure $pageant_id is set for advancements validation logic
+$pageant_id = $_SESSION['pageantID'] ?? 1;
+$judge_id = $_SESSION['judgeID'];
+
+// --- Advancements Validation Panel Logic (Judge) ---
+function getActiveAdvancementVerification($con, $pageant_id) {
+  $conn = $con->opencon();
+  $stmt = $conn->prepare("SELECT * FROM advancement_verification WHERE pageant_id = ? AND is_active = 1 LIMIT 1");
+  $stmt->bind_param("i", $pageant_id);
+  $stmt->execute();
+  $result = $stmt->get_result();
+  $row = $result->fetch_assoc();
+  $stmt->close();
+  $conn->close();
+  return $row;
+}
+
+function getJudgeAdvancementConfirmation($con, $verification_id, $judge_id) {
+  $conn = $con->opencon();
+  $stmt = $conn->prepare("SELECT * FROM advancement_verification_judges WHERE advancement_verification_id = ? AND judge_user_id = ? LIMIT 1");
+  $stmt->bind_param("ii", $verification_id, $judge_id);
+  $stmt->execute();
+  $result = $stmt->get_result();
+  $row = $result->fetch_assoc();
+  $stmt->close();
+  $conn->close();
+  return $row;
+}
+
+function getAdvancingParticipants($con, $pageant_id) {
+  $conn = $con->opencon();
+  $stmt = $conn->prepare("SELECT a.participant_id, p.full_name, p.number_label, d.name as division FROM advancements a JOIN participants p ON a.participant_id = p.id JOIN divisions d ON p.division_id = d.id JOIN rounds r ON a.to_round_id = r.id WHERE r.pageant_id = ?");
+  $stmt->bind_param("i", $pageant_id);
+  $stmt->execute();
+  $result = $stmt->get_result();
+  $rows = $result->fetch_all(MYSQLI_ASSOC);
+  $stmt->close();
+  $conn->close();
+  return $rows;
+}
+
+function getParticipantScoresByJudge($con, $participant_id, $judge_id) {
+  $conn = $con->opencon();
+  $stmt = $conn->prepare("SELECT s.round_id, r.name as round_name, c.name as criterion_name, s.raw_score FROM scores s JOIN criteria c ON s.criterion_id = c.id JOIN rounds r ON s.round_id = r.id WHERE s.participant_id = ? AND s.judge_user_id = ? ORDER BY s.round_id, c.id");
+  $stmt->bind_param("ii", $participant_id, $judge_id);
+  $stmt->execute();
+  $result = $stmt->get_result();
+  $rows = $result->fetch_all(MYSQLI_ASSOC);
+  $stmt->close();
+  $conn->close();
+  return $rows;
+}
+
+// Handle judge confirmation action
+if (isset($_POST['confirm_advancements'])) {
+  $pageant_id = $_SESSION['pageantID'];
+  $judge_id = $_SESSION['judgeID'];
+  $verification_id = intval($_POST['verification_id']);
+  $conn = $con->opencon();
+  $stmt = $conn->prepare("UPDATE advancement_verification_judges SET confirmed = 1, confirmed_at = NOW() WHERE advancement_verification_id = ? AND judge_user_id = ?");
+  $stmt->bind_param("ii", $verification_id, $judge_id);
+  $stmt->execute();
+  $stmt->close();
+  $conn->close();
+  $success_message = "Thank you for confirming your advancements. Please wait for the admin to close validation.";
+}
+
+$active_verification = getActiveAdvancementVerification($con, $pageant_id);
+$judge_confirmation = $active_verification ? getJudgeAdvancementConfirmation($con, $active_verification['id'], $judge_id) : null;
+$advancing_participants = $active_verification ? getAdvancingParticipants($con, $pageant_id) : [];
 try {
   $conn_settings = $con->opencon();
   $result = $conn_settings->query("SELECT setting_key, setting_value FROM pageant_settings");
@@ -240,6 +311,57 @@ include __DIR__ . '/../partials/head.php';
 </nav>
 
 <main class="mx-auto max-w-4xl w-full p-6 space-y-6">
+  <?php if ($active_verification): ?>
+    <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20 p-6 mb-8">
+      <h2 class="text-lg font-semibold text-white mb-2">Advancements Validation</h2>
+      <?php if ($judge_confirmation && $judge_confirmation['confirmed']): ?>
+        <div class="text-green-300 text-base font-medium mb-2">You have confirmed your advancements. Please wait for the admin to close validation.</div>
+      <?php else: ?>
+        <form method="POST" onsubmit="return confirm('By pressing this button, you confirm and sign that the scores you’ve placed are correct and participants can proceed to advancements. Continue?');">
+          <input type="hidden" name="verification_id" value="<?= htmlspecialchars($active_verification['id']) ?>">
+          <div class="mb-4">
+            <h3 class="text-base font-medium text-white mb-2">Your Advancing Participants</h3>
+            <div class="overflow-x-auto">
+              <table class="min-w-full text-sm text-white border border-white border-opacity-20 rounded-lg">
+                <thead>
+                  <tr class="bg-white bg-opacity-10">
+                    <th class="px-3 py-2">#</th>
+                    <th class="px-3 py-2">Name</th>
+                    <th class="px-3 py-2">Division</th>
+                    <th class="px-3 py-2">Scores (per round/criteria)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <?php foreach ($advancing_participants as $ap): ?>
+                    <tr class="border-b border-white border-opacity-10">
+                      <td class="px-3 py-2"><?= htmlspecialchars($ap['number_label']) ?></td>
+                      <td class="px-3 py-2"><?= htmlspecialchars($ap['full_name']) ?></td>
+                      <td class="px-3 py-2"><?= htmlspecialchars($ap['division']) ?></td>
+                      <td class="px-3 py-2">
+                        <?php $scores = getParticipantScoresByJudge($con, $ap['participant_id'], $judge_id); ?>
+                        <?php if ($scores): ?>
+                          <ul class="list-disc list-inside">
+                            <?php foreach ($scores as $s): ?>
+                              <li><?= htmlspecialchars($s['round_name']) ?> - <?= htmlspecialchars($s['criterion_name']) ?>: <span class="font-mono text-blue-200"><?= htmlspecialchars($s['raw_score']) ?></span></li>
+                            <?php endforeach; ?>
+                          </ul>
+                        <?php else: ?>
+                          <span class="text-yellow-200">No scores found</span>
+                        <?php endif; ?>
+                      </td>
+                    </tr>
+                  <?php endforeach; ?>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <button type="submit" name="confirm_advancements" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg transition-colors">
+            Confirm My Advancements
+          </button>
+        </form>
+      <?php endif; ?>
+    </div>
+  <?php endif; ?>
   <div class="text-center mb-6">
     <h1 class="text-2xl font-bold text-white">Judge Scoring Panel</h1>
   </div>
