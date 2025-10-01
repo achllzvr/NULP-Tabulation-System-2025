@@ -215,15 +215,6 @@ include __DIR__ . '/../partials/sidebar_admin.php';
           <h1 class="text-3xl font-bold text-white mb-2">Rounds & Criteria</h1>
           <p class="text-slate-200">Manage judging rounds and scoring criteria</p>
         </div>
-        <div class="flex gap-3">
-          <button onclick="showModal('manageCriteriaModal')" class="bg-slate-600 hover:bg-slate-700 text-white font-medium px-6 py-3 rounded-lg transition-colors flex items-center gap-2">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-            </svg>
-            Manage Criteria
-          </button>
-        </div>
       </div>
     </div>
 
@@ -294,7 +285,6 @@ include __DIR__ . '/../partials/sidebar_admin.php';
     <?php endif; ?>
 
     <!-- Rounds Management -->
-    <div class="grid lg:grid-cols-3 gap-8">
       <!-- Rounds List -->
       <div class="lg:col-span-2">
         <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20">
@@ -417,12 +407,6 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                           </button>
                         </form>
                       <?php endif; ?>
-                      <button onclick="manageCriteria(<?php echo $round['id']; ?>, '<?php echo htmlspecialchars($round['name'], ENT_QUOTES); ?>')" class="bg-purple-500 bg-opacity-30 hover:bg-purple-500/40 text-white text-sm font-medium px-4 py-2 rounded-lg border border-purple-400 border-opacity-50 backdrop-blur-sm transition-colors">
-                        Manage Criteria
-                      </button>
-                      <button onclick="viewRoundDetails(<?php echo $round['id']; ?>, '<?php echo htmlspecialchars($round['name'], ENT_QUOTES); ?>', '<?php echo $round['state']; ?>', '<?php echo $round['criteria_count']; ?>')" class="bg-white bg-opacity-10 hover:bg-white hover:bg-opacity-20 text-white text-sm font-medium px-4 py-2 rounded-lg border border-white border-opacity-20 backdrop-blur-sm transition-colors">
-                        View Details
-                      </button>
                     </div>
                   </div>
                 <?php endforeach; ?>
@@ -439,42 +423,6 @@ include __DIR__ . '/../partials/sidebar_admin.php';
           </div>
         </div>
       </div>
-
-      <!-- Criteria Panel -->
-      <div class="lg:col-span-1">
-        <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20">
-          <div class="px-6 py-4 border-b border-white border-opacity-10">
-            <h3 class="text-lg font-semibold text-white">Scoring Criteria</h3>
-            <p class="text-sm text-slate-200 mt-1">Active judging criteria</p>
-          </div>
-          
-          <div class="p-6">
-            <?php if (!empty($criteria)): ?>
-              <div class="space-y-4">
-                <?php foreach ($criteria as $criterion): ?>
-                  <div class="border border-white border-opacity-10 rounded-lg p-4 bg-white bg-opacity-10">
-                    <div class="flex items-center justify-between mb-2">
-                      <h4 class="font-medium text-white"><?php echo htmlspecialchars($criterion['name']); ?></h4>
-                      <span class="text-sm text-slate-200"><?php echo $criterion['default_max_score']; ?> pts</span>
-                    </div>
-                    <?php if ($criterion['description']): ?>
-                      <p class="text-sm text-slate-200"><?php echo htmlspecialchars($criterion['description']); ?></p>
-                    <?php endif; ?>
-                  </div>
-                <?php endforeach; ?>
-              </div>
-            <?php else: ?>
-              <div class="text-center py-8">
-                <svg class="mx-auto h-8 w-8 text-slate-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-                </svg>
-                <p class="text-sm text-slate-500">No criteria configured</p>
-              </div>
-            <?php endif; ?>
-          </div>
-        </div>
-      </div>
-    </div>
 
     <!-- Information Panel -->
   <div class="mt-8 bg-white bg-opacity-10 border border-blue-400 border-opacity-20 rounded-xl p-6 backdrop-blur-md">

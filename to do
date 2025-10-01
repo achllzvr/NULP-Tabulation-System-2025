@@ -1,21 +1,40 @@
 To Do for Tabulation System
 
-PARTICIPANTS + DB
+PARTICIPANTS
 - [ ] Participants Photo Upload - Admin
-- [ ] Participants Photo Display - Judges, Public Viewing
+- [x] Participants Photo Display - Judges
 
-ROUNDS & CRITERIA AND DB UPDATE
-- [ ] Criteria for Final Round in Database
-- [ ] Create First Round - Admin, DB
-    - [ ] Adjust Consequential Rounds
+DB
+- [x] Criteria for Final Round in Database
+- [x] Create First Round - Admin, DB
+    - [x] Adjust Consequential Rounds
 
-SETTINGS PAGE
-- [ ] Admin settings for toggling name visibility and image for judges in judging panel
+GATE CHECKS
+- [ ] Gate for Final Round
+    - [ ] Final Round can’t open without Advancements Validations being complete
+- [ ] Gate for Ties
+    - [ ] With the ongoing current round, the next round will not be available unless all ties have been settled.
 
-ADVANCEMENT
-- [ ] Once preliminary round is done, admin can now open advancements validation panel for judges
+SETTINGS
+- [x] Admin settings for toggling name visibility and image for judges in judging panel
+
+TIE RESOLUTION
+- [x] Tie Resolution UI
+    - [x] If tie, admin opens Tie Breaker UI for Judges Panels
+        - [x] 2 min countdown
+        - [x] Judges can save or wait for timer to finish and system will automatically refresh and update scores based on new scores from judges.
+            - [x] Have modals saying “By clicking save, you confirm your…”
+        - [x] Admin side, can see which judges have saved their scores.
+        - [x] Once timer is done, admin’s close tie breaker panel button activates.
+        - [x] Once closed, finalize button will be activated
+            - [x] Modal “You confirm…”
+            - [x] Have revert buttons for fallbacks
+    - [x] If not tie, system will not show it
+
+ADVANCEMENT PAGE
 - [ ] Disable advancement until there is a tie
-    - [ ] If there is tie, have redirect to Tie Resolution Page– if no tie, proceed as usual
+    - [ ] Have redirect to Tie Resolution Page
+- [ ] Once preliminary round is done, admin can now open advancements validation panel for judges
     - [ ] Judges’ panel, shows the scores they’ve put for each participant.
     - [ ] One central button that says “By pressing this button, you confirm and sign that the scores you’ve placed are correct and participants can proceed to advancements”
         - [ ] Judges will save and will wait for admin/ host to close advancements validation.
@@ -26,13 +45,7 @@ ADVANCEMENT
         - [ ] Modal “You confirm…”
         - [ ] Have revert buttons for fallbacks
 
-GATE CHECKS
-- [ ] Gate for Final Round
-    - [ ] Final Round can’t open without Advancements Validations being complete
-- [ ] Gate for Ties
-    - [ ] With the ongoing current round, the next round will not be available unless all ties have been settled.
-
-LEADERBOARD AND AWARDS
+LEADERBOARD AND AWARDS PAGE REWORK
 - [ ] Leaderboards and Awards Page rework
     - [ ] Centralized Leaderboards and Awards Page
     - [ ] Also have “Tabulated Data View” and will show the tabulated form of the scores per judge, per participant and can be filtered by round, by criteria
@@ -41,7 +54,7 @@ LEADERBOARD AND AWARDS
     - [ ] Leaderboards are automatically calculated by the scores saved
     - [ ] Awards are automatically calculated but has toggle switch for public viewing display to whether show or hide
 
-OTHERs
+OTHERS
 - [ ] Participants Page Filter by button/ dropdown.
 - [ ] Activity Cards/ Containers - live_control Live Activity, Recent Activity - index, Scoring Criteria - rounds
     - [ ] Have a limit/ make scrollable after 4 entries
