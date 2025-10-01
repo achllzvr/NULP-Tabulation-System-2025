@@ -228,62 +228,44 @@ $pageTitle = 'Advancement Review';
 include __DIR__ . '/../partials/head.php';
 include __DIR__ . '/../partials/sidebar_admin.php';
 ?>
-<!-- Advancements Validation Panel (Admin) -->
-<div class="mb-8">
-  <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20 p-6">
-    <h2 class="text-lg font-semibold text-white mb-2">Advancements Validation Panel</h2>
-    <?php if (!$active_verification): ?>
-      <form method="POST">
-        <button type="submit" name="open_advancement_validation" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg transition-colors">
-          Open Advancements Validation Panel
-        </button>
-      </form>
-    <?php else: ?>
-      <div class="mb-4">
-        <h3 class="text-base font-medium text-white mb-1">Judge Confirmations</h3>
-        <ul class="list-disc list-inside text-slate-200">
-          <?php foreach ($judge_confirmations as $j): ?>
-            <li>
-              <span class="font-semibold"><?php echo htmlspecialchars($j['full_name']); ?></span>:
-              <?php if ($j['confirmed']): ?>
-                <span class="text-green-400">Confirmed</span>
-                <span class="text-xs text-slate-400">(<?php echo $j['confirmed_at'] ? htmlspecialchars($j['confirmed_at']) : ''; ?>)</span>
-              <?php else: ?>
-                <span class="text-yellow-300">Pending</span>
-              <?php endif; ?>
-            </li>
-          <?php endforeach; ?>
-        </ul>
-      </div>
-      <form method="POST">
-        <button type="submit" name="close_advancement_validation" class="bg-green-600 hover:bg-green-700 text-white font-medium px-4 py-2 rounded-lg transition-colors" <?php if(!$all_judges_confirmed) echo 'disabled style="opacity:0.6;cursor:not-allowed;"'; ?>>
-          Close Advancements Validation
-        </button>
-        <?php if(!$all_judges_confirmed): ?>
-          <p class="text-sm text-yellow-200 mt-2">All judges must confirm before closing validation.</p>
-        <?php endif; ?>
-      </form>
-    <?php endif; ?>
-  </div>
-</div>
-      <div class="px-6 py-8">
-    <!-- Header -->
-    <div class="mb-8">
-      <div class="flex items-center justify-between">
-        <div>
-          <h1 class="text-3xl font-bold text-white mb-2">Advancement Review</h1>
-          <p class="text-slate-200">Select participants to advance to the next round</p>
+  <!-- Advancements Validation Panel (Admin) -->
+  <div class="mb-8">
+    <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20 p-6">
+      <h2 class="text-lg font-semibold text-white mb-2">Advancements Validation Panel</h2>
+      <?php if (!$active_verification): ?>
+        <form method="POST">
+          <button type="submit" name="open_advancement_validation" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg transition-colors">
+            Open Advancements Validation Panel
+          </button>
+        </form>
+      <?php else: ?>
+        <div class="mb-4">
+          <h3 class="text-base font-medium text-white mb-1">Judge Confirmations</h3>
+          <ul class="list-disc list-inside text-slate-200">
+            <?php foreach ($judge_confirmations as $j): ?>
+              <li>
+                <span class="font-semibold"><?php echo htmlspecialchars($j['full_name']); ?></span>:
+                <?php if ($j['confirmed']): ?>
+                  <span class="text-green-400">Confirmed</span>
+                  <span class="text-xs text-slate-400">(<?php echo $j['confirmed_at'] ? htmlspecialchars($j['confirmed_at']) : ''; ?>)</span>
+                <?php else: ?>
+                  <span class="text-yellow-300">Pending</span>
+                <?php endif; ?>
+              </li>
+            <?php endforeach; ?>
+          </ul>
         </div>
-        <div class="flex gap-3">
-          <select id="advancementCount" onchange="updateAdvancementCount()" class="bg-white bg-opacity-20 backdrop-blur-sm border border-white border-opacity-30 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-50 focus:border-opacity-50 transition-all">
-            <option value="3" <?php echo $advancement_count === 3 ? 'selected' : ''; ?>>Top 3</option>
-            <option value="5" <?php echo $advancement_count === 5 ? 'selected' : ''; ?>>Top 5</option>
-            <option value="10" <?php echo $advancement_count === 10 ? 'selected' : ''; ?>>Top 10</option>
-            <option value="15" <?php echo $advancement_count === 15 ? 'selected' : ''; ?>>Top 15</option>
-          </select>
-        </div>
-      </div>
+        <form method="POST">
+          <button type="submit" name="close_advancement_validation" class="bg-green-600 hover:bg-green-700 text-white font-medium px-4 py-2 rounded-lg transition-colors" <?php if(!$all_judges_confirmed) echo 'disabled style="opacity:0.6;cursor:not-allowed;"'; ?>>
+            Close Advancements Validation
+          </button>
+          <?php if(!$all_judges_confirmed): ?>
+            <p class="text-sm text-yellow-200 mt-2">All judges must confirm before closing validation.</p>
+          <?php endif; ?>
+        </form>
+      <?php endif; ?>
     </div>
+  </div>
 
     <!-- Success/Error Messages -->
     <?php if (isset($success_message)): ?>
@@ -329,133 +311,6 @@ include __DIR__ . '/../partials/sidebar_admin.php';
       </div>
     <?php endif; ?>
 
-    <!-- Advancement Form -->
-    <form method="POST" id="advancementForm" <?php echo $advancements_confirmed ? 'style="pointer-events: none; opacity: 0.6;"' : ''; ?>>
-      <div class="grid lg:grid-cols-2 gap-8 mb-8">
-        
-        <!-- Mr Division -->
-        <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20">
-          <div class="px-6 py-4 border-b border-white border-opacity-10 custom-blue-gradient">
-            <h2 class="text-lg font-semibold text-white">Mr Division - Top <?php echo $advancement_count; ?></h2>
-            <p class="text-sm text-slate-200 mt-1">Select participants to advance</p>
-          </div>
-          
-          <div class="p-6">
-            <?php if (!empty($mr_top)): ?>
-              <div class="space-y-3">
-                <div class="flex items-center justify-between text-sm font-medium text-slate-200 border-b border-white border-opacity-10 pb-2">
-                  <span>
-                    <input type="checkbox" id="selectAllMr" onchange="toggleAllMr(this)" class="mr-2">
-                    Select All
-                  </span>
-                  <span>Score</span>
-                </div>
-                <?php foreach ($mr_top as $participant): ?>
-                  <div class="flex items-center justify-between p-3 bg-white bg-opacity-10 rounded-lg border border-white border-opacity-10 hover:bg-white hover:bg-opacity-15 transition-colors">
-                    <div class="flex items-center">
-                      <input type="checkbox" name="mr_participants[]" value="<?php echo $participant['id']; ?>" 
-                             id="mr_<?php echo $participant['id']; ?>" class="mr-participants-checkbox mr-3">
-                      <div>
-                        <div class="flex items-center gap-2">
-                          <span class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold bg-white bg-opacity-20 text-white border border-white border-opacity-30">
-                            <?php echo $participant['rank']; ?>
-                          </span>
-                          <span class="font-medium text-white"><?php echo htmlspecialchars($participant['name']); ?></span>
-                        </div>
-                        <div class="text-sm text-slate-200">#<?php echo htmlspecialchars($participant['number_label']); ?></div>
-                      </div>
-                    </div>
-                    <div class="font-mono font-semibold text-white">
-                      <?php echo $participant['score']; ?>
-                    </div>
-                  </div>
-                <?php endforeach; ?>
-              </div>
-            <?php else: ?>
-              <div class="text-center py-8 text-slate-500">
-                <svg class="w-12 h-12 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
-                </svg>
-                <p class="font-medium">No Mr Division participants found</p>
-                <p class="text-sm">Make sure participants are registered and scored.</p>
-              </div>
-            <?php endif; ?>
-          </div>
-        </div>
-
-        <!-- Ms Division -->
-        <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20">
-          <div class="px-6 py-4 border-b border-white border-opacity-10 custom-blue-gradient">
-            <h2 class="text-lg font-semibold text-white">Ms Division - Top <?php echo $advancement_count; ?></h2>
-            <p class="text-sm text-slate-200 mt-1">Select participants to advance</p>
-          </div>
-          
-          <div class="p-6">
-            <?php if (!empty($ms_top)): ?>
-              <div class="space-y-3">
-                <div class="flex items-center justify-between text-sm font-medium text-slate-200 border-b border-white border-opacity-10 pb-2">
-                  <span>
-                    <input type="checkbox" id="selectAllMs" onchange="toggleAllMs(this)" class="mr-2">
-                    Select All
-                  </span>
-                  <span>Score</span>
-                </div>
-                <?php foreach ($ms_top as $participant): ?>
-                  <div class="flex items-center justify-between p-3 bg-white bg-opacity-10 rounded-lg border border-white border-opacity-10 hover:bg-white hover:bg-opacity-15 transition-colors">
-                    <div class="flex items-center">
-                      <input type="checkbox" name="ms_participants[]" value="<?php echo $participant['id']; ?>" 
-                             id="ms_<?php echo $participant['id']; ?>" class="ms-participants-checkbox mr-3">
-                      <div>
-                        <div class="flex items-center gap-2">
-                          <span class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold bg-white bg-opacity-20 text-white border border-white border-opacity-30">
-                            <?php echo $participant['rank']; ?>
-                          </span>
-                          <span class="font-medium text-white"><?php echo htmlspecialchars($participant['name']); ?></span>
-                        </div>
-                        <div class="text-sm text-slate-200">#<?php echo htmlspecialchars($participant['number_label']); ?></div>
-                      </div>
-                    </div>
-                    <div class="font-mono font-semibold text-white">
-                      <?php echo $participant['score']; ?>
-                    </div>
-                  </div>
-                <?php endforeach; ?>
-              </div>
-            <?php else: ?>
-              <div class="text-center py-8 text-slate-500">
-                <svg class="w-12 h-12 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
-                </svg>
-                <p class="font-medium">No Ms Division participants found</p>
-                <p class="text-sm">Make sure participants are registered and scored.</p>
-              </div>
-            <?php endif; ?>
-          </div>
-        </div>
-      </div>
-
-      <!-- Action Buttons -->
-      <div class="flex justify-between items-center mt-8">
-        <div class="text-sm text-slate-200">
-          <span id="selectedCount">0</span> participants selected for advancement
-        </div>
-        <div class="flex gap-4">
-          <button type="button" 
-                  onclick="clearAllSelections()" 
-                  <?php echo $advancements_confirmed ? 'disabled' : ''; ?>
-                  class="<?php echo $advancements_confirmed ? 'bg-white bg-opacity-10 cursor-not-allowed' : 'bg-white bg-opacity-10 hover:bg-white hover:bg-opacity-15'; ?> text-white font-medium px-6 py-3 rounded-lg transition-colors">
-            Clear All
-          </button>
-          <button type="submit" 
-                  name="confirm_advancement" 
-                  id="confirmButton" 
-                  disabled 
-                  class="bg-blue-500 bg-opacity-30 backdrop-blur-sm hover:bg-blue-500/40 disabled:bg-white disabled:bg-opacity-10 disabled:text-slate-400 disabled:cursor-not-allowed text-white font-medium px-6 py-3 rounded-lg border border-blue-400 border-opacity-50 transition-colors">
-            <?php echo $advancements_confirmed ? 'Advancement Confirmed' : 'Confirm Advancement'; ?>
-          </button>
-        </div>
-      </div>
-    </form>
   </div>
 
 <script>
