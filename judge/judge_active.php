@@ -269,6 +269,10 @@ $current_participant = null;
 $is_pair_scoring = false;
 $duos = [];
 $current_duo = null;
+// Progress helpers
+$criteria_count = 0;
+$completedCountsByPid = [];
+$completedCountsByDuoId = [];
 
 // Check for active tie breaker group
 $stmt = $conn->prepare("SELECT * FROM tie_groups WHERE pageant_id = ? AND state = 'in_progress' ORDER BY created_at DESC LIMIT 1");
@@ -286,7 +290,7 @@ if ($tie_group) {
     $active_round = $stmt->get_result()->fetch_assoc();
     $stmt->close();
 
-    // Participants limited to those in the tie group
+  // Participants limited to those in the tie group
     $participant_ids = [];
     $stmt = $conn->prepare("SELECT participant_id FROM tie_group_participants WHERE tie_group_id = ?");
     $stmt->bind_param("i", $tie_group['id']);
@@ -308,19 +312,20 @@ if ($tie_group) {
         $stmt->close();
     }
 
-    // Criteria for this round
+  // Criteria for this round
     if (!empty($active_round)) {
         $stmt = $conn->prepare("SELECT c.*, rc.weight, rc.max_score FROM criteria c JOIN round_criteria rc ON c.id = rc.criterion_id WHERE rc.round_id = ? AND c.is_active = 1 ORDER BY rc.display_order");
         $stmt->bind_param("i", $active_round['id']);
         $stmt->execute();
-        $criteria = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $criteria = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $criteria_count = count($criteria);
         $stmt->close();
 
         // Current selected participant in tie-breaker mode
         $participant_index = intval($_GET['participant'] ?? 0);
         if (isset($participants[$participant_index])) {
             $current_participant = $participants[$participant_index];
-            $stmt = $conn->prepare("SELECT criterion_id, raw_score FROM scores WHERE round_id = ? AND participant_id = ? AND judge_user_id = ?");
+      $stmt = $conn->prepare("SELECT criterion_id, raw_score FROM scores WHERE round_id = ? AND participant_id = ? AND judge_user_id = ?");
             $stmt->bind_param("iii", $active_round['id'], $current_participant['id'], $judge_id);
             $stmt->execute();
             $res = $stmt->get_result();
@@ -328,6 +333,22 @@ if ($tie_group) {
             $stmt->close();
         }
     }
+
+  // Compute completion counts for tie-breaker participants
+  if (!empty($participant_ids) && $criteria_count > 0) {
+    $placeholders = implode(',', array_fill(0, count($participant_ids), '?'));
+    $types = 'ii' . str_repeat('i', count($participant_ids));
+    $sql = "SELECT participant_id, COUNT(*) AS cnt
+        FROM scores
+        WHERE round_id = ? AND judge_user_id = ? AND raw_score IS NOT NULL AND participant_id IN ($placeholders)
+        GROUP BY participant_id";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param($types, $active_round['id'], $judge_id, ...$participant_ids);
+    $stmt->execute();
+    $res = $stmt->get_result();
+    while ($row = $res->fetch_assoc()) { $completedCountsByPid[(int)$row['participant_id']] = (int)$row['cnt']; }
+    $stmt->close();
+  }
 
     // Enrich $active_round for the tie-breaker timer UI
     if (!empty($active_round)) {
@@ -367,25 +388,43 @@ if ($tie_group) {
             }
         }
 
-    // Enforce pair scoring based on round name (Advocacy/Talent) regardless of DB flag
+  // Enforce pair scoring based on round name (Advocacy/Talent) regardless of DB flag
     $rname = trim((string)$active_round['name']);
     $is_pair_scoring = (stripos($rname, 'advocacy') !== false) || (stripos($rname, 'talent') !== false);
 
         // Load criteria once
-        $stmt = $conn->prepare("SELECT c.*, rc.weight, rc.max_score FROM criteria c JOIN round_criteria rc ON c.id = rc.criterion_id WHERE rc.round_id = ? AND c.is_active = 1 ORDER BY rc.display_order");
+  $stmt = $conn->prepare("SELECT c.*, rc.weight, rc.max_score FROM criteria c JOIN round_criteria rc ON c.id = rc.criterion_id WHERE rc.round_id = ? AND c.is_active = 1 ORDER BY rc.display_order");
         $stmt->bind_param("i", $active_round['id']);
         $stmt->execute();
-        $criteria = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+  $criteria = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+  $criteria_count = count($criteria);
         $stmt->close();
 
         if ($is_pair_scoring) {
             // Duo mode
-            $stmt = $conn->prepare("SELECT d.* FROM duos d WHERE d.pageant_id=? ORDER BY d.id");
+      $stmt = $conn->prepare("SELECT d.* FROM duos d WHERE d.pageant_id=? ORDER BY d.id");
             $stmt->bind_param("i", $pageant_id);
             $stmt->execute();
             $resD = $stmt->get_result();
             while ($d = $resD->fetch_assoc()) { $duos[] = $d; }
             $stmt->close();
+
+      // Compute completion counts for duos
+      if (!empty($duos) && $criteria_count > 0) {
+        $duoIds = array_map(fn($d)=> (int)$d['id'], $duos);
+        $placeholders = implode(',', array_fill(0, count($duoIds), '?'));
+        $types = 'ii' . str_repeat('i', count($duoIds));
+        $sql = "SELECT duo_id, COUNT(*) AS cnt
+            FROM scores_duo
+            WHERE round_id = ? AND judge_user_id = ? AND raw_score IS NOT NULL AND duo_id IN ($placeholders)
+            GROUP BY duo_id";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param($types, $active_round['id'], $judge_id, ...$duoIds);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        while ($row = $res->fetch_assoc()) { $completedCountsByDuoId[(int)$row['duo_id']] = (int)$row['cnt']; }
+        $stmt->close();
+      }
 
             $duo_index = intval($_GET['duo'] ?? 0);
             if (isset($duos[$duo_index])) {
@@ -399,12 +438,29 @@ if ($tie_group) {
             }
         } else {
             // Individual mode
-            $stmt = $conn->prepare("SELECT p.*, d.name as division FROM participants p JOIN divisions d ON p.division_id = d.id WHERE p.pageant_id = ? AND p.is_active = 1 ORDER BY p.number_label");
+      $stmt = $conn->prepare("SELECT p.*, d.name as division FROM participants p JOIN divisions d ON p.division_id = d.id WHERE p.pageant_id = ? AND p.is_active = 1 ORDER BY p.number_label");
             $stmt->bind_param("i", $pageant_id);
             $stmt->execute();
             $result = $stmt->get_result();
             $participants = $result->fetch_all(MYSQLI_ASSOC);
             $stmt->close();
+
+      // Compute completion counts for participants
+      if (!empty($participants) && $criteria_count > 0) {
+        $pids = array_map(fn($p)=> (int)$p['id'], $participants);
+        $placeholders = implode(',', array_fill(0, count($pids), '?'));
+        $types = 'ii' . str_repeat('i', count($pids));
+        $sql = "SELECT participant_id, COUNT(*) AS cnt
+            FROM scores
+            WHERE round_id = ? AND judge_user_id = ? AND raw_score IS NOT NULL AND participant_id IN ($placeholders)
+            GROUP BY participant_id";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param($types, $active_round['id'], $judge_id, ...$pids);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        while ($row = $res->fetch_assoc()) { $completedCountsByPid[(int)$row['participant_id']] = (int)$row['cnt']; }
+        $stmt->close();
+      }
 
             $participant_index = intval($_GET['participant'] ?? 0);
             if (isset($participants[$participant_index])) {
@@ -628,11 +684,22 @@ function confirmLogout() {
             $isSelected = ($current_duo && $current_duo['id'] == $duo['id']);
             $baseClass = 'block text-center p-3 rounded-lg border transition-colors font-semibold shadow-sm';
             $selectedClass = 'bg-blue-500 bg-opacity-20 text-white border-2 border-yellow-400 drop-shadow-lg';
-            $unselectedClass = 'bg-white bg-opacity-10 text-slate-200 border-white border-opacity-10 hover:bg-white hover:bg-opacity-20';
+            // progress for duo
+            $done = $completedCountsByDuoId[(int)$duo['id']] ?? 0;
+            $finished = ($criteria_count > 0 && $done >= $criteria_count);
+            $unselectedBase = 'bg-white bg-opacity-10 text-slate-200 border-white border-opacity-10 hover:bg-white hover:bg-opacity-20';
+            $unselectedClass = $finished ? 'bg-emerald-600/20 text-white border-2 border-emerald-400' : $unselectedBase;
           ?>
             <a href="?duo=<?= $index ?>" class="<?= $baseClass . ' ' . ($isSelected ? $selectedClass : $unselectedClass) ?>">
               <div class="font-semibold"><?= htmlspecialchars($duo['name'], ENT_QUOTES, 'UTF-8') ?></div>
               <div class="text-xs mt-1 text-slate-200">Duo</div>
+              <?php if ($criteria_count > 0): ?>
+              <?php $percent = (int)floor(($done / max(1,$criteria_count)) * 100); ?>
+              <div class="mt-2 h-1.5 rounded bg-white/10 overflow-hidden">
+                <div class="h-full <?= $finished ? 'bg-emerald-400' : 'bg-blue-400' ?>" style="width: <?= $percent ?>%"></div>
+              </div>
+              <div class="text-[10px] mt-1 <?= $finished ? 'text-emerald-200' : 'text-slate-300' ?>"><?= $done ?>/<?= $criteria_count ?> done</div>
+              <?php endif; ?>
             </a>
           <?php endforeach; ?>
         <?php else: ?>
@@ -640,7 +707,10 @@ function confirmLogout() {
           $isSelected = ($current_participant && $current_participant['id'] == $participant['id']);
           $baseClass = 'block text-center p-3 rounded-lg border transition-colors font-semibold shadow-sm';
           $selectedClass = 'bg-blue-500 bg-opacity-20 text-white border-2 border-yellow-400 drop-shadow-lg';
-          $unselectedClass = 'bg-white bg-opacity-10 text-slate-200 border-white border-opacity-10 hover:bg-white hover:bg-opacity-20';
+          $done = $completedCountsByPid[(int)$participant['id']] ?? 0;
+          $finished = ($criteria_count > 0 && $done >= $criteria_count);
+          $unselectedBase = 'bg-white bg-opacity-10 text-slate-200 border-white border-opacity-10 hover:bg-white hover:bg-opacity-20';
+          $unselectedClass = $finished ? 'bg-emerald-600/20 text-white border-2 border-emerald-400' : $unselectedBase;
         ?>
           <a href="?participant=<?= $index ?>"
              class="<?= $baseClass . ' ' . ($isSelected ? $selectedClass : $unselectedClass) ?> group"
@@ -676,6 +746,13 @@ function confirmLogout() {
               <?php endif; ?>
               <?= htmlspecialchars($participant['division'], ENT_QUOTES, 'UTF-8') ?>
             </div>
+            <?php if ($criteria_count > 0): ?>
+            <?php $percent = (int)floor(($done / max(1,$criteria_count)) * 100); ?>
+            <div class="mt-2 h-1.5 rounded bg-white/10 overflow-hidden">
+              <div class="h-full <?= $finished ? 'bg-emerald-400' : 'bg-blue-400' ?>" style="width: <?= $percent ?>%"></div>
+            </div>
+            <div class="text-[10px] mt-1 <?= $finished ? 'text-emerald-200' : 'text-slate-300' ?>"><?= $done ?>/<?= $criteria_count ?> done</div>
+            <?php endif; ?>
           </a>
         <?php endforeach; ?>
         <?php endif; ?>
@@ -694,13 +771,27 @@ function confirmLogout() {
       </div>
     <?php elseif ($current_participant): ?>
       <!-- Scoring Form -->
-      <div class="bg-white bg-opacity-10 border border-white border-opacity-20 rounded-xl p-6 backdrop-blur-md">
+      <?php
+        // Determine completion for current context (participant or duo)
+        $current_done = 0; $current_finished = false;
+        if ($is_pair_scoring && $current_duo) {
+            $current_done = $completedCountsByDuoId[(int)$current_duo['id']] ?? 0;
+        } elseif (!$is_pair_scoring && $current_participant) {
+            $current_done = $completedCountsByPid[(int)$current_participant['id']] ?? 0;
+        }
+        $current_finished = ($criteria_count > 0 && $current_done >= $criteria_count);
+        $containerExtra = $current_finished ? ' ring-2 ring-emerald-400 bg-emerald-600/10' : '';
+      ?>
+      <div class="bg-white bg-opacity-10 border border-white border-opacity-20 rounded-xl p-6 backdrop-blur-md<?= $containerExtra ?>">
         <div class="flex items-center justify-between mb-6">
           <div>
             <h3 class="text-lg font-semibold text-white">Scoring: Participant #<?= htmlspecialchars($current_participant['number_label'], ENT_QUOTES, 'UTF-8') ?></h3>
           </div>
-          <div class="text-sm text-slate-300">
-            Participant <?= $participant_index + 1 ?> of <?= count($participants) ?>
+          <div class="text-right">
+            <div class="text-sm text-slate-300">Participant <?= $participant_index + 1 ?> of <?= count($participants) ?></div>
+            <?php if ($criteria_count > 0): ?>
+              <div class="text-xs <?= $current_finished ? 'text-emerald-300' : 'text-slate-300' ?>">Completion: <span class="font-mono"><?= $current_done ?>/<?= $criteria_count ?></span></div>
+            <?php endif; ?>
           </div>
         </div>
         <?php 

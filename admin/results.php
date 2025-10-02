@@ -394,11 +394,11 @@ include __DIR__ . '/../partials/sidebar_admin.php';
             $leadersByDivision[$div] = $resFL->fetch_all(MYSQLI_ASSOC);
             $stmtFL->close();
         }
-        // Current saved winners map for preselects
+    // Current saved winners map for preselects (from canonical award_results)
   $savedMap = ['Ambassador'=>[], 'Ambassadress'=>[]];
-        $stmtCW = $conn->prepare("SELECT a.division_scope, aw.position, aw.participant_id
-                                   FROM awards a JOIN award_winners aw ON aw.award_id = a.id
-                                   WHERE a.pageant_id = ?");
+    $stmtCW = $conn->prepare("SELECT a.division_scope, ar.position, ar.participant_id
+               FROM awards a JOIN award_results ar ON ar.award_id = a.id
+               WHERE a.pageant_id = ?");
         $stmtCW->bind_param('i', $pageant_id);
         $stmtCW->execute();
         $resCW = $stmtCW->get_result();
