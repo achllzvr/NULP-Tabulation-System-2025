@@ -80,6 +80,16 @@ $stmt->close();
 
 $all_final_rounds_completed = ($total_final_rounds > 0 && $final_rounds_completed >= $total_final_rounds);
 
+// Prelim rounds closed (used for awards gating after Round 6)
+$stmt = $conn->prepare("SELECT COUNT(*) as count FROM rounds WHERE pageant_id = ? AND scoring_mode = 'PRELIM' AND state IN ('CLOSED','FINALIZED')");
+$stmt->bind_param("i", $pageant_id);
+$stmt->execute();
+$result = $stmt->get_result();
+$prelim_rounds_closed = (int)$result->fetch_assoc()['count'];
+$stmt->close();
+
+$awards_prelim_ready = ($prelim_rounds_closed >= 6);
+
 // Detect if any round is currently OPEN (to blur results during live scoring)
 $stmt = $conn->prepare("SELECT COUNT(*) AS cnt FROM rounds WHERE pageant_id = ? AND state = 'OPEN'");
 $stmt->bind_param('i', $pageant_id);
@@ -303,20 +313,13 @@ include __DIR__ . '/../partials/sidebar_admin.php';
         </div>
       </div>
 
-      <?php if (!$all_final_rounds_completed): ?>
+      <?php if (!$awards_prelim_ready): ?>
         <div class="mb-6 bg-white bg-opacity-10 border border-yellow-400 border-opacity-20 rounded-lg p-4 backdrop-blur-md">
           <div class="flex items-start">
             <svg class="w-5 h-5 text-yellow-600 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
             <div>
-              <h4 class="text-sm font-medium text-yellow-300">Final Round Not Complete</h4>
-              <p class="text-sm text-yellow-200 mt-1">
-                Awards are available after all final rounds are completed.
-                <?php if ($total_final_rounds > 0): ?>
-                  Currently <?php echo $final_rounds_completed; ?> of <?php echo $total_final_rounds; ?> final rounds completed.
-                <?php else: ?>
-                  No final rounds have been configured yet.
-                <?php endif; ?>
-              </p>
+              <h4 class="text-sm font-medium text-yellow-300">Awards Not Ready</h4>
+              <p class="text-sm text-yellow-200 mt-1">Awards become available after at least six Pre-Q&A (Prelim) rounds are closed.<br/>Currently <?php echo $prelim_rounds_closed; ?> prelim round(s) closed.</p>
             </div>
           </div>
         </div>
@@ -370,9 +373,9 @@ include __DIR__ . '/../partials/sidebar_admin.php';
         </div>
       </div>
 
-      <?php if ($all_final_rounds_completed): ?>
+      <?php if ($awards_prelim_ready): ?>
       <?php
-        // Build final leaderboard per division for proposal and options
+        // Build Pre-Q&A (PRELIM) leaderboard per division for proposal and options
   $leadersByDivision = ['Ambassador' => [], 'Ambassadress' => []];
   foreach (['Ambassador','Ambassadress'] as $div) {
             $stmtFL = $conn->prepare(
@@ -383,7 +386,7 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                  JOIN scores s ON s.participant_id = p.id
                  JOIN round_criteria rc ON rc.criterion_id = s.criterion_id
                  JOIN rounds r ON r.id = rc.round_id
-                 WHERE r.pageant_id = ? AND r.scoring_mode = 'FINAL' AND r.state IN ('CLOSED','FINALIZED')
+                 WHERE r.pageant_id = ? AND r.scoring_mode = 'PRELIM' AND r.state IN ('CLOSED','FINALIZED')
                    AND p.is_active=1 AND d.name = ?
                  GROUP BY p.id, p.full_name, p.number_label, d.name
                  ORDER BY total DESC, p.full_name ASC"
@@ -414,7 +417,7 @@ include __DIR__ . '/../partials/sidebar_admin.php';
         <div class="px-6 py-4 border-b border-white border-opacity-10 flex items-center justify-between">
           <div>
             <h3 class="text-lg font-semibold text-white">Assign Major Awards</h3>
-            <p class="text-sm text-slate-200 mt-1">Propose from final leaderboard, then save winners</p>
+            <p class="text-sm text-slate-200 mt-1">Propose from Pre-Q&A leaderboard (after Round 6), then save winners</p>
           </div>
           <div class="flex gap-2">
             <button onclick="proposeWinners()" class="bg-blue-500 bg-opacity-30 hover:bg-blue-600/40 text-white font-medium px-4 py-2 rounded-lg border border-white border-opacity-20">Propose</button>

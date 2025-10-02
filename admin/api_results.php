@@ -233,7 +233,7 @@ try {
     }
     if ($action === 'auto_generate_awards') {
         $pageant_id = $_SESSION['pageant_id'] ?? 1;
-        // Get top 3 per division from FINAL rounds
+    // Get top 3 per division from PRELIM rounds (after Round 6 gating handled in UI)
     $leaders = ['Ambassador'=>[], 'Ambassadress'=>[]];
     foreach (['Ambassador','Ambassadress'] as $div) {
             $stmt = $conn->prepare(
@@ -243,7 +243,7 @@ try {
                  JOIN scores s ON s.participant_id=p.id
                  JOIN round_criteria rc ON rc.criterion_id=s.criterion_id
                  JOIN rounds r ON r.id=rc.round_id
-                 WHERE r.pageant_id=? AND r.scoring_mode='FINAL' AND r.state IN ('CLOSED','FINALIZED') AND p.is_active=1 AND d.name=?
+                 WHERE r.pageant_id=? AND r.scoring_mode='PRELIM' AND r.state IN ('CLOSED','FINALIZED') AND p.is_active=1 AND d.name=?
                  GROUP BY p.id
                  ORDER BY total DESC, p.full_name ASC
                  LIMIT 3"
