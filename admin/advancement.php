@@ -189,9 +189,9 @@ function autoAdvanceIfReady($con, $pageant_id, $advancement_count) {
       $inserted++;
     };
 
-    $mrTop = getTopForRound($con, $from_round_id, 'Mr', $advancement_count);
+  $mrTop = getTopForRound($con, $from_round_id, 'Ambassador', $advancement_count);
     foreach ($mrTop as $row) { $insertOne($row['id']); }
-    $msTop = getTopForRound($con, $from_round_id, 'Ms', $advancement_count);
+  $msTop = getTopForRound($con, $from_round_id, 'Ambassadress', $advancement_count);
     foreach ($msTop as $row) { $insertOne($row['id']); }
 
     $conn->commit();
@@ -316,8 +316,8 @@ if (isset($_POST['confirm_advancement'])) {
 // advancement_count is already set above
 
 // Get top participants for each division
-$mr_top = $con->getTopParticipants($pageant_id, 'Mr', $advancement_count);
-$ms_top = $con->getTopParticipants($pageant_id, 'Ms', $advancement_count);
+$mr_top = $con->getTopParticipants($pageant_id, 'Ambassador', $advancement_count);
+$ms_top = $con->getTopParticipants($pageant_id, 'Ambassadress', $advancement_count);
 
 // Check if advancements have already been confirmed
 $conn = $con->opencon();
@@ -460,8 +460,8 @@ include __DIR__ . '/../partials/sidebar_admin.php';
     <!-- Auto-Advancement Preview (replaces manual selection) -->
     <?php 
       [$fromRound, $toRound] = findAdvancementRounds($con, $pageant_id);
-      $previewMr = $fromRound ? getTopForRound($con, (int)$fromRound['id'], 'Mr', $advancement_count) : [];
-      $previewMs = $fromRound ? getTopForRound($con, (int)$fromRound['id'], 'Ms', $advancement_count) : [];
+  $previewMr = $fromRound ? getTopForRound($con, (int)$fromRound['id'], 'Ambassador', $advancement_count) : [];
+  $previewMs = $fromRound ? getTopForRound($con, (int)$fromRound['id'], 'Ambassadress', $advancement_count) : [];
     ?>
     <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20 p-6 mb-8">
       <div class="flex items-center justify-between mb-4">
@@ -477,7 +477,7 @@ include __DIR__ . '/../partials/sidebar_admin.php';
       <?php else: ?>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <h4 class="text-slate-100 font-medium mb-2">Mr Division</h4>
+            <h4 class="text-slate-100 font-medium mb-2">Ambassador Division</h4>
             <div class="overflow-x-auto rounded-lg border border-white border-opacity-10 bg-white bg-opacity-10">
               <table class="min-w-full text-sm">
                 <thead class="bg-slate-900 bg-opacity-30 text-blue-200 uppercase text-xs tracking-wide">
@@ -502,7 +502,7 @@ include __DIR__ . '/../partials/sidebar_admin.php';
             </div>
           </div>
           <div>
-            <h4 class="text-slate-100 font-medium mb-2">Ms Division</h4>
+            <h4 class="text-slate-100 font-medium mb-2">Ambassadress Division</h4>
             <div class="overflow-x-auto rounded-lg border border-white border-opacity-10 bg-white bg-opacity-10">
               <table class="min-w-full text-sm">
                 <thead class="bg-slate-900 bg-opacity-30 text-pink-200 uppercase text-xs tracking-wide">

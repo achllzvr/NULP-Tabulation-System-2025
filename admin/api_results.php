@@ -210,7 +210,7 @@ try {
             $stmtDel->execute();
             $stmtDel->close();
             // Insert provided winners for both divisions with positions
-            foreach (['Mr','Ms'] as $div) {
+            foreach (['Ambassador','Ambassadress'] as $div) {
                 $positions = $body['divisions'][$div] ?? [];
                 for ($i=0; $i<3; $i++) {
                     $pid = $positions[$i] ?? null;
@@ -234,8 +234,8 @@ try {
     if ($action === 'auto_generate_awards') {
         $pageant_id = $_SESSION['pageant_id'] ?? 1;
         // Get top 3 per division from FINAL rounds
-        $leaders = ['Mr'=>[], 'Ms'=>[]];
-        foreach (['Mr','Ms'] as $div) {
+    $leaders = ['Ambassador'=>[], 'Ambassadress'=>[]];
+    foreach (['Ambassador','Ambassadress'] as $div) {
             $stmt = $conn->prepare(
                 "SELECT p.id, SUM(COALESCE(s.override_score, s.raw_score) * (CASE WHEN rc.weight>1 THEN rc.weight/100.0 ELSE rc.weight END)) as total
                  FROM participants p
@@ -286,7 +286,7 @@ try {
             $stmtDel->bind_param('i', $awardId);
             $stmtDel->execute();
             $stmtDel->close();
-            foreach (['Mr','Ms'] as $div) {
+            foreach (['Ambassador','Ambassadress'] as $div) {
                 $positions = $leaders[$div];
                 for ($i=0; $i<count($positions); $i++) {
                     $pid = $positions[$i];

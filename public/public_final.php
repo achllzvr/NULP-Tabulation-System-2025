@@ -180,7 +180,7 @@ include __DIR__ . '/../partials/head.php';
                   <td class="px-6 py-4">
                     <?php if ($visibility_flags['reveal_names']): ?>
                       <span class="inline-flex items-center px-2 py-1 rounded text-base font-medium <?php 
-                        echo $participant['division'] === 'Mr' ? 'bg-blue-200 bg-opacity-60 text-blue-900' : 'bg-pink-200 bg-opacity-60 text-pink-900'; 
+                        echo $participant['division'] === 'Ambassador' ? 'bg-blue-200 bg-opacity-60 text-blue-900' : 'bg-pink-200 bg-opacity-60 text-pink-900'; 
                       ?>">
                         <?php echo htmlspecialchars($participant['division']); ?>
                       </span>

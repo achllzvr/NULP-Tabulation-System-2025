@@ -92,11 +92,11 @@ include __DIR__ . '/../partials/head.php';
       </div>
 
       <?php
-        // Gather unique divisions from leaderboard, only 'Mr.' and 'Ms.'
+        // Gather unique divisions from leaderboard, only 'Ambassador' and 'Ambassadress'
         $divisions = [];
         foreach ($leaderboard as $p) {
           $div = isset($p['division']) ? $p['division'] : '';
-          if ($div && !in_array($div, $divisions) && in_array($div, ['Mr', 'Ms'])) $divisions[] = $div;
+          if ($div && !in_array($div, $divisions) && in_array($div, ['Ambassador', 'Ambassadress'])) $divisions[] = $div;
         }
         $selected_division = isset($_GET['division']) ? $_GET['division'] : 'Overall';
       ?>
@@ -105,7 +105,7 @@ include __DIR__ . '/../partials/head.php';
         <div class="inline-flex rounded-xl bg-white bg-opacity-10 p-1 shadow-inner backdrop-blur">
           <a href="?pageant_id=<?php echo $pid; ?>" class="px-5 py-2 rounded-lg font-semibold text-base transition-all <?php echo ($selected_division === 'Overall' ? 'bg-white bg-opacity-80 text-blue-900 shadow' : 'text-white hover:bg-white hover:bg-opacity-20'); ?>">Overall</a>
           <?php foreach ($divisions as $div): ?>
-            <a href="?pageant_id=<?php echo $pid; ?>&division=<?php echo urlencode($div); ?>" class="px-5 py-2 rounded-lg font-semibold text-base transition-all ml-1 <?php echo ($selected_division === $div ? 'bg-white bg-opacity-80 text-blue-900 shadow' : 'text-white hover:bg-white hover:bg-opacity-20'); ?>"><?php echo $div === 'Mr' ? 'Mr.' : ($div === 'Ms' ? 'Ms.' : htmlspecialchars($div)); ?></a>
+            <a href="?pageant_id=<?php echo $pid; ?>&division=<?php echo urlencode($div); ?>" class="px-5 py-2 rounded-lg font-semibold text-base transition-all ml-1 <?php echo ($selected_division === $div ? 'bg-white bg-opacity-80 text-blue-900 shadow' : 'text-white hover:bg-white hover:bg-opacity-20'); ?>"><?php echo htmlspecialchars($div); ?></a>
           <?php endforeach; ?>
         </div>
       </div>
@@ -176,7 +176,7 @@ include __DIR__ . '/../partials/head.php';
                     <td class="px-6 py-4">
                       <?php if ($visibility_flags['reveal_names']): ?>
                         <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium <?php 
-                          echo $participant['division'] === 'Mr' ? 'bg-blue-200 bg-opacity-60 text-blue-900' : 'bg-pink-200 bg-opacity-60 text-pink-900'; 
+                          echo $participant['division'] === 'Ambassador' ? 'bg-blue-200 bg-opacity-60 text-blue-900' : 'bg-pink-200 bg-opacity-60 text-pink-900'; 
                         ?>">
                           <?php echo htmlspecialchars($participant['division']); ?>
                         </span>

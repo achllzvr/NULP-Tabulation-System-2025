@@ -160,8 +160,8 @@ include __DIR__ . '/../partials/sidebar_admin.php';
             <label class="block text-sm font-medium text-slate-200 mb-2">Division Filter</label>
             <select id="divisionFilter" name="division" class="w-full bg-white bg-opacity-20 backdrop-blur-sm border border-white border-opacity-30 rounded-lg px-4 py-3 text-sm text-white focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-colors" onchange="updateFilters()">
               <option value="all" <?php echo $selected_division === 'all' ? 'selected' : ''; ?>>All Divisions</option>
-              <option value="Mr" <?php echo $selected_division === 'Mr' ? 'selected' : ''; ?>>Mr Division</option>
-              <option value="Ms" <?php echo $selected_division === 'Ms' ? 'selected' : ''; ?>>Ms Division</option>
+              <option value="Ambassador" <?php echo $selected_division === 'Ambassador' ? 'selected' : ''; ?>>Ambassador Division</option>
+              <option value="Ambassadress" <?php echo $selected_division === 'Ambassadress' ? 'selected' : ''; ?>>Ambassadress Division</option>
             </select>
           </div>
           
@@ -227,7 +227,7 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                     </td>
                     <td class="px-6 py-4">
                       <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium <?php 
-                        echo $participant['division'] === 'Mr' ? 'bg-blue-500 bg-opacity-20 text-blue-200' : 'bg-pink-500 bg-opacity-20 text-pink-200'; 
+                        echo $participant['division'] === 'Ambassador' ? 'bg-blue-500 bg-opacity-20 text-blue-200' : 'bg-pink-500 bg-opacity-20 text-pink-200'; 
                       ?>">
                         <?php echo htmlspecialchars($participant['division']); ?>
                       </span>

@@ -93,13 +93,13 @@ $stmt->close();
 $leaderboardRows = [];
 $current_leader = null;
 if ($tab === 'leaderboard') {
-  $leaderboardRows = ['Mr'=>[], 'Ms'=>[]];
+  $leaderboardRows = ['Ambassador'=>[], 'Ambassadress'=>[]];
   $stage = $selected_stage; // 'prelim' or 'final'
   $mode = ($stage === 'final') ? 'FINAL' : 'PRELIM';
-  foreach (['Mr','Ms'] as $div) {
+  foreach (['Ambassador','Ambassadress'] as $div) {
     $leaderboardRows[$div] = $con->getStageLeaderboard($pageant_id, $div, $mode);
   }
-  $current_leader = ($leaderboardRows['Mr'][0] ?? $leaderboardRows['Ms'][0] ?? null);
+  $current_leader = ($leaderboardRows['Ambassador'][0] ?? $leaderboardRows['Ambassadress'][0] ?? null);
 }
 
 // Data for awards tab
@@ -235,11 +235,11 @@ include __DIR__ . '/../partials/sidebar_admin.php';
 
       <!-- Leaderboard Grids -->
       <div class="grid md:grid-cols-2 gap-6">
-        <?php foreach (['Mr','Ms'] as $div): $rows = $leaderboardRows[$div]; ?>
+        <?php foreach (['Ambassador','Ambassadress'] as $div): $rows = $leaderboardRows[$div]; ?>
         <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20">
           <div class="px-6 py-4 border-b border-white border-opacity-10 flex items-center justify-between">
             <h3 class="text-lg font-semibold text-white"><?php echo $div; ?> Division</h3>
-            <span class="px-2 py-1 text-xs rounded-full <?php echo $div==='Mr' ? 'bg-blue-400/20 text-blue-200' : 'bg-pink-400/20 text-pink-200'; ?>"><?php echo count($rows); ?> entries</span>
+            <span class="px-2 py-1 text-xs rounded-full <?php echo $div==='Ambassador' ? 'bg-blue-400/20 text-blue-200' : 'bg-pink-400/20 text-pink-200'; ?>"><?php echo count($rows); ?> entries</span>
           </div>
           <div class="overflow-x-auto">
             <?php if (!empty($rows)): ?>
@@ -342,7 +342,7 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                 <div class="border border-white border-opacity-10 rounded-lg p-4 bg-white bg-opacity-10">
                   <div class="flex items-center justify-between mb-2">
                     <h5 class="font-medium text-white"><?php echo htmlspecialchars($group['name']); ?></h5>
-                    <span class="px-2 py-1 text-xs rounded-full <?php echo ($group['division_scope'] === 'Mr') ? 'bg-blue-400 bg-opacity-20 text-blue-200' : (($group['division_scope'] === 'Ms') ? 'bg-pink-400 bg-opacity-20 text-pink-200' : 'bg-slate-400 bg-opacity-20 text-slate-200'); ?>">
+                    <span class="px-2 py-1 text-xs rounded-full <?php echo ($group['division_scope'] === 'Ambassador') ? 'bg-blue-400 bg-opacity-20 text-blue-200' : (($group['division_scope'] === 'Ambassadress') ? 'bg-pink-400 bg-opacity-20 text-pink-200' : 'bg-slate-400 bg-opacity-20 text-slate-200'); ?>">
                       <?php echo htmlspecialchars($group['division_scope']); ?>
                     </span>
                   </div>
@@ -373,8 +373,8 @@ include __DIR__ . '/../partials/sidebar_admin.php';
       <?php if ($all_final_rounds_completed): ?>
       <?php
         // Build final leaderboard per division for proposal and options
-        $leadersByDivision = ['Mr' => [], 'Ms' => []];
-        foreach (['Mr','Ms'] as $div) {
+  $leadersByDivision = ['Ambassador' => [], 'Ambassadress' => []];
+  foreach (['Ambassador','Ambassadress'] as $div) {
             $stmtFL = $conn->prepare(
                 "SELECT p.id, p.full_name, p.number_label, d.name as division,
                         SUM(COALESCE(s.override_score, s.raw_score) * (CASE WHEN rc.weight>1 THEN rc.weight/100.0 ELSE rc.weight END)) as total
@@ -395,7 +395,7 @@ include __DIR__ . '/../partials/sidebar_admin.php';
             $stmtFL->close();
         }
         // Current saved winners map for preselects
-        $savedMap = ['Mr'=>[], 'Ms'=>[]];
+  $savedMap = ['Ambassador'=>[], 'Ambassadress'=>[]];
         $stmtCW = $conn->prepare("SELECT a.division_scope, aw.position, aw.participant_id
                                    FROM awards a JOIN award_winners aw ON aw.award_id = a.id
                                    WHERE a.pageant_id = ?");
@@ -404,7 +404,7 @@ include __DIR__ . '/../partials/sidebar_admin.php';
         $resCW = $stmtCW->get_result();
         while ($r = $resCW->fetch_assoc()) {
             $scope = $r['division_scope'];
-            if ($scope === 'Mr' || $scope === 'Ms') {
+      if ($scope === 'Ambassador' || $scope === 'Ambassadress') {
                 $savedMap[$scope][(int)$r['position']] = (int)$r['participant_id'];
             }
         }
@@ -422,7 +422,7 @@ include __DIR__ . '/../partials/sidebar_admin.php';
           </div>
         </div>
         <div class="p-6 grid md:grid-cols-2 gap-6">
-          <?php foreach (['Mr','Ms'] as $div): ?>
+          <?php foreach (['Ambassador','Ambassadress'] as $div): ?>
           <div class="border border-white border-opacity-10 rounded-lg p-4 bg-white bg-opacity-10">
             <h4 class="font-semibold text-white mb-4"><?php echo $div; ?> Division</h4>
             <?php
@@ -480,7 +480,7 @@ include __DIR__ . '/../partials/sidebar_admin.php';
       }
       function proposeWinners() {
         // Preselect top 3 per division based on the existing options order
-        ['Mr','Ms'].forEach(div => {
+        ['Ambassador','Ambassadress'].forEach(div => {
           for (let pos = 1; pos <= 3; pos++) {
             const sel = document.getElementById(`winner_${div}_${pos}`);
             if (sel && sel.options.length > pos) sel.selectedIndex = pos; // idx 1..3 maps to top3 with placeholder at 0
@@ -489,8 +489,8 @@ include __DIR__ . '/../partials/sidebar_admin.php';
         if (typeof showNotification === 'function') showNotification('Proposed winners applied', 'success', true);
       }
       async function saveWinners() {
-        const payload = { divisions: { Mr: [], Ms: [] } };
-        ['Mr','Ms'].forEach(div => {
+        const payload = { divisions: { Ambassador: [], Ambassadress: [] } };
+        ['Ambassador','Ambassadress'].forEach(div => {
           for (let pos = 1; pos <= 3; pos++) {
             const sel = document.getElementById(`winner_${div}_${pos}`);
             const val = sel && sel.value ? parseInt(sel.value, 10) : null;
@@ -652,8 +652,8 @@ include __DIR__ . '/../partials/sidebar_admin.php';
             <label class="block text-sm font-medium text-slate-200 mb-2">Division</label>
             <select id="tabDivision" class="w-full bg-white bg-opacity-20 backdrop-blur-sm border border-white border-opacity-30 rounded-lg px-4 py-3 text-sm text-white" onchange="onTabulatedFilterChange()">
               <option value="all" <?php echo $selected_division === 'all' ? 'selected' : ''; ?>>All Divisions</option>
-              <option value="Mr" <?php echo $selected_division === 'Mr' ? 'selected' : ''; ?>>Mr Division</option>
-              <option value="Ms" <?php echo $selected_division === 'Ms' ? 'selected' : ''; ?>>Ms Division</option>
+              <option value="Ambassador" <?php echo $selected_division === 'Ambassador' ? 'selected' : ''; ?>>Ambassador Division</option>
+              <option value="Ambassadress" <?php echo $selected_division === 'Ambassadress' ? 'selected' : ''; ?>>Ambassadress Division</option>
             </select>
           </div>
           <div>
@@ -714,7 +714,7 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                     <td class="px-6 py-3 text-slate-200"><?php echo htmlspecialchars($row['number_label']); ?></td>
                     <td class="px-6 py-3 text-white font-medium"><?php echo htmlspecialchars($row['name']); ?></td>
                     <td class="px-6 py-3">
-                      <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium <?php echo ($row['division'] === 'Mr') ? 'bg-blue-500 bg-opacity-20 text-blue-200' : 'bg-pink-500 bg-opacity-20 text-pink-200'; ?>"><?php echo htmlspecialchars($row['division']); ?></span>
+                      <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium <?php echo ($row['division'] === 'Ambassador') ? 'bg-blue-500 bg-opacity-20 text-blue-200' : 'bg-pink-500 bg-opacity-20 text-pink-200'; ?>"><?php echo htmlspecialchars($row['division']); ?></span>
                     </td>
                     <?php foreach ($row['criteria'] as $cell): ?>
                       <td class="px-6 py-3 text-right text-slate-100 font-mono text-sm">

@@ -45,7 +45,7 @@ if (isset($_POST['add_participant'])) {
             $show_error_alert = true;
         } else {
             // Convert division name to division_id
-            $division_id = ($division === 'Mr') ? 1 : (($division === 'Ms') ? 2 : 1);
+            $division_id = ($division === 'Ambassador') ? 1 : (($division === 'Ambassadress') ? 2 : 1);
             
             // Add participant to database
             $stmt = $conn->prepare("INSERT INTO participants (pageant_id, division_id, number_label, full_name, advocacy, is_active) VALUES (?, ?, ?, ?, ?, 1)");
@@ -131,7 +131,7 @@ if (isset($_POST['edit_participant'])) {
             $show_error_alert = true;
         } else {
             // Convert division name to division_id
-            $division_id = ($division === 'Mr') ? 1 : (($division === 'Ms') ? 2 : 1);
+            $division_id = ($division === 'Ambassador') ? 1 : (($division === 'Ambassadress') ? 2 : 1);
             
             // Update participant
             $stmt = $conn->prepare("UPDATE participants SET division_id = ?, number_label = ?, full_name = ?, advocacy = ? WHERE id = ? AND pageant_id = ?");
@@ -162,7 +162,7 @@ $conditions = ["p.pageant_id = ?"];
 $types = 'i';
 $params = [$pageant_id];
 
-if ($divisionFilter !== '' && in_array($divisionFilter, ['Mr','Ms'])) {
+if ($divisionFilter !== '' && in_array($divisionFilter, ['Ambassador','Ambassadress'])) {
   $conditions[] = 'd.name = ?';
   $types .= 's';
   $params[] = $divisionFilter;
@@ -237,26 +237,26 @@ include __DIR__ . '/../partials/sidebar_admin.php';
 
       <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20 p-6">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="text-sm font-medium text-slate-200">Mr Division</h3>
+          <h3 class="text-sm font-medium text-slate-200">Ambassador Division</h3>
           <svg class="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
           </svg>
         </div>
         <p class="text-3xl font-bold text-white mb-1">
-          <?php echo count(array_filter($participants, fn($p) => isset($p['division']) && $p['division'] === 'Mr')); ?>
+          <?php echo count(array_filter($participants, fn($p) => isset($p['division']) && $p['division'] === 'Ambassador')); ?>
         </p>
         <p class="text-sm text-slate-200">Male participants</p>
       </div>
 
       <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20 p-6">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="text-sm font-medium text-slate-200">Ms Division</h3>
+          <h3 class="text-sm font-medium text-slate-200">Ambassadress Division</h3>
           <svg class="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
           </svg>
         </div>
         <p class="text-3xl font-bold text-white mb-1">
-          <?php echo count(array_filter($participants, fn($p) => isset($p['division']) && $p['division'] === 'Ms')); ?>
+          <?php echo count(array_filter($participants, fn($p) => isset($p['division']) && $p['division'] === 'Ambassadress')); ?>
         </p>
         <p class="text-sm text-slate-200">Female participants</p>
       </div>
@@ -288,8 +288,8 @@ include __DIR__ . '/../partials/sidebar_admin.php';
           <label class="block text-xs text-slate-300 mb-1">Division</label>
           <select name="division" class="w-full rounded-lg bg-white bg-opacity-10 border border-white border-opacity-20 text-white px-3 py-2">
             <option value="" <?= $divisionFilter===''? 'selected':'' ?>>All</option>
-            <option value="Mr" <?= $divisionFilter==='Mr'? 'selected':'' ?>>Mr</option>
-            <option value="Ms" <?= $divisionFilter==='Ms'? 'selected':'' ?>>Ms</option>
+            <option value="Ambassador" <?= $divisionFilter==='Ambassador'? 'selected':'' ?>>Ambassador</option>
+            <option value="Ambassadress" <?= $divisionFilter==='Ambassadress'? 'selected':'' ?>>Ambassadress</option>
           </select>
         </div>
         <div>
@@ -346,7 +346,7 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                     // Infer division from number or use default (since division column doesn't exist yet)
                     $division = isset($participant['division']) ? $participant['division'] : 'General';
                     ?>
-                    <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full <?php echo $division === 'Mr' ? 'bg-blue-500 bg-opacity-30 text-blue-200 backdrop-blur-sm' : ($division === 'Ms' ? 'bg-pink-500 bg-opacity-30 text-pink-200 backdrop-blur-sm' : 'bg-white bg-opacity-20 text-slate-200 backdrop-blur-sm'); ?>">
+                    <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full <?php echo $division === 'Ambassador' ? 'bg-blue-500 bg-opacity-30 text-blue-200 backdrop-blur-sm' : ($division === 'Ambassadress' ? 'bg-pink-500 bg-opacity-30 text-pink-200 backdrop-blur-sm' : 'bg-white bg-opacity-20 text-slate-200 backdrop-blur-sm'); ?>">
                       <?php echo htmlspecialchars($division); ?>
                     </span>
                   </td>
