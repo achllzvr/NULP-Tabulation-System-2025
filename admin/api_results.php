@@ -176,41 +176,50 @@ try {
             throw new Exception('Invalid payload');
         }
         $pageant_id = $_SESSION['pageant_id'] ?? 1;
-        // Ensure tables exist
-        $con->getPublicAwards($pageant_id);
         $db = $con->opencon();
         $db->begin_transaction();
         try {
+            // Create or fetch a single OVERALL award configured for PER_DIVISION with 3 winners
+            $awardName = 'Overall Winner';
+            $awardCode = 'MAJOR_OVERALL';
+            $aggregation = 'OVERALL';
+            $divisionScope = 'PER_DIVISION';
+            $winnersCount = 3;
+            $stmtA = $db->prepare("SELECT id FROM awards WHERE pageant_id=? AND code=? LIMIT 1");
+            $stmtA->bind_param('is', $pageant_id, $awardCode);
+            $stmtA->execute();
+            $rsA = $stmtA->get_result();
+            $awardId = null;
+            if ($rowA = $rsA->fetch_assoc()) { $awardId = (int)$rowA['id']; }
+            $stmtA->close();
+            if (!$awardId) {
+                $stmtI = $db->prepare("INSERT INTO awards(pageant_id, name, code, aggregation_type, division_scope, winners_count, visibility_state) VALUES(?,?,?,?,?,?,'HIDDEN')");
+                $stmtI->bind_param('issssi', $pageant_id, $awardName, $awardCode, $aggregation, $divisionScope, $winnersCount);
+                $stmtI->execute();
+                $awardId = $stmtI->insert_id;
+                $stmtI->close();
+            } else {
+                $stmtU = $db->prepare("UPDATE awards SET name=?, aggregation_type=?, division_scope=?, winners_count=? WHERE id=?");
+                $stmtU->bind_param('sssii', $awardName, $aggregation, $divisionScope, $winnersCount, $awardId);
+                $stmtU->execute();
+                $stmtU->close();
+            }
+            // Clear previous results for this award
+            $stmtDel = $db->prepare("DELETE FROM award_results WHERE award_id=?");
+            $stmtDel->bind_param('i', $awardId);
+            $stmtDel->execute();
+            $stmtDel->close();
+            // Insert provided winners for both divisions with positions
             foreach (['Mr','Ms'] as $div) {
                 $positions = $body['divisions'][$div] ?? [];
-                // Upsert award row for division major title
-                $awardName = 'Overall Winner';
-                $stmt = $db->prepare("SELECT id FROM awards WHERE pageant_id=? AND name=? AND division_scope=? LIMIT 1");
-                $stmt->bind_param('iss', $pageant_id, $awardName, $div);
-                $stmt->execute();
-                $r = $stmt->get_result();
-                $awardId = null;
-                if ($row = $r->fetch_assoc()) { $awardId = (int)$row['id']; }
-                $stmt->close();
-                if (!$awardId) {
-                    $stmtI = $db->prepare("INSERT INTO awards(pageant_id, name, division_scope, sequence) VALUES(?,?,?,?)");
-                    $seq = ($div === 'Mr') ? 1 : 2;
-                    $stmtI->bind_param('issi', $pageant_id, $awardName, $div, $seq);
-                    $stmtI->execute();
-                    $awardId = $stmtI->insert_id;
-                    $stmtI->close();
-                }
-                // Reset existing winners for positions 1..3 under this division major track
-                $db->query("DELETE aw FROM award_winners aw JOIN awards a ON aw.award_id=a.id WHERE a.id={$awardId}");
-                // Insert provided positions
-                for ($i=0;$i<3;$i++) {
+                for ($i=0; $i<3; $i++) {
                     $pid = $positions[$i] ?? null;
                     if ($pid) {
-                        $stmtW = $db->prepare("INSERT INTO award_winners(award_id, participant_id, position) VALUES(?,?,?)");
                         $pos = $i+1;
-                        $stmtW->bind_param('iii', $awardId, $pid, $pos);
-                        $stmtW->execute();
-                        $stmtW->close();
+                        $stmtR = $db->prepare("INSERT INTO award_results(award_id, participant_id, position) VALUES(?,?,?)");
+                        $stmtR->bind_param('iii', $awardId, $pid, $pos);
+                        $stmtR->execute();
+                        $stmtR->close();
                     }
                 }
             }
@@ -224,9 +233,7 @@ try {
     }
     if ($action === 'auto_generate_awards') {
         $pageant_id = $_SESSION['pageant_id'] ?? 1;
-        // Build leaders per division from FINAL rounds
-        // Use single connection
-        // Get top 3 per division
+        // Get top 3 per division from FINAL rounds
         $leaders = ['Mr'=>[], 'Ms'=>[]];
         foreach (['Mr','Ms'] as $div) {
             $stmt = $conn->prepare(
@@ -247,40 +254,48 @@ try {
             while ($row = $rs->fetch_assoc()) { $leaders[$div][] = (int)$row['id']; }
             $stmt->close();
         }
-        // Upsert using existing save_awards transaction path for consistency
-        $_POST = [];
-        $payload = ['divisions' => $leaders];
-        // Reuse code: open new db for transaction
         $db = $con->opencon();
         $db->begin_transaction();
         try {
+            $awardName = 'Overall Winner';
+            $awardCode = 'MAJOR_OVERALL';
+            $aggregation = 'OVERALL';
+            $divisionScope = 'PER_DIVISION';
+            $winnersCount = 3;
+            $stmtA = $db->prepare("SELECT id FROM awards WHERE pageant_id=? AND code=? LIMIT 1");
+            $stmtA->bind_param('is', $pageant_id, $awardCode);
+            $stmtA->execute();
+            $rsA = $stmtA->get_result();
+            $awardId = null;
+            if ($rowA = $rsA->fetch_assoc()) { $awardId = (int)$rowA['id']; }
+            $stmtA->close();
+            if (!$awardId) {
+                $stmtI = $db->prepare("INSERT INTO awards(pageant_id, name, code, aggregation_type, division_scope, winners_count, visibility_state) VALUES(?,?,?,?,?,?,'HIDDEN')");
+                $stmtI->bind_param('issssi', $pageant_id, $awardName, $awardCode, $aggregation, $divisionScope, $winnersCount);
+                $stmtI->execute();
+                $awardId = $stmtI->insert_id;
+                $stmtI->close();
+            } else {
+                $stmtU = $db->prepare("UPDATE awards SET name=?, aggregation_type=?, division_scope=?, winners_count=? WHERE id=?");
+                $stmtU->bind_param('sssii', $awardName, $aggregation, $divisionScope, $winnersCount, $awardId);
+                $stmtU->execute();
+                $stmtU->close();
+            }
+            // Replace award_results
+            $stmtDel = $db->prepare("DELETE FROM award_results WHERE award_id=?");
+            $stmtDel->bind_param('i', $awardId);
+            $stmtDel->execute();
+            $stmtDel->close();
             foreach (['Mr','Ms'] as $div) {
                 $positions = $leaders[$div];
-                $awardName = 'Overall Winner';
-                $stmt = $db->prepare("SELECT id FROM awards WHERE pageant_id=? AND name=? AND division_scope=? LIMIT 1");
-                $stmt->bind_param('iss', $pageant_id, $awardName, $div);
-                $stmt->execute();
-                $r = $stmt->get_result();
-                $awardId = null;
-                if ($row = $r->fetch_assoc()) { $awardId = (int)$row['id']; }
-                $stmt->close();
-                if (!$awardId) {
-                    $stmtI = $db->prepare("INSERT INTO awards(pageant_id, name, division_scope, sequence) VALUES(?,?,?,?)");
-                    $seq = ($div === 'Mr') ? 1 : 2;
-                    $stmtI->bind_param('issi', $pageant_id, $awardName, $div, $seq);
-                    $stmtI->execute();
-                    $awardId = $stmtI->insert_id;
-                    $stmtI->close();
-                }
-                $db->query("DELETE aw FROM award_winners aw JOIN awards a ON aw.award_id=a.id WHERE a.id={$awardId}");
-                for ($i=0;$i<count($positions);$i++) {
+                for ($i=0; $i<count($positions); $i++) {
                     $pid = $positions[$i];
                     if ($pid) {
-                        $stmtW = $db->prepare("INSERT INTO award_winners(award_id, participant_id, position) VALUES(?,?,?)");
                         $pos = $i+1;
-                        $stmtW->bind_param('iii', $awardId, $pid, $pos);
-                        $stmtW->execute();
-                        $stmtW->close();
+                        $stmtR = $db->prepare("INSERT INTO award_results(award_id, participant_id, position) VALUES(?,?,?)");
+                        $stmtR->bind_param('iii', $awardId, $pid, $pos);
+                        $stmtR->execute();
+                        $stmtR->close();
                     }
                 }
             }
@@ -293,20 +308,24 @@ try {
         exit();
     }
     if ($action === 'toggle_publish_awards') {
-        // Flip pageant_settings.reveal_awards value
-        $stmt = $conn->prepare("SELECT setting_value FROM pageant_settings WHERE setting_key='reveal_awards' LIMIT 1");
+        // Toggle awards.visibility_state between HIDDEN and REVEALED for the current pageant
+        $pageant_id = isset($_SESSION['pageant_id']) ? (int)$_SESSION['pageant_id'] : (isset($_SESSION['pageantID']) ? (int)$_SESSION['pageantID'] : 0);
+        if ($pageant_id === 0 && isset($_GET['pageant_id'])) { $pageant_id = (int)$_GET['pageant_id']; }
+        if ($pageant_id === 0) { echo json_encode(['success' => false, 'error' => 'Missing pageant context']); exit(); }
+        // Detect current state (if any award is revealed we consider revealed)
+        $stmt = $conn->prepare("SELECT COUNT(*) AS cnt FROM awards WHERE pageant_id=? AND visibility_state='REVEALED'");
+        $stmt->bind_param('i', $pageant_id);
         $stmt->execute();
-        $val = 0;
-        if ($r = $stmt->get_result()->fetch_assoc()) { $val = (int)$r['setting_value']; }
+        $rs = $stmt->get_result();
+        $row = $rs->fetch_assoc();
+        $isRevealed = ($row && (int)$row['cnt'] > 0);
         $stmt->close();
-        $newVal = $val ? 0 : 1;
-        // Upsert
-        $conn->query("INSERT INTO pageant_settings(setting_key, setting_value) VALUES('reveal_awards', '0') ON DUPLICATE KEY UPDATE setting_value=setting_value");
-        $stmtU = $conn->prepare("UPDATE pageant_settings SET setting_value=? WHERE setting_key='reveal_awards'");
-        $stmtU->bind_param('s', $sv = (string)$newVal);
+        $newState = $isRevealed ? 'HIDDEN' : 'REVEALED';
+        $stmtU = $conn->prepare("UPDATE awards SET visibility_state=? WHERE pageant_id=?");
+        $stmtU->bind_param('si', $newState, $pageant_id);
         $stmtU->execute();
         $stmtU->close();
-        echo json_encode(['success' => true, 'reveal_awards' => $newVal]);
+        echo json_encode(['success' => true, 'visibility_state' => $newState, 'pageant_id' => $pageant_id]);
         exit();
     }
     http_response_code(400);

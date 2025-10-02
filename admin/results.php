@@ -80,6 +80,15 @@ $stmt->close();
 
 $all_final_rounds_completed = ($total_final_rounds > 0 && $final_rounds_completed >= $total_final_rounds);
 
+// Detect if any round is currently OPEN (to blur results during live scoring)
+$stmt = $conn->prepare("SELECT COUNT(*) AS cnt FROM rounds WHERE pageant_id = ? AND state = 'OPEN'");
+$stmt->bind_param('i', $pageant_id);
+$stmt->execute();
+$resOpen = $stmt->get_result();
+$rowOpen = $resOpen->fetch_assoc();
+$has_open_round = ($rowOpen && (int)$rowOpen['cnt'] > 0);
+$stmt->close();
+
 // Data for leaderboard tab
 $leaderboardRows = [];
 $current_leader = null;
@@ -106,6 +115,16 @@ include __DIR__ . '/../partials/head.php';
 include __DIR__ . '/../partials/sidebar_admin.php';
 ?>
       <div class="px-6 py-8">
+    <div class="relative">
+      <?php if ($has_open_round): ?>
+        <div class="absolute inset-0 z-10 flex items-center justify-center">
+          <div class="bg-black/60 rounded-xl px-6 py-4 border border-white/20 text-center">
+            <div class="text-2xl font-bold text-white mb-1">Ongoing Round</div>
+            <div class="text-slate-200">Results will reveal afterwards</div>
+          </div>
+        </div>
+      <?php endif; ?>
+      <div class="<?= $has_open_round ? 'pointer-events-none select-none blur-sm' : '' ?>">
     <!-- Header -->
     <div class="mb-6">
       <div class="flex items-center justify-between">
@@ -156,7 +175,7 @@ include __DIR__ . '/../partials/sidebar_admin.php';
       </div>
     </div>
 
-    <?php if ($tab === 'leaderboard'): ?>
+  <?php if ($tab === 'leaderboard'): ?>
       <!-- Stats -->
       <div class="grid md:grid-cols-4 gap-6 mb-8">
         <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20 p-6">
@@ -727,6 +746,9 @@ include __DIR__ . '/../partials/sidebar_admin.php';
       </div>
     <?php endif; ?>
   </div>
+
+      </div>
+    </div>
 
 <script>
 function refreshLeaderboard() {

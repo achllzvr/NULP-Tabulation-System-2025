@@ -43,7 +43,7 @@ if ($pid > 0) {
     $pageant = $result->fetch_assoc();
     // Get visibility flags
     $visibility_flags = $con->getVisibilityFlags($pid);
-    // Get awards if they should be revealed
+    // Get awards if they should be revealed; primary source is awards.visibility_state via getPublicAwards
     if ($visibility_flags['reveal_awards']) {
       $awards = $con->getPublicAwards($pid);
     }
@@ -80,7 +80,7 @@ include __DIR__ . '/../partials/head.php';
           </svg>
           <p class="font-medium"><?php echo htmlspecialchars($error_message); ?></p>
         </div>
-      <?php elseif (!$visibility_flags['reveal_awards']): ?>
+  <?php elseif (!$visibility_flags['reveal_awards']): ?>
         <!-- Awards not yet revealed -->
         <div class="text-center py-16">
           <div class="text-8xl mb-6">🏆</div>
@@ -186,7 +186,7 @@ setInterval(function() {
 
 // Show loading notification
 document.addEventListener('DOMContentLoaded', function() {
-    <?php if (!$visibility_flags['reveal_awards']): ?>
+  <?php if (!$visibility_flags['reveal_awards']): ?>
         showNotification('Awards not yet revealed - check back later!', 'info', true);
     <?php elseif (!empty($awards)): ?>
         showNotification('Awards loaded successfully', 'success', true);

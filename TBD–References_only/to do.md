@@ -47,17 +47,17 @@ ADVANCEMENT PAGE
 LEADERBOARD AND AWARDS PAGE REWORK
 - [x] Leaderboards and Awards Page rework
     - [x] Centralized Leaderboards and Awards Page
-    - [ ] Current Rankings in Leaderboard should display both Ambassador and Ambassadress side by side and their rankings are based on what division they are in. That means we’ll remove the divison selector and just have a Round Selector and the round should be Pageant and Final Q&A Round.
-    - [ ] Also have “Raw Tabulated Data View” and will show the tabulated form of the scores per criteria (horizontal top row) per participant (vertical column on start), per judge (selector) and can be filtered by round, by criteria
-        - [ ] So the sequence will be drop-downs for judge and round.
-            - [ ] then the table will show the judges’ scores for all participants per criteria.
-        - [ ] In case of major/ minor errors in score calculation/ saving, manual override can be made for the editing of the scores through a password protected gate
-            - [ ] For extra security, the respective judge the score is being fixed/ edited should be required to input their credentials to allow the edit to happen.
+    - [x] Current Rankings in Leaderboard should display both Ambassador and Ambassadress side by side and their rankings are based on what division they are in. That means we’ll remove the divison selector and just have a Round Selector and the round should be Pageant and Final Q&A Round.
+    - [x] Also have “Raw Tabulated Data View” and will show the tabulated form of the scores per criteria (horizontal top row) per participant (vertical column on start), per judge (selector) and can be filtered by round, by criteria
+        - [x] So the sequence will be drop-downs for judge and round.
+            - [x] then the table will show the judges’ scores for all participants per criteria.
+        - [x] In case of major/ minor errors in score calculation/ saving, manual override can be made for the editing of the scores through a password protected gate
+            - [x] For extra security, the respective judge the score is being fixed/ edited should be required to input their credentials to allow the edit to happen.
     - [x] Leaderboards are automatically calculated by the scores saved
-        - [ ] Formula to be followed is in /TBD–References_only/formula.md
+        - [x] Formula to be followed is in /TBD–References_only/formula.md
     - [x] Awards are automatically calculated
-        - [ ] Awards will ONLY BE shown to public IF host/ admin has pressed the “Publish” awards button so that the awards and awardees will be saved in the database and the public viewing page for the awards will fetch those saved awards and awardees data.
-        - [ ] Once published, no fallbacks for reversions but admin can toggle showing and hiding awards page
+        - [x] Awards will ONLY BE shown to public IF host/ admin has pressed the “Publish” awards button so that the awards and awardees will be saved in the database and the public viewing page for the awards will fetch those saved awards and awardees data.
+        - [x] Once published, no fallbacks for reversions but admin can toggle showing and hiding awards page
 
 REWORK
 - [ ] Create Participants Duos.
@@ -67,6 +67,25 @@ REWORK
 - [ ] Add Pre-Pageant Round Type.
     - [ ] Pre-Pageant Round Type uses Duos/ by pair scoring.
 - [ ] REQUIRED: Assign Judges on Round Feature.
+- [ ] In Live Control Center, instead of Live Activity, Have a live judge monitoring similar to the advancements panel. This will display the judges and their progress FOR THE CURRENT ACTIVE ROUND.
+- [ ] If there is ongoing round, blur the rows in the results page and an indicator that indicates “Ongoing Round. Results will reveal afterwards”
+- [ ] Participant Details Modal. Display Criteria and Score.
+- [ ] Judges’ Advancements Validation UI Fix
+    - [ ] Ongoing Advancement Validation but UI still displays the No Active Round below the Advancements Validation Card
+    - [ ] Also, details are not showing up.
+- [ ] Advancements Page
+    - [ ] Once the first automatic finalization of the advancements is done, stop the listener to cancel checking for completion of judges loop.
+    - [ ] The auto advancement should be from the Advocacy up to Sports Wear (Entire Pre-Q&A Round)
+    - [ ] Once Advancements are confirmed, disable page again.
+- [ ] Results Page and Advancements Computations
+    - [ ] Scores for all rounds should be a max of 100% (as per guidelines) and computations of the scores and weights of individual round will be followed as per guidelines.
+- [ ] Remove the Awards Page since we’ll be using the Awards in the Results page.
+- [ ] Make Public View fetch real data.
+
+Questions
+- [ ] What does Propose in Assign Major Awards do and What does Save Winners do.
+- [ ] For Auto-Generate in Award Results, this shows up:
+	“Data truncated for column 'division_scope' at row 1”
 
 OTHERS
 - [ ] Participants Page Filter by button/ dropdown.

@@ -163,7 +163,18 @@ class database {
         while ($row = $result->fetch_assoc()) {
             $flags[$row['setting_key']] = (bool)(int)$row['setting_value'];
         }
-        
+        // If any awards are marked REVEALED for this pageant, treat reveal_awards as true
+        $stmt2 = $con->prepare("SELECT COUNT(*) AS cnt FROM awards WHERE pageant_id = ? AND visibility_state = 'REVEALED'");
+        $stmt2->bind_param('i', $pageant_id);
+        $stmt2->execute();
+        $res2 = $stmt2->get_result();
+        if ($row2 = $res2->fetch_assoc()) {
+            if ((int)$row2['cnt'] > 0) {
+                $flags['reveal_awards'] = true;
+            }
+        }
+        $stmt2->close();
+
         $stmt->close();
         $con->close();
         return $flags;
@@ -384,57 +395,22 @@ class database {
         return $leaderboard;
     }
 
-    // Function to get awards for public viewing
+    // Function to get awards for public viewing (aligned to schema: awards + award_results)
     function getPublicAwards($pageant_id) {
         $con = $this->opencon();
-        
-        // Ensure awards tables exist
-        $resAwards = $con->query("SHOW TABLES LIKE 'awards'");
-        if (!$resAwards || $resAwards->num_rows == 0) {
-            $con->query("CREATE TABLE IF NOT EXISTS awards (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                pageant_id INT NOT NULL,
-                name VARCHAR(255) NOT NULL,
-                division_scope ENUM('ALL', 'Mr', 'Ms') DEFAULT 'ALL',
-                sequence INT DEFAULT 0,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-        }
-        // Backfill missing columns for existing installations
-        $colSeq = $con->query("SHOW COLUMNS FROM awards LIKE 'sequence'");
-        if ($colSeq && $colSeq->num_rows == 0) {
-            $con->query("ALTER TABLE awards ADD COLUMN sequence INT DEFAULT 0");
-        }
-        $colDiv = $con->query("SHOW COLUMNS FROM awards LIKE 'division_scope'");
-        if ($colDiv && $colDiv->num_rows == 0) {
-            $con->query("ALTER TABLE awards ADD COLUMN division_scope ENUM('ALL','Mr','Ms') DEFAULT 'ALL' AFTER name");
-        }
-        $resWinners = $con->query("SHOW TABLES LIKE 'award_winners'");
-        if (!$resWinners || $resWinners->num_rows == 0) {
-            $con->query("CREATE TABLE IF NOT EXISTS award_winners (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                award_id INT NOT NULL,
-                participant_id INT NOT NULL,
-                position INT DEFAULT 1
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-        }
-        
-    $sql = "SELECT a.name, a.division_scope,
-                       p.full_name, p.number_label, aw.position
+        $sql = "SELECT a.name, a.division_scope, ar.position, p.full_name, p.number_label
                 FROM awards a
-                LEFT JOIN award_winners aw ON a.id = aw.award_id
-                LEFT JOIN participants p ON aw.participant_id = p.id
-                WHERE a.pageant_id = ?
-                ORDER BY a.sequence, aw.position";
-        
+                LEFT JOIN award_results ar ON ar.award_id = a.id
+                LEFT JOIN participants p ON p.id = ar.participant_id
+                WHERE a.pageant_id = ? AND a.visibility_state = 'REVEALED'
+                ORDER BY a.id, ar.position";
         $stmt = $con->prepare($sql);
-        $stmt->bind_param("i", $pageant_id);
+        $stmt->bind_param('i', $pageant_id);
         $stmt->execute();
         $result = $stmt->get_result();
-        
         $awardGroups = [];
         while ($row = $result->fetch_assoc()) {
-            $key = $row['name'] . '_' . $row['division_scope'];
+            $key = $row['name'];
             if (!isset($awardGroups[$key])) {
                 $awardGroups[$key] = [
                     'name' => $row['name'],
@@ -442,16 +418,14 @@ class database {
                     'winners' => []
                 ];
             }
-            
-            if ($row['full_name']) {
+            if (!empty($row['full_name'])) {
                 $awardGroups[$key]['winners'][] = [
                     'full_name' => $row['full_name'],
                     'number_label' => $row['number_label'],
-                    'position' => $row['position']
+                    'position' => (int)$row['position']
                 ];
             }
         }
-        
         $stmt->close();
         $con->close();
         return array_values($awardGroups);
