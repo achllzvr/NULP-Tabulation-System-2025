@@ -68,6 +68,23 @@ if (isset($_POST['open_advancement_validation'])) {
   $conn = $con->opencon();
   $conn->begin_transaction();
   try {
+    // Ensure all tie-breakers are resolved BEFORE starting validation
+    // Unresolved: active in_progress groups or those still OPEN/TIMER_ENDED
+    $stmtChk = $conn->prepare("SELECT COUNT(*) AS cnt FROM tie_groups WHERE pageant_id = ? AND (state = 'in_progress' OR tie_breaker_status IN ('OPEN','TIMER_ENDED'))");
+    $stmtChk->bind_param("i", $pageant_id);
+    $stmtChk->execute();
+    $unresolved = (int)($stmtChk->get_result()->fetch_assoc()['cnt'] ?? 0);
+    $stmtChk->close();
+    if ($unresolved > 0) {
+      throw new Exception("Cannot open validation while tie-breakers are unresolved. Please finish and close all tie-breakers first.");
+    }
+
+    // Auto-close any tie groups that are already resolved (CLOSE_ENABLED) but not closed yet
+    $stmtAut = $conn->prepare("UPDATE tie_groups SET state='closed', tie_breaker_status='CLOSED', tie_breaker_closed_at = NOW() WHERE pageant_id = ? AND (state <> 'closed' OR state IS NULL) AND tie_breaker_status = 'CLOSE_ENABLED'");
+    $stmtAut->bind_param("i", $pageant_id);
+    $stmtAut->execute();
+    $stmtAut->close();
+
     // Create advancement_verification if not already active
     $stmt = $conn->prepare("SELECT id FROM advancement_verification WHERE pageant_id = ? AND is_active = 1 LIMIT 1");
     $stmt->bind_param("i", $pageant_id);
@@ -119,14 +136,7 @@ if (isset($_POST['close_advancement_validation'])) {
       $stmt->bind_param("i", $verification_id);
       $stmt->execute();
       $stmt->close();
-      // Immediately revert panels to idle state:
-      // 1) Close any in-progress tie groups under this pageant so judges see no tie-breaker context
-      $stmtT = $conn->prepare("UPDATE tie_groups SET state='closed', tie_breaker_status='CLOSED', tie_breaker_closed_at = NOW() WHERE pageant_id = ? AND (state = 'in_progress' OR tie_breaker_status IN ('OPEN','TIMER_ENDED','CLOSE_ENABLED'))");
-      $stmtT->bind_param("i", $pageant_id);
-      $stmtT->execute();
-      $stmtT->close();
-
-      // 2) Ensure no rounds are accidentally left OPEN; admin must explicitly open the Final round next
+      // Ensure no rounds are accidentally left OPEN; admin must explicitly open the Final round next
       $stmtR = $conn->prepare("UPDATE rounds SET state='CLOSED', closed_at = COALESCE(closed_at, NOW()) WHERE pageant_id = ? AND state = 'OPEN'");
       $stmtR->bind_param("i", $pageant_id);
       $stmtR->execute();

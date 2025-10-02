@@ -40,6 +40,44 @@ function getActiveAdvancementVerification($con, $pageant_id) {
   return $row;
 }
 
+// --- Round Signing (Judge) ---
+function getActiveRoundSigning($con, $pageant_id, $judge_id) {
+  $conn = $con->opencon();
+  // Find a CLOSED round with active signing where this judge still needs to sign
+  $stmt = $conn->prepare("SELECT rs.id AS signing_id, r.id AS round_id, r.name AS round_name FROM round_signing rs JOIN rounds r ON r.id = rs.round_id JOIN round_signing_judges rj ON rj.round_signing_id = rs.id WHERE r.pageant_id = ? AND rs.is_active = 1 AND rj.judge_user_id = ? AND rj.confirmed = 0 ORDER BY r.sequence DESC LIMIT 1");
+  $stmt->bind_param("ii", $pageant_id, $judge_id);
+  $stmt->execute();
+  $row = $stmt->get_result()->fetch_assoc();
+  $stmt->close();
+  $conn->close();
+  return $row ?: null;
+}
+
+function getJudgeRoundScores($con, $round_id, $judge_id) {
+  $conn = $con->opencon();
+  $stmt = $conn->prepare("SELECT p.number_label, p.full_name, c.name AS criterion_name, s.raw_score FROM scores s JOIN participants p ON p.id = s.participant_id JOIN criteria c ON c.id = s.criterion_id WHERE s.round_id = ? AND s.judge_user_id = ? ORDER BY p.number_label, c.id");
+  $stmt->bind_param("ii", $round_id, $judge_id);
+  $stmt->execute();
+  $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+  $stmt->close();
+  $conn->close();
+  return $rows;
+}
+
+if (isset($_POST['confirm_round_signing'])) {
+  $judge_id = $_SESSION['judgeID'];
+  $signing_id = intval($_POST['round_signing_id'] ?? 0);
+  if ($signing_id > 0) {
+    $conn = $con->opencon();
+    $stmt = $conn->prepare("UPDATE round_signing_judges SET confirmed=1, confirmed_at=NOW() WHERE round_signing_id = ? AND judge_user_id = ?");
+    $stmt->bind_param("ii", $signing_id, $judge_id);
+    $stmt->execute();
+    $stmt->close();
+    $conn->close();
+    $success_message = "Round signing confirmed. Thank you.";
+  }
+}
+
 function getJudgeAdvancementConfirmation($con, $verification_id, $judge_id) {
   $conn = $con->opencon();
   $stmt = $conn->prepare("SELECT * FROM advancement_verification_judges WHERE advancement_verification_id = ? AND judge_user_id = ? LIMIT 1");
@@ -93,6 +131,8 @@ if (isset($_POST['confirm_advancements'])) {
 $active_verification = getActiveAdvancementVerification($con, $pageant_id);
 $judge_confirmation = $active_verification ? getJudgeAdvancementConfirmation($con, $active_verification['id'], $judge_id) : null;
 $advancing_participants = $active_verification ? getAdvancingParticipants($con, $pageant_id) : [];
+
+$active_signing = getActiveRoundSigning($con, $pageant_id, $judge_id);
 
 // Helper: when validation is active but advancements table is still empty, build a preview
 function findAdvancementRoundsForPreview($con, $pageant_id) {
@@ -550,6 +590,41 @@ include __DIR__ . '/../partials/head.php';
 </nav>
 
 <main class="mx-auto max-w-4xl w-full p-6 space-y-6">
+  <?php if ($active_signing): ?>
+    <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20 p-6 mb-8">
+      <h2 class="text-lg font-semibold text-white mb-2">Round Signing Required</h2>
+      <p class="text-slate-200 mb-3">Please review and sign your scores for <strong class="text-white"><?= htmlspecialchars($active_signing['round_name']) ?></strong>.</p>
+      <?php $roundScores = getJudgeRoundScores($con, (int)$active_signing['round_id'], $judge_id); ?>
+      <div class="overflow-x-auto max-h-72 overflow-y-auto rounded border border-white border-opacity-20 mb-4">
+        <table class="min-w-full text-sm text-white">
+          <thead class="bg-white bg-opacity-10">
+            <tr>
+              <th class="px-3 py-2 text-left">#</th>
+              <th class="px-3 py-2 text-left">Name</th>
+              <th class="px-3 py-2 text-left">Criterion</th>
+              <th class="px-3 py-2 text-left">Score</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-white divide-opacity-10">
+            <?php if (!empty($roundScores)): foreach ($roundScores as $rs): ?>
+              <tr>
+                <td class="px-3 py-1 font-semibold text-blue-200"><?= htmlspecialchars($rs['number_label']) ?></td>
+                <td class="px-3 py-1"><?= htmlspecialchars($rs['full_name']) ?></td>
+                <td class="px-3 py-1 text-slate-200"><?= htmlspecialchars($rs['criterion_name']) ?></td>
+                <td class="px-3 py-1 font-mono text-blue-100"><?= htmlspecialchars(number_format((float)$rs['raw_score'], 2)) ?></td>
+              </tr>
+            <?php endforeach; else: ?>
+              <tr><td colspan="4" class="px-3 py-3 text-yellow-200">No scores found for this round.</td></tr>
+            <?php endif; ?>
+          </tbody>
+        </table>
+      </div>
+      <form method="POST" onsubmit="return confirm('Confirm and sign your scores for this round?');">
+        <input type="hidden" name="round_signing_id" value="<?= (int)$active_signing['signing_id'] ?>" />
+        <button type="submit" name="confirm_round_signing" class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-4 py-2 rounded-lg">Sign This Round</button>
+      </form>
+    </div>
+  <?php endif; ?>
   <?php if ($active_verification): ?>
     <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20 p-6 mb-8">
       <h2 class="text-lg font-semibold text-white mb-2">Advancements Validation</h2>

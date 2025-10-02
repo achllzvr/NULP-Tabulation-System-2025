@@ -120,10 +120,67 @@ if (isset($_POST['toggle_round'])) {
       WHERE id = ?");
     $stmt->bind_param("siii", $new_state, $is_open, $is_closed_or_final, $round_id);
         
-        if ($stmt->execute()) {
-            $success_message = "Round status updated successfully to " . $new_state . ".";
-            $show_success_alert = true;
+    if ($stmt->execute()) {
+      // Create per-round signing session on transition to CLOSED
+      if ($new_state === 'CLOSED') {
+        // Only create if not exists
+        $stmt2 = $conn->prepare("SELECT id FROM round_signing WHERE round_id = ? LIMIT 1");
+        $stmt2->bind_param("i", $round_id);
+        $stmt2->execute();
+        $exists = $stmt2->get_result()->fetch_assoc();
+        $stmt2->close();
+        if (!$exists) {
+          // Create session
+          $stmt3 = $conn->prepare("INSERT INTO round_signing (round_id, is_active, opened_at) VALUES (?, 1, NOW())");
+          $stmt3->bind_param("i", $round_id);
+          $stmt3->execute();
+          $signing_id = $stmt3->insert_id;
+          $stmt3->close();
+          // Seed judge confirmations
+          $stmtJ = $conn->prepare("SELECT u.id FROM users u JOIN pageant_users pu ON pu.user_id = u.id JOIN rounds r ON r.pageant_id = pu.pageant_id WHERE r.id = ? AND LOWER(TRIM(pu.role))='judge' AND u.is_active=1");
+          $stmtJ->bind_param("i", $round_id);
+          $stmtJ->execute();
+          $resJ = $stmtJ->get_result();
+          $judgeIds = [];
+          while ($row = $resJ->fetch_assoc()) { $judgeIds[] = (int)$row['id']; }
+          $stmtJ->close();
+          if (!empty($judgeIds)) {
+            $stmtIns = $conn->prepare("INSERT INTO round_signing_judges (round_signing_id, judge_user_id, confirmed) VALUES (?, ?, 0)");
+            foreach ($judgeIds as $jid) {
+              $stmtIns->bind_param("ii", $signing_id, $jid);
+              $stmtIns->execute();
+            }
+            $stmtIns->close();
+          }
+        }
+      }
+      // Guard finalization until all judges sign
+      if ($new_state === 'FINALIZED') {
+        // Check round signing complete
+        $stmt4 = $conn->prepare("SELECT rs.id FROM round_signing rs LEFT JOIN round_signing_judges rj ON rj.round_signing_id = rs.id AND rj.confirmed = 0 WHERE rs.round_id = ? AND rs.is_active = 1 GROUP BY rs.id HAVING COUNT(rj.judge_user_id) = 0");
+        $stmt4->bind_param("i", $round_id);
+        $stmt4->execute();
+        $okRow = $stmt4->get_result()->fetch_assoc();
+        $stmt4->close();
+        if (!$okRow) {
+          // Revert finalize and prompt
+          $stmtB = $conn->prepare("UPDATE rounds SET state='CLOSED' WHERE id = ?");
+          $stmtB->bind_param("i", $round_id);
+          $stmtB->execute();
+          $stmtB->close();
+          throw new Exception('All judges must sign this round before finalization.');
         } else {
+          // Close signing session
+          $stmtC = $conn->prepare("UPDATE round_signing SET is_active = 0, closed_at = NOW() WHERE id = ?");
+          $sid = (int)$okRow['id'];
+          $stmtC->bind_param("i", $sid);
+          $stmtC->execute();
+          $stmtC->close();
+        }
+      }
+      $success_message = "Round status updated successfully to " . $new_state . ".";
+      $show_success_alert = true;
+    } else {
             $error_message = "Error updating round status: " . $stmt->error;
             $show_error_alert = true;
         }
@@ -137,6 +194,54 @@ if (isset($_POST['toggle_round'])) {
         }
         $show_error_alert = true;
     }
+}
+
+// Manually start round signing for a closed round (for rounds closed before this feature)
+if (isset($_POST['start_round_signing'])) {
+  $round_id = intval($_POST['round_id'] ?? 0);
+  try {
+    // Ensure round is CLOSED
+    $stmt = $conn->prepare("SELECT state FROM rounds WHERE id=?");
+    $stmt->bind_param("i", $round_id);
+    $stmt->execute();
+    $st = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    if (!$st || $st['state'] !== 'CLOSED') { throw new Exception('Round must be CLOSED to start signing.'); }
+    // Check exists
+    $stmt = $conn->prepare("SELECT id FROM round_signing WHERE round_id=? AND is_active=1 LIMIT 1");
+    $stmt->bind_param("i", $round_id);
+    $stmt->execute();
+    $ex = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    if ($ex) { throw new Exception('Signing session already active.'); }
+    // Create signing session
+    $stmt = $conn->prepare("INSERT INTO round_signing (round_id, is_active, opened_at) VALUES (?, 1, NOW())");
+    $stmt->bind_param("i", $round_id);
+    $stmt->execute();
+    $signing_id = $stmt->insert_id;
+    $stmt->close();
+    // Seed judge confirmations
+    $stmtJ = $conn->prepare("SELECT u.id FROM users u JOIN pageant_users pu ON pu.user_id = u.id JOIN rounds r ON r.pageant_id = pu.pageant_id WHERE r.id = ? AND LOWER(TRIM(pu.role))='judge' AND u.is_active=1");
+    $stmtJ->bind_param("i", $round_id);
+    $stmtJ->execute();
+    $resJ = $stmtJ->get_result();
+    $judgeIds = [];
+    while ($row = $resJ->fetch_assoc()) { $judgeIds[] = (int)$row['id']; }
+    $stmtJ->close();
+    if (!empty($judgeIds)) {
+      $stmtIns = $conn->prepare("INSERT INTO round_signing_judges (round_signing_id, judge_user_id, confirmed) VALUES (?, ?, 0)");
+      foreach ($judgeIds as $jid) {
+        $stmtIns->bind_param("ii", $signing_id, $jid);
+        $stmtIns->execute();
+      }
+      $stmtIns->close();
+    }
+    $show_success_alert = true;
+    $success_message = 'Round signing session started.';
+  } catch (Exception $e) {
+    $show_error_alert = true;
+    $error_message = 'Failed to start signing: ' . $e->getMessage();
+  }
 }
 
 // Save judge assignments per round
@@ -368,9 +473,27 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                 ?>
                   <?php
                     $final_blocked = $is_final_round && count($advancements) === 0;
-                    $tooltip = $final_blocked ? 'Cannot open/close/finalize Final Round until advancements are set.' : '';
+                    // If round has a signing session active and not all judges confirmed, block finalization action
+                    $signing_blocked = false;
+                    $signing_tooltip = '';
+                    // We'll check signing state using a lightweight query per round
+                    $connChk = $con->opencon();
+                    $stmtS = $connChk->prepare("SELECT rs.id, SUM(CASE WHEN rj.confirmed=0 THEN 1 ELSE 0 END) AS pending FROM round_signing rs LEFT JOIN round_signing_judges rj ON rj.round_signing_id = rs.id WHERE rs.round_id = ? AND rs.is_active = 1 GROUP BY rs.id LIMIT 1");
+                    $stmtS->bind_param("i", $round['id']);
+                    $stmtS->execute();
+                    $resS = $stmtS->get_result()->fetch_assoc();
+                    $stmtS->close();
+                    $connChk->close();
+                    if ($resS) {
+                      $pending = (int)($resS['pending'] ?? 0);
+                      if ($pending > 0) {
+                        $signing_blocked = true;
+                        $signing_tooltip = 'Finalize disabled until all judges sign this round.';
+                      }
+                    }
+                    $tooltip = $final_blocked ? 'Cannot open/close/finalize Final Round until advancements are set.' : ($signing_blocked ? $signing_tooltip : '');
                   ?>
-                  <div class="border border-white border-opacity-10 rounded-lg p-6 bg-white bg-opacity-10 relative group"<?php if($final_blocked) echo ' data-tooltip="' . htmlspecialchars($tooltip) . '"'; ?>>
+                  <div class="border border-white border-opacity-10 rounded-lg p-6 bg-white bg-opacity-10 relative group"<?php if($final_blocked || $signing_blocked) echo ' data-tooltip="' . htmlspecialchars($tooltip) . '"'; ?>>
                     <div class="flex items-center justify-between mb-4">
                       <div>
                         <h4 class="text-lg font-semibold text-white"><?php echo htmlspecialchars($round['name']); ?></h4>
@@ -435,6 +558,24 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                           <strong>Closed:</strong> <?php echo date('M j, Y g:i A', strtotime($round['closed_at'])); ?>
                         </p>
                       <?php endif; ?>
+                      <?php if ($round['state'] === 'CLOSED'): ?>
+                        <?php
+                          // Signing progress chip
+                          $connProg = $con->opencon();
+                          $stmtP = $connProg->prepare("SELECT COUNT(*) AS total, SUM(CASE WHEN confirmed=1 THEN 1 ELSE 0 END) AS done FROM round_signing_judges WHERE round_signing_id = (SELECT id FROM round_signing WHERE round_id=? AND is_active=1 LIMIT 1)");
+                          $stmtP->bind_param("i", $round['id']);
+                          $stmtP->execute();
+                          $prog = $stmtP->get_result()->fetch_assoc();
+                          $stmtP->close();
+                          $connProg->close();
+                          $t = (int)($prog['total'] ?? 0); $d = (int)($prog['done'] ?? 0);
+                          if ($t > 0):
+                        ?>
+                          <p class="text-sm text-slate-200 mt-1">
+                            <strong>Signing:</strong> <?= $d ?>/<?= $t ?> judges confirmed
+                          </p>
+                        <?php endif; ?>
+                      <?php endif; ?>
                     </div>
                     <?php 
                       // Use prefetched assignments to avoid DB calls after connection close
@@ -488,7 +629,7 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                         <form method="POST" class="inline">
                           <input type="hidden" name="round_id" value="<?php echo $round['id']; ?>">
                           <input type="hidden" name="action" value="finalize">
-                          <button name="toggle_round" type="submit" class="bg-green-600 hover:bg-green-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors" <?php if($final_blocked) echo 'disabled style="opacity:0.6;cursor:not-allowed;"'; ?>>
+                          <button name="toggle_round" type="submit" class="bg-green-600 hover:bg-green-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors" <?php if($final_blocked || $signing_blocked) echo 'disabled style="opacity:0.6;cursor:not-allowed;"'; ?>>
                             Finalize
                           </button>
                         </form>
@@ -499,6 +640,15 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                             Reopen Round
                           </button>
                         </form>
+                        <?php if (!$resS): ?>
+                        <form method="POST" class="inline" onsubmit="return confirm('Start round signing so judges can confirm their scores?');">
+                          <input type="hidden" name="round_id" value="<?php echo $round['id']; ?>">
+                          <button name="start_round_signing" type="submit" class="bg-white bg-opacity-10 hover:bg-white hover:bg-opacity-20 text-white text-sm font-medium px-4 py-2 rounded-lg border border-white border-opacity-20 backdrop-blur-sm transition-colors">
+                            Start Signing
+                          </button>
+                        </form>
+                        <?php endif; ?>
+                        <div class="inline ml-2 align-middle text-slate-200 text-xs">Judges must sign before finalizing.</div>
                       <?php elseif ($round['state'] === 'FINALIZED'): ?>
                         <form method="POST" class="inline" onsubmit="return confirm('Are you sure you want to revert this finalized round to closed status? This action should only be done if there was an error.')">
                           <input type="hidden" name="round_id" value="<?php echo $round['id']; ?>">
