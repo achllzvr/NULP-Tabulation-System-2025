@@ -546,14 +546,6 @@ function confirmLogout() {
       <h3 class="text-lg font-medium text-yellow-800 mb-2">No Active Round</h3>
       <p class="text-yellow-700">There are currently no rounds open for judging. Please wait for the administrator to open a round.</p>
     </div>
-  <?php elseif (empty($participants)): ?>
-    <div class="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
-      <svg class="mx-auto h-12 w-12 text-blue-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
-      </svg>
-      <h3 class="text-lg font-medium text-blue-800 mb-2">No Participants</h3>
-      <p class="text-blue-700">No participants are registered for this pageant yet.</p>
-    </div>
   <?php elseif (empty($criteria)): ?>
     <div class="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
       <svg class="mx-auto h-12 w-12 text-red-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -562,11 +554,28 @@ function confirmLogout() {
       <h3 class="text-lg font-medium text-red-800 mb-2">No Scoring Criteria</h3>
       <p class="text-red-700">This round has no scoring criteria assigned. Please contact the administrator.</p>
     </div>
+  <?php elseif ($is_pair_scoring && empty($duos)): ?>
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
+      <svg class="mx-auto h-12 w-12 text-blue-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m8-9a3 3 0 11-6 0 3 3 0 016 0z"/>
+      </svg>
+      <h3 class="text-lg font-medium text-blue-800 mb-2">No Duos Configured</h3>
+      <p class="text-blue-700">No duos/pairs are configured for this pageant yet. Please ask the administrator to add duos.</p>
+    </div>
+  <?php elseif (!$is_pair_scoring && empty($participants)): ?>
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
+      <svg class="mx-auto h-12 w-12 text-blue-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+      </svg>
+      <h3 class="text-lg font-medium text-blue-800 mb-2">No Participants</h3>
+      <p class="text-blue-700">No participants are registered for this pageant yet.</p>
+    </div>
   <?php else: ?>
     <!-- Round Information -->
     <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20 p-6 mb-6">
-      <h2 class="text-lg font-semibold text-white mb-2"><?= htmlspecialchars($active_round['name'], ENT_QUOTES, 'UTF-8') ?></h2>
-      <p class="text-slate-200 text-sm mb-4">Currently judging: <?= count($participants) ?> participants • <?= count($criteria) ?> criteria</p>
+  <h2 class="text-lg font-semibold text-white mb-2"><?= htmlspecialchars($active_round['name'], ENT_QUOTES, 'UTF-8') ?></h2>
+  <?php $countLabel = $is_pair_scoring ? (count($duos) . ' duos') : (count($participants) . ' participants'); ?>
+  <p class="text-slate-200 text-sm mb-4">Currently judging: <?= htmlspecialchars($countLabel, ENT_QUOTES, 'UTF-8') ?> • <?= count($criteria) ?> criteria</p>
       <?php if (!empty($active_round['start_time']) && $active_round['state'] === 'in_progress'): ?>
         <div class="mt-4">
           <div class="text-sm text-slate-200 mb-1">Tie Breaker Timer</div>
