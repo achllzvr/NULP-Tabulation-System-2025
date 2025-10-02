@@ -112,10 +112,40 @@ if ($tab === 'leaderboard') {
   $current_leader = ($leaderboardRows['Ambassador'][0] ?? $leaderboardRows['Ambassadress'][0] ?? null);
 }
 
-// Data for awards tab
+// Data for awards tab (admin sees awards regardless of publish state)
 $awardGroups = [];
 if ($tab === 'awards') {
-    $awardGroups = $con->getPublicAwards($pageant_id);
+  $stmtA = $conn->prepare("SELECT a.id, a.name, a.division_scope, a.visibility_state, ar.position, p.full_name, p.number_label
+                FROM awards a
+                LEFT JOIN award_results ar ON ar.award_id = a.id
+                LEFT JOIN participants p ON p.id = ar.participant_id
+                WHERE a.pageant_id = ?
+                ORDER BY a.id, ar.position");
+  $stmtA->bind_param('i', $pageant_id);
+  $stmtA->execute();
+  $resA = $stmtA->get_result();
+  $map = [];
+  while ($row = $resA->fetch_assoc()) {
+    $key = (int)$row['id'];
+    if (!isset($map[$key])) {
+      $map[$key] = [
+        'id' => $key,
+        'name' => $row['name'],
+        'division_scope' => $row['division_scope'],
+        'visibility_state' => $row['visibility_state'],
+        'winners' => []
+      ];
+    }
+    if (!empty($row['full_name'])) {
+      $map[$key]['winners'][] = [
+        'full_name' => $row['full_name'],
+        'number_label' => $row['number_label'],
+        'position' => (int)$row['position']
+      ];
+    }
+  }
+  $stmtA->close();
+  $awardGroups = array_values($map);
 }
 
 // Note: Keep connection open for subsequent tab-specific queries below; we'll close at the end
@@ -126,7 +156,7 @@ include __DIR__ . '/../partials/sidebar_admin.php';
 ?>
       <div class="px-6 py-8">
     <div class="relative">
-      <?php if ($has_open_round): ?>
+      <?php if ($has_open_round && $tab !== 'tabulated'): ?>
         <div class="absolute inset-0 z-10 flex items-center justify-center">
           <div class="bg-black/60 rounded-xl px-6 py-4 border border-white/20 text-center">
             <div class="text-2xl font-bold text-white mb-1">Ongoing Round</div>
@@ -134,7 +164,7 @@ include __DIR__ . '/../partials/sidebar_admin.php';
           </div>
         </div>
       <?php endif; ?>
-      <div class="<?= $has_open_round ? 'pointer-events-none select-none blur-sm' : '' ?>">
+      <div class="<?= ($has_open_round && $tab !== 'tabulated') ? 'pointer-events-none select-none blur-sm' : '' ?>">
     <!-- Header -->
     <div class="mb-6">
       <div class="flex items-center justify-between">
