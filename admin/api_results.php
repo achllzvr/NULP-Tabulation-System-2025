@@ -184,7 +184,7 @@ try {
             $awardCode = 'MAJOR_OVERALL';
             $aggregation = 'OVERALL';
             $divisionScope = 'PER_DIVISION';
-            $winnersCount = 3;
+            $winnersCount = 5;
             $stmtA = $db->prepare("SELECT id FROM awards WHERE pageant_id=? AND code=? LIMIT 1");
             $stmtA->bind_param('is', $pageant_id, $awardCode);
             $stmtA->execute();
@@ -212,7 +212,7 @@ try {
             // Insert provided winners for both divisions with positions
             foreach (['Ambassador','Ambassadress'] as $div) {
                 $positions = $body['divisions'][$div] ?? [];
-                for ($i=0; $i<3; $i++) {
+                for ($i=0; $i<5; $i++) {
                     $pid = $positions[$i] ?? null;
                     if ($pid) {
                         $pos = $i+1;
@@ -245,8 +245,8 @@ try {
                  JOIN rounds r ON r.id=rc.round_id
                  WHERE r.pageant_id=? AND r.scoring_mode='PRELIM' AND r.state IN ('CLOSED','FINALIZED') AND p.is_active=1 AND d.name=?
                  GROUP BY p.id
-                 ORDER BY total DESC, p.full_name ASC
-                 LIMIT 3"
+              ORDER BY total DESC, p.full_name ASC
+              LIMIT 5"
             );
             $stmt->bind_param('is', $pageant_id, $div);
             $stmt->execute();
@@ -261,7 +261,7 @@ try {
             $awardCode = 'MAJOR_OVERALL';
             $aggregation = 'OVERALL';
             $divisionScope = 'PER_DIVISION';
-            $winnersCount = 3;
+            $winnersCount = 5;
             $stmtA = $db->prepare("SELECT id FROM awards WHERE pageant_id=? AND code=? LIMIT 1");
             $stmtA->bind_param('is', $pageant_id, $awardCode);
             $stmtA->execute();
@@ -305,6 +305,185 @@ try {
             $db->rollback();
             throw $e;
         }
+        exit();
+    }
+    if ($action === 'toggle_publish_major_awards') {
+        $pageant_id = isset($_SESSION['pageant_id']) ? (int)$_SESSION['pageant_id'] : (isset($_SESSION['pageantID']) ? (int)$_SESSION['pageantID'] : 0);
+        if ($pageant_id === 0) { echo json_encode(['success' => false, 'error' => 'Missing pageant context']); exit(); }
+        $stmtA = $conn->prepare("SELECT id, visibility_state FROM awards WHERE pageant_id=? AND code='MAJOR_OVERALL' LIMIT 1");
+        $stmtA->bind_param('i', $pageant_id);
+        $stmtA->execute();
+        $rs = $stmtA->get_result();
+        $award = $rs->fetch_assoc();
+        $stmtA->close();
+        if (!$award) { echo json_encode(['success'=>false,'error'=>'Major award not found']); exit(); }
+        $new = ($award['visibility_state']==='REVEALED') ? 'HIDDEN' : 'REVEALED';
+        $stmtU = $conn->prepare("UPDATE awards SET visibility_state=? WHERE id=?");
+        $stmtU->bind_param('si', $new, $award['id']);
+        $stmtU->execute();
+        $stmtU->close();
+        echo json_encode(['success'=>true,'visibility_state'=>$new]);
+        exit();
+    }
+    if ($action === 'save_special_awards') {
+        $pageant_id = isset($_SESSION['pageant_id']) ? (int)$_SESSION['pageant_id'] : (isset($_SESSION['pageantID']) ? (int)$_SESSION['pageantID'] : 0);
+        if ($pageant_id === 0) { echo json_encode(['success' => false, 'error' => 'Missing pageant context']); exit(); }
+
+        // Map of round name patterns to special award codes and names
+        $roundAwardMap = [
+            ['pattern'=>'Advocacy', 'code'=>'BEST_ADVOCACY', 'name'=>'Best in Advocacy'],
+            ['pattern'=>'Talent', 'code'=>'BEST_TALENT', 'name'=>'Best in Talent'],
+            ['pattern'=>'Production', 'code'=>'BEST_PRODUCTION', 'name'=>'Best in Production Number'],
+            ['pattern'=>'Uniform', 'code'=>'BEST_UNIFORM', 'name'=>'Best in Uniform Wear'],
+            ['pattern'=>'Sports', 'code'=>'BEST_SPORTS', 'name'=>'Best in Sports Wear'],
+            ['pattern'=>'Formal', 'code'=>'BEST_FORMAL', 'name'=>'Best in Formal Wear']
+        ];
+        $manualAwards = [
+            ['type'=>'PHOTOGENIC', 'code'=>'PHOTOGENIC', 'name'=>'Mr. and Ms. Photogenic'],
+            ['type'=>'PEOPLES_CHOICE', 'code'=>'PEOPLES_CHOICE', 'name'=>"People's Choice Award"],
+            ['type'=>'CONGENIALITY', 'code'=>'CONGENIALITY', 'name'=>'Mr. and Ms. Congeniality']
+        ];
+
+        // Helper to ensure an award exists and return id
+        $ensureAward = function($name, $code, $aggregation, $divisionScope, $winnersCount) use ($con, $pageant_id) {
+            $db = $con->opencon();
+            $stmt = $db->prepare("SELECT id FROM awards WHERE pageant_id=? AND code=? LIMIT 1");
+            $stmt->bind_param('is', $pageant_id, $code);
+            $stmt->execute();
+            $rs = $stmt->get_result();
+            $awardId = null; if ($r=$rs->fetch_assoc()) { $awardId=(int)$r['id']; }
+            $stmt->close();
+            if (!$awardId) {
+                $stmtI = $db->prepare("INSERT INTO awards(pageant_id, name, code, aggregation_type, division_scope, winners_count, visibility_state) VALUES(?,?,?,?,?,?,'HIDDEN')");
+                $stmtI->bind_param('issssi', $pageant_id, $name, $code, $aggregation, $divisionScope, $winnersCount);
+                $stmtI->execute();
+                $awardId = $stmtI->insert_id; $stmtI->close();
+            } else {
+                $stmtU = $db->prepare("UPDATE awards SET name=?, aggregation_type=?, division_scope=?, winners_count=? WHERE id=?");
+                $stmtU->bind_param('sssii', $name, $aggregation, $divisionScope, $winnersCount, $awardId);
+                $stmtU->execute(); $stmtU->close();
+            }
+            $db->close();
+            return $awardId;
+        };
+
+        $db = $con->opencon();
+        $db->begin_transaction();
+        try {
+            // Best-in-round awards
+            foreach ($roundAwardMap as $cfg) {
+                // Find the round by pattern in name
+                $stmtR = $db->prepare("SELECT id FROM rounds WHERE pageant_id=? AND name LIKE CONCAT('%', ?, '%') LIMIT 1");
+                $pattern = $cfg['pattern'];
+                $stmtR->bind_param('is', $pageant_id, $pattern);
+                $stmtR->execute();
+                $rsR = $stmtR->get_result();
+                $round = $rsR->fetch_assoc();
+                $stmtR->close();
+                if (!$round) { continue; }
+                $round_id = (int)$round['id'];
+                $awardId = $ensureAward($cfg['name'], $cfg['code'], 'OVERALL', 'PER_DIVISION', 1);
+                // Clear prior
+                $stmtDel = $db->prepare("DELETE FROM award_results WHERE award_id=?");
+                $stmtDel->bind_param('i', $awardId);
+                $stmtDel->execute(); $stmtDel->close();
+                // Compute top per division for that round
+                foreach (['Ambassador','Ambassadress'] as $div) {
+                    $stmtT = $db->prepare(
+                        "SELECT p.id
+                         FROM participants p
+                         JOIN divisions d ON p.division_id=d.id
+                         JOIN scores s ON s.participant_id=p.id AND s.round_id=?
+                         JOIN round_criteria rc ON rc.round_id=s.round_id AND rc.criterion_id=s.criterion_id
+                         WHERE p.is_active=1 AND d.name=?
+                         GROUP BY p.id
+                         ORDER BY SUM(COALESCE(s.override_score, s.raw_score) * (CASE WHEN rc.weight>1 THEN rc.weight/100.0 ELSE rc.weight END)) DESC, MAX(p.full_name) ASC
+                         LIMIT 1"
+                    );
+                    $stmtT->bind_param('is', $round_id, $div);
+                    $stmtT->execute();
+                    $rsT = $stmtT->get_result();
+                    if ($top = $rsT->fetch_assoc()) {
+                        $pid = (int)$top['id'];
+                        $stmtIns = $db->prepare("INSERT INTO award_results(award_id, participant_id, position) VALUES(?,?,1)");
+                        $stmtIns->bind_param('ii', $awardId, $pid);
+                        $stmtIns->execute(); $stmtIns->close();
+                    }
+                    $stmtT->close();
+                }
+            }
+
+            // Manual vote-based awards (per division: pick max value)
+            foreach ($manualAwards as $mcfg) {
+                $code = $mcfg['code'];
+                $name = $mcfg['name'];
+                $type = $mcfg['type'];
+                $awardId = $ensureAward($name, $code, ($type==='PEOPLES_CHOICE'?'PEOPLE_CHOICE':'MANUAL'), 'PER_DIVISION', 1);
+                $stmtDel = $db->prepare("DELETE FROM award_results WHERE award_id=?");
+                $stmtDel->bind_param('i', $awardId);
+                $stmtDel->execute(); $stmtDel->close();
+                foreach (['Ambassador','Ambassadress'] as $div) {
+                    $stmtV = $db->prepare(
+                        "SELECT p.id, COALESCE(SUM(mv.value),0) AS total
+                         FROM participants p
+                         JOIN divisions d ON p.division_id=d.id
+                         LEFT JOIN manual_votes mv ON mv.participant_id=p.id AND mv.pageant_id=? AND mv.vote_type=?
+                         WHERE p.pageant_id=? AND p.is_active=1 AND d.name=?
+                         GROUP BY p.id
+                         ORDER BY total DESC, p.id ASC
+                         LIMIT 1"
+                    );
+                    $stmtV->bind_param('isis', $pageant_id, $type, $pageant_id, $div);
+                    $stmtV->execute();
+                    $rsV = $stmtV->get_result();
+                    if ($rowV = $rsV->fetch_assoc()) {
+                        $pid = (int)$rowV['id'];
+                        if ((int)($rowV['total'] ?? 0) > 0) {
+                            $stmtIns = $db->prepare("INSERT INTO award_results(award_id, participant_id, position) VALUES(?,?,1)");
+                            $stmtIns->bind_param('ii', $awardId, $pid);
+                            $stmtIns->execute(); $stmtIns->close();
+                        }
+                    }
+                    $stmtV->close();
+                }
+            }
+
+            $db->commit();
+            echo json_encode(['success'=>true]);
+        } catch (Exception $e) {
+            $db->rollback();
+            http_response_code(500);
+            echo json_encode(['success'=>false,'error'=>$e->getMessage()]);
+        }
+        $db->close();
+        exit();
+    }
+    if ($action === 'toggle_publish_special_awards') {
+        $pageant_id = isset($_SESSION['pageant_id']) ? (int)$_SESSION['pageant_id'] : (isset($_SESSION['pageantID']) ? (int)$_SESSION['pageantID'] : 0);
+        if ($pageant_id === 0) { echo json_encode(['success' => false, 'error' => 'Missing pageant context']); exit(); }
+        $codes = [
+            'BEST_ADVOCACY','BEST_TALENT','BEST_PRODUCTION','BEST_UNIFORM','BEST_SPORTS','BEST_FORMAL',
+            'PHOTOGENIC','PEOPLES_CHOICE','CONGENIALITY'
+        ];
+        // Determine current state: if any of these are revealed, we will hide; else reveal all
+        $in = implode(',', array_fill(0, count($codes), '?'));
+        $types = 'i' . str_repeat('s', count($codes));
+        $params = array_merge([$pageant_id], $codes);
+        $stmt = $conn->prepare("SELECT COUNT(*) AS cnt FROM awards WHERE pageant_id=? AND code IN ($in) AND visibility_state='REVEALED'");
+        $stmt->bind_param($types, ...$params);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        $new = ($row && (int)$row['cnt']>0) ? 'HIDDEN' : 'REVEALED';
+        // Update
+        $setIn = implode(',', array_fill(0, count($codes), '?'));
+        $typesU = 'si' . str_repeat('s', count($codes));
+        $paramsU = array_merge([$new, $pageant_id], $codes);
+        $stmtU = $conn->prepare("UPDATE awards SET visibility_state=? WHERE pageant_id=? AND code IN ($setIn)");
+        $stmtU->bind_param($typesU, ...$paramsU);
+        $stmtU->execute();
+        $stmtU->close();
+        echo json_encode(['success'=>true,'visibility_state'=>$new]);
         exit();
     }
     if ($action === 'toggle_publish_awards') {

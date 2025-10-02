@@ -379,8 +379,8 @@ include __DIR__ . '/../partials/sidebar_admin.php';
               </span>
             </div>
             <div class="flex gap-2">
-              <button onclick="autoGenerateAwards()" class="bg-purple-500/30 hover:bg-purple-600/40 text-white text-sm px-4 py-2 rounded border border-white/20">Auto-Generate</button>
-              <?php $toggleLabel = $awards_published ? 'Hide' : 'Publish'; $toggleClass = $awards_published ? 'bg-slate-500/30 hover:bg-slate-600/40' : 'bg-emerald-500/30 hover:bg-emerald-600/40'; ?>
+              <button onclick="autoGenerateAwards()" class="bg-purple-500/30 hover:bg-purple-600/40 text-white text-sm px-4 py-2 rounded border border-white/20">Auto-Generate Major</button>
+              <?php $toggleLabel = $awards_published ? 'Hide All' : 'Publish All'; $toggleClass = $awards_published ? 'bg-slate-500/30 hover:bg-slate-600/40' : 'bg-emerald-500/30 hover:bg-emerald-600/40'; ?>
               <button onclick="togglePublishAwards()" class="<?php echo $toggleClass; ?> text-white text-sm px-4 py-2 rounded border border-white/20"><?php echo $toggleLabel; ?></button>
             </div>
           </div>
@@ -420,7 +420,7 @@ include __DIR__ . '/../partials/sidebar_admin.php';
         </div>
       </div>
 
-      <?php if ($awards_prelim_ready): ?>
+  <?php if ($awards_prelim_ready): ?>
       <?php
         // Build Pre-Q&A (PRELIM) leaderboard per division for proposal and options
   $leadersByDivision = ['Ambassador' => [], 'Ambassadress' => []];
@@ -467,8 +467,9 @@ include __DIR__ . '/../partials/sidebar_admin.php';
             <p class="text-sm text-slate-200 mt-1">Propose from Pre-Q&A leaderboard (after Round 6), then save winners</p>
           </div>
           <div class="flex gap-2">
-            <button onclick="proposeWinners()" class="bg-blue-500 bg-opacity-30 hover:bg-blue-600/40 text-white font-medium px-4 py-2 rounded-lg border border-white border-opacity-20">Propose</button>
-            <button onclick="saveWinners()" class="bg-green-500 bg-opacity-30 hover:bg-green-600/40 text-white font-medium px-4 py-2 rounded-lg border border-white border-opacity-20">Save Winners</button>
+            <button onclick="proposeWinners()" class="bg-blue-500 bg-opacity-30 hover:bg-blue-600/40 text-white font-medium px-4 py-2 rounded-lg border border-white border-opacity-20">Propose Top 5</button>
+            <button onclick="saveWinners()" class="bg-green-500 bg-opacity-30 hover:bg-green-600/40 text-white font-medium px-4 py-2 rounded-lg border border-white border-opacity-20">Save Winners (Top 5)</button>
+            <button onclick="togglePublishMajorAwards()" class="bg-emerald-500/30 hover:bg-emerald-600/40 text-white font-medium px-4 py-2 rounded-lg border border-white/20">Publish/Hide Major</button>
           </div>
         </div>
         <div class="p-6 grid md:grid-cols-2 gap-6">
@@ -501,6 +502,14 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                 <span class="text-sm text-slate-200">2nd Runner-up (3rd)</span>
                 <select id="winner_<?php echo $div; ?>_3" class="mt-1 w-full bg-white bg-opacity-20 border border-white/30 rounded px-3 py-2 text-white text-sm"><?php echo $optHtml($savedMap[$div][3] ?? ($options[2]['id'] ?? null)); ?></select>
               </label>
+              <label class="block">
+                <span class="text-sm text-slate-200">3rd Runner-up (4th)</span>
+                <select id="winner_<?php echo $div; ?>_4" class="mt-1 w-full bg-white bg-opacity-20 border border-white/30 rounded px-3 py-2 text-white text-sm"><?php echo $optHtml($savedMap[$div][4] ?? ($options[3]['id'] ?? null)); ?></select>
+              </label>
+              <label class="block">
+                <span class="text-sm text-slate-200">4th Runner-up (5th)</span>
+                <select id="winner_<?php echo $div; ?>_5" class="mt-1 w-full bg-white bg-opacity-20 border border-white/30 rounded px-3 py-2 text-white text-sm"><?php echo $optHtml($savedMap[$div][5] ?? ($options[4]['id'] ?? null)); ?></select>
+              </label>
             </div>
           </div>
           <?php endforeach; ?>
@@ -529,10 +538,21 @@ include __DIR__ . '/../partials/sidebar_admin.php';
           setTimeout(()=>window.location.reload(), 600);
         } catch (e) { if (typeof showError==='function') showError('Error', e.message); }
       }
+      async function togglePublishMajorAwards() {
+        try {
+          const url = new URL(window.location.origin + window.location.pathname.replace(/\/admin\/results\.php$/, '/admin/api_results.php'));
+          url.searchParams.set('action', 'toggle_publish_major_awards');
+          const res = await fetch(url.toString(), { credentials: 'same-origin' });
+          const data = await res.json();
+          if (!res.ok || !data.success) throw new Error(data.error||'Failed to toggle');
+          if (typeof showSuccess==='function') showSuccess('Updated', `Major awards ${data.visibility_state === 'REVEALED' ? 'published' : 'hidden'}`);
+          setTimeout(()=>window.location.reload(), 600);
+        } catch (e) { if (typeof showError==='function') showError('Error', e.message); }
+      }
       function proposeWinners() {
-        // Preselect top 3 per division based on the existing options order
+  // Preselect top 5 per division based on the existing options order
         ['Ambassador','Ambassadress'].forEach(div => {
-          for (let pos = 1; pos <= 3; pos++) {
+          for (let pos = 1; pos <= 5; pos++) {
             const sel = document.getElementById(`winner_${div}_${pos}`);
             if (sel && sel.options.length > pos) sel.selectedIndex = pos; // idx 1..3 maps to top3 with placeholder at 0
           }
@@ -542,7 +562,7 @@ include __DIR__ . '/../partials/sidebar_admin.php';
       async function saveWinners() {
         const payload = { divisions: { Ambassador: [], Ambassadress: [] } };
         ['Ambassador','Ambassadress'].forEach(div => {
-          for (let pos = 1; pos <= 3; pos++) {
+          for (let pos = 1; pos <= 5; pos++) {
             const sel = document.getElementById(`winner_${div}_${pos}`);
             const val = sel && sel.value ? parseInt(sel.value, 10) : null;
             payload.divisions[div][pos-1] = val;
@@ -564,6 +584,55 @@ include __DIR__ . '/../partials/sidebar_admin.php';
         } catch (e) {
           if (typeof showError === 'function') showError('Error', e.message || 'Failed to save awards');
         }
+      }
+      </script>
+      <!-- Special Awards -->
+      <div class="mt-8 bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20">
+        <div class="px-6 py-4 border-b border-white/10 flex items-center justify-between">
+          <div>
+            <h3 class="text-lg font-semibold text-white">Special Awards</h3>
+            <p class="text-sm text-slate-200 mt-1">Auto-generate Best-in awards per round + manual inputs for Photogenic, People's Choice, and Congeniality.</p>
+          </div>
+          <div class="flex gap-2">
+            <button onclick="generateSpecialAwards()" class="bg-purple-500/30 hover:bg-purple-600/40 text-white text-sm px-4 py-2 rounded border border-white/20">Generate Special Awards</button>
+            <button onclick="togglePublishSpecialAwards()" class="bg-emerald-500/30 hover:bg-emerald-600/40 text-white text-sm px-4 py-2 rounded border border-white/20">Publish/Hide Special</button>
+          </div>
+        </div>
+        <div class="p-6 text-sm text-slate-200">
+          <ul class="list-disc list-inside space-y-1">
+            <li>Best in Talent</li>
+            <li>Best in Advocacy</li>
+            <li>Best in Production Number</li>
+            <li>Best in Uniform Wear</li>
+            <li>Best in Sports Wear</li>
+            <li>Best in Formal Wear</li>
+            <li>Ambassador and Ambassadress Photogenic (manual)</li>
+            <li>People's Choice Award (manual votes)</li>
+            <li>Ambassador and Ambassadress Congeniality (manual)</li>
+          </ul>
+          <div class="mt-4 text-xs text-slate-300">Manual awards pull from <code>manual_votes</code> (vote_type: PHOTOGENIC, PEOPLES_CHOICE, CONGENIALITY). Update votes in that table to change results.</div>
+        </div>
+      </div>
+      <script>
+      async function generateSpecialAwards() {
+        try {
+          const url = new URL(window.location.origin + window.location.pathname.replace(/\/admin\/results\.php$/, '/admin/api_results.php'));
+          url.searchParams.set('action', 'save_special_awards');
+          const res = await fetch(url.toString(), { credentials:'same-origin' });
+          const data = await res.json();
+          if (!res.ok || !data.success) throw new Error(data.error||'Failed to generate special awards');
+          if (typeof showSuccess==='function') showSuccess('Generated', 'Special awards computed and saved');
+        } catch (e) { if (typeof showError==='function') showError('Error', e.message); }
+      }
+      async function togglePublishSpecialAwards() {
+        try {
+          const url = new URL(window.location.origin + window.location.pathname.replace(/\/admin\/results\.php$/, '/admin/api_results.php'));
+          url.searchParams.set('action', 'toggle_publish_special_awards');
+          const res = await fetch(url.toString(), { credentials:'same-origin' });
+          const data = await res.json();
+          if (!res.ok || !data.success) throw new Error(data.error||'Failed to toggle');
+          if (typeof showSuccess==='function') showSuccess('Updated', `Special awards ${data.visibility_state==='REVEALED'?'published':'hidden'}`);
+        } catch (e) { if (typeof showError==='function') showError('Error', e.message); }
       }
       </script>
       <?php endif; ?>
