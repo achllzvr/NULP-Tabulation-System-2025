@@ -27,6 +27,9 @@ $pageant_id = $_SESSION['pageant_id'] ?? 1;
 // Tab and filters
 $tab = $_GET['tab'] ?? 'leaderboard'; // leaderboard | awards | tabulated
 $selected_round = $_GET['round'] ?? 'all';
+// Leaderboard stage filter: overall pre-Q&A (all closed prelim rounds) vs final (final rounds only)
+$selected_stage = $_GET['stage'] ?? 'overall'; // overall | round:<id>
+// Keep division filter for Tabulated Data section only
 $selected_division = $_GET['division'] ?? 'all';
 
 // Get participants count
@@ -81,14 +84,13 @@ $all_final_rounds_completed = ($total_final_rounds > 0 && $final_rounds_complete
 $leaderboardRows = [];
 $current_leader = null;
 if ($tab === 'leaderboard') {
-    if ($selected_round === 'all') {
-        $leaderboardRows = $con->getOverallLeaderboard($pageant_id, $selected_division);
-    } else {
-        $leaderboardRows = $con->getRoundLeaderboard((int)$selected_round, $selected_division);
-    }
-    if (!empty($leaderboardRows)) {
-        $current_leader = $leaderboardRows[0];
-    }
+  $leaderboardRows = ['Mr'=>[], 'Ms'=>[]];
+  $stage = $selected_stage; // 'prelim' or 'final'
+  $mode = ($stage === 'final') ? 'FINAL' : 'PRELIM';
+  foreach (['Mr','Ms'] as $div) {
+    $leaderboardRows[$div] = $con->getStageLeaderboard($pageant_id, $div, $mode);
+  }
+  $current_leader = ($leaderboardRows['Mr'][0] ?? $leaderboardRows['Ms'][0] ?? null);
 }
 
 // Data for awards tab
@@ -138,7 +140,7 @@ include __DIR__ . '/../partials/sidebar_admin.php';
             $classes = $isActive ? 'bg-blue-500 bg-opacity-30 text-white' : 'text-slate-200 hover:bg-white hover:bg-opacity-10';
             $border = $i < count($tabs) ? 'border-r border-white border-opacity-10' : '';
             // Build link preserving filters
-            $href = 'results.php?tab=' . urlencode($key) . '&round=' . urlencode($selected_round) . '&division=' . urlencode($selected_division);
+            $href = 'results.php?tab=' . urlencode($key) . '&stage=' . urlencode($selected_stage) . '&round=' . urlencode($selected_round) . '&division=' . urlencode($selected_division);
         ?>
           <a href="<?= $href ?>" class="px-4 py-2 text-sm font-medium <?= $classes ?> <?= $border ?> inline-flex items-center gap-2">
             <?php if ($key === 'leaderboard'): ?>
@@ -200,87 +202,58 @@ include __DIR__ . '/../partials/sidebar_admin.php';
         <div class="p-6 grid md:grid-cols-3 gap-6">
           <div>
             <label class="block text-sm font-medium text-slate-200 mb-2">Round</label>
-            <select id="roundFilter" name="round" class="w-full bg-white bg-opacity-20 backdrop-blur-sm border border-white border-opacity-30 rounded-lg px-4 py-3 text-sm text-white focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-colors" onchange="updateFilters()">
-              <option value="all" <?php echo $selected_round === 'all' ? 'selected' : ''; ?>>All Rounds (Overall)</option>
-              <?php foreach ($rounds as $round): ?>
-                <option value="<?php echo $round['id']; ?>" <?php echo $selected_round == $round['id'] ? 'selected' : ''; ?>>
-                  <?php echo htmlspecialchars($round['name']); ?> (<?php echo ucfirst(strtolower($round['state'])); ?>)
-                </option>
-              <?php endforeach; ?>
+            <select id="stageFilter" name="stage" class="w-full bg-white bg-opacity-20 backdrop-blur-sm border border-white border-opacity-30 rounded-lg px-4 py-3 text-sm text-white focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-colors" onchange="updateFilters()">
+              <option value="prelim" <?php echo $selected_stage === 'prelim' ? 'selected' : ''; ?>>Pageant (Pre-Q&A Overall)</option>
+              <option value="final" <?php echo $selected_stage === 'final' ? 'selected' : ''; ?>>Final Q&A Round</option>
             </select>
           </div>
-          <div>
-            <label class="block text-sm font-medium text-slate-200 mb-2">Division</label>
-            <select id="divisionFilter" name="division" class="w-full bg-white bg-opacity-20 backdrop-blur-sm border border-white border-opacity-30 rounded-lg px-4 py-3 text-sm text-white focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-colors" onchange="updateFilters()">
-              <option value="all" <?php echo $selected_division === 'all' ? 'selected' : ''; ?>>All Divisions</option>
-              <option value="Mr" <?php echo $selected_division === 'Mr' ? 'selected' : ''; ?>>Mr Division</option>
-              <option value="Ms" <?php echo $selected_division === 'Ms' ? 'selected' : ''; ?>>Ms Division</option>
-            </select>
-          </div>
+          <div class="hidden md:block"></div>
           <div class="flex items-end">
             <button onclick="refreshLeaderboard()" class="w-full bg-white bg-opacity-10 hover:bg-white hover:bg-opacity-20 text-white font-medium px-4 py-3 rounded-lg border border-white border-opacity-20 backdrop-blur-sm transition-colors">Apply & Refresh</button>
           </div>
         </div>
       </div>
 
-      <!-- Leaderboard Table -->
-      <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20">
-        <div class="px-6 py-4 border-b border-white border-opacity-10">
-          <h3 class="text-lg font-semibold text-white">Current Rankings</h3>
-          <p class="text-sm text-slate-200 mt-1">Live participant standings</p>
-        </div>
-        <div class="overflow-x-auto">
-          <div id="leaderboardContent">
-            <?php if (!empty($leaderboardRows)): ?>
-              <table class="w-full">
-                <thead class="bg-white bg-opacity-10 border-b border-white border-opacity-10">
-                  <tr>
-                    <th class="px-6 py-4 text-left text-sm font-semibold text-white">Rank</th>
-                    <th class="px-6 py-4 text-left text-sm font-semibold text-white">Number</th>
-                    <th class="px-6 py-4 text-left text-sm font-semibold text-white">Name</th>
-                    <th class="px-6 py-4 text-left text-sm font-semibold text-white">Division</th>
-                    <th class="px-6 py-4 text-right text-sm font-semibold text-white">Score</th>
-                    <th class="px-6 py-4 text-center text-sm font-semibold text-white">Actions</th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-white divide-opacity-5">
-                  <?php foreach ($leaderboardRows as $index => $participant): ?>
-                    <tr class="<?php echo $index % 2 === 0 ? 'bg-white bg-opacity-10' : 'bg-white bg-opacity-5'; ?> hover:bg-blue-500 hover:bg-opacity-10 transition-colors duration-200">
-                      <td class="px-6 py-4">
-                        <span class="text-slate-200 font-medium">#<?php echo $participant['rank']; ?></span>
-                      </td>
-                      <td class="px-6 py-4">
-                        <span class="inline-flex items-center px-3 py-1 rounded-lg text-sm font-medium bg-blue-500 bg-opacity-20 text-blue-200"><?php echo htmlspecialchars($participant['number_label']); ?></span>
-                      </td>
-                      <td class="px-6 py-4">
-                        <div class="font-medium text-white"><?php echo htmlspecialchars($participant['name']); ?></div>
-                      </td>
-                      <td class="px-6 py-4">
-                        <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium <?php echo ($participant['division'] === 'Mr') ? 'bg-blue-500 bg-opacity-20 text-blue-200' : 'bg-pink-500 bg-opacity-20 text-pink-200'; ?>"><?php echo htmlspecialchars($participant['division']); ?></span>
-                      </td>
-                      <td class="px-6 py-4 text-right">
-                        <span class="font-mono text-lg font-semibold text-white"><?php echo $participant['total_score'] ?? $participant['score'] ?? '--'; ?></span>
-                      </td>
-                      <td class="px-6 py-4 text-center">
-                        <button class="text-blue-300 hover:text-blue-400 font-medium text-sm" onclick="openParticipantDetails(<?php echo (int)$participant['id']; ?>)">View Details</button>
-                      </td>
-                    </tr>
-                  <?php endforeach; ?>
-                </tbody>
-              </table>
+      <!-- Leaderboard Grids -->
+      <div class="grid md:grid-cols-2 gap-6">
+        <?php foreach (['Mr','Ms'] as $div): $rows = $leaderboardRows[$div]; ?>
+        <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20">
+          <div class="px-6 py-4 border-b border-white border-opacity-10 flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-white"><?php echo $div; ?> Division</h3>
+            <span class="px-2 py-1 text-xs rounded-full <?php echo $div==='Mr' ? 'bg-blue-400/20 text-blue-200' : 'bg-pink-400/20 text-pink-200'; ?>"><?php echo count($rows); ?> entries</span>
+          </div>
+          <div class="overflow-x-auto">
+            <?php if (!empty($rows)): ?>
+            <table class="w-full">
+              <thead class="bg-white bg-opacity-10 border-b border-white border-opacity-10">
+                <tr>
+                  <th class="px-6 py-3 text-left text-sm font-semibold text-white">Rank</th>
+                  <th class="px-6 py-3 text-left text-sm font-semibold text-white">#</th>
+                  <th class="px-6 py-3 text-left text-sm font-semibold text-white">Name</th>
+                  <th class="px-6 py-3 text-right text-sm font-semibold text-white">Score</th>
+                  <th class="px-6 py-3 text-center text-sm font-semibold text-white">Actions</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-white/10">
+                <?php foreach ($rows as $index => $participant): ?>
+                <tr class="<?php echo $index % 2 === 0 ? 'bg-white/10' : 'bg-white/5'; ?> hover:bg-blue-500/10">
+                  <td class="px-6 py-3 text-slate-200">#<?php echo $participant['rank']; ?></td>
+                  <td class="px-6 py-3"><span class="inline-flex items-center px-2 py-1 rounded bg-white/10 text-white text-xs font-medium"><?php echo htmlspecialchars($participant['number_label']); ?></span></td>
+                  <td class="px-6 py-3 text-white font-medium"><?php echo htmlspecialchars($participant['name']); ?></td>
+                  <td class="px-6 py-3 text-right text-white font-mono font-semibold"><?php echo $participant['total_score'] ?? $participant['score'] ?? '--'; ?></td>
+                  <td class="px-6 py-3 text-center">
+                    <button class="text-blue-300 hover:text-blue-400 text-sm" onclick="openParticipantDetails(<?php echo (int)$participant['id']; ?>)">View</button>
+                  </td>
+                </tr>
+                <?php endforeach; ?>
+              </tbody>
+            </table>
             <?php else: ?>
-              <div class="p-12 text-center">
-                <svg class="mx-auto h-16 w-16 text-white mb-4 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-                <h3 class="text-xl font-semibold text-white mb-2">No Scores Available</h3>
-                <p class="text-slate-200 mb-6">The leaderboard will be available once rounds are completed and scores are finalized.</p>
-                <a href="rounds.php" class="bg-blue-500 bg-opacity-30 hover:bg-blue-600 hover:bg-opacity-40 text-white font-medium px-6 py-3 rounded-lg transition-colors border border-white border-opacity-20 backdrop-blur-md inline-flex items-center gap-2">
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/></svg>
-                  Manage Rounds
-                </a>
-              </div>
+              <div class="p-8 text-center text-slate-200">No scores yet.</div>
             <?php endif; ?>
           </div>
         </div>
+        <?php endforeach; ?>
       </div>
     <?php elseif ($tab === 'awards'): ?>
       <!-- Awards Overview -->
@@ -332,8 +305,16 @@ include __DIR__ . '/../partials/sidebar_admin.php';
 
       <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20">
         <div class="px-6 py-4 border-b border-white border-opacity-10">
-          <h3 class="text-lg font-semibold text-white">Award Results</h3>
-          <p class="text-sm text-slate-200 mt-1">Preview of configured awards and winners</p>
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="text-lg font-semibold text-white">Award Results</h3>
+              <p class="text-sm text-slate-200 mt-1">Preview of configured awards and winners</p>
+            </div>
+            <div class="flex gap-2">
+              <button onclick="autoGenerateAwards()" class="bg-purple-500/30 hover:bg-purple-600/40 text-white text-sm px-4 py-2 rounded border border-white/20">Auto-Generate</button>
+              <button onclick="togglePublishAwards()" class="bg-emerald-500/30 hover:bg-emerald-600/40 text-white text-sm px-4 py-2 rounded border border-white/20">Publish / Hide</button>
+            </div>
+          </div>
         </div>
         <div class="p-6">
           <?php if (!empty($awardGroups)): ?>
@@ -379,7 +360,7 @@ include __DIR__ . '/../partials/sidebar_admin.php';
         foreach (['Mr','Ms'] as $div) {
             $stmtFL = $conn->prepare(
                 "SELECT p.id, p.full_name, p.number_label, d.name as division,
-                        SUM(COALESCE(s.override_score, s.raw_score) * (rc.weight/100.0)) as total
+                        SUM(COALESCE(s.override_score, s.raw_score) * (CASE WHEN rc.weight>1 THEN rc.weight/100.0 ELSE rc.weight END)) as total
                  FROM participants p
                  JOIN divisions d ON p.division_id = d.id
                  JOIN scores s ON s.participant_id = p.id
@@ -459,6 +440,27 @@ include __DIR__ . '/../partials/sidebar_admin.php';
         </div>
       </div>
       <script>
+      async function autoGenerateAwards() {
+        try {
+          const url = new URL(window.location.origin + window.location.pathname.replace(/\/admin\/results\.php$/, '/admin/api_results.php'));
+          url.searchParams.set('action', 'auto_generate_awards');
+          const res = await fetch(url.toString(), { credentials: 'same-origin' });
+          const data = await res.json();
+          if (!res.ok || !data.success) throw new Error(data.error||'Failed to generate');
+          if (typeof showSuccess==='function') showSuccess('Generated','Awards generated from leaderboard');
+          setTimeout(()=>window.location.reload(), 600);
+        } catch (e) { if (typeof showError==='function') showError('Error', e.message); }
+      }
+      async function togglePublishAwards() {
+        try {
+          const url = new URL(window.location.origin + window.location.pathname.replace(/\/admin\/results\.php$/, '/admin/api_results.php'));
+          url.searchParams.set('action', 'toggle_publish_awards');
+          const res = await fetch(url.toString(), { credentials: 'same-origin' });
+          const data = await res.json();
+          if (!res.ok || !data.success) throw new Error(data.error||'Failed to toggle');
+          if (typeof showSuccess==='function') showSuccess('Updated', 'Awards visibility toggled');
+        } catch (e) { if (typeof showError==='function') showError('Error', e.message); }
+      }
       function proposeWinners() {
         // Preselect top 3 per division based on the existing options order
         ['Mr','Ms'].forEach(div => {
@@ -505,7 +507,7 @@ include __DIR__ . '/../partials/sidebar_admin.php';
         $criteria = [];
         $tableRows = [];
     if ($tab_round_id) {
-      // Fetch criteria for this round (reuse existing connection)
+  // Fetch criteria for this round (reuse existing connection)
       $stmt = $conn->prepare(
                 "SELECT rc.criterion_id, rc.weight, rc.max_score, rc.display_order, c.name as criterion_name
                  FROM round_criteria rc
@@ -519,7 +521,16 @@ include __DIR__ . '/../partials/sidebar_admin.php';
             while ($row = $res->fetch_assoc()) { $criteria[] = $row; }
             $stmt->close();
 
-      // Build participant rows with per-criterion weighted scores
+    // Optional criterion filter
+    $selected_criterion = isset($_GET['criterion']) ? $_GET['criterion'] : 'all';
+
+    if ($selected_criterion !== 'all') {
+      $criteria = array_values(array_filter($criteria, function($c) use ($selected_criterion) {
+        return (string)$c['criterion_id'] === (string)$selected_criterion;
+      }));
+    }
+
+    // Build participant rows with per-criterion weighted scores
       $divFilterSql = ($selected_division !== 'all') ? ' AND d.name = ?' : '';
       // Only bind division if filtering; no round param is needed for this participant list
       $types = ($selected_division !== 'all') ? 's' : '';
@@ -538,7 +549,9 @@ include __DIR__ . '/../partials/sidebar_admin.php';
             $participants = $prs->fetch_all(MYSQLI_ASSOC);
             $stmtP->close();
 
-            // Preload scores for efficiency
+          // Determine selected judge for Raw View
+          $selected_judge = isset($_GET['judge']) ? (int)$_GET['judge'] : 0;
+          // Preload scores for efficiency
             $participantIds = array_map(fn($p)=> (int)$p['id'], $participants);
             $scoresByPidCid = [];
       if (!empty($participantIds) && !empty($criteria)) {
@@ -546,12 +559,13 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                 $critIds = array_map(fn($c)=> (int)$c['criterion_id'], $criteria);
                 $inCrt = implode(',', array_fill(0, count($critIds), '?'));
                 // Build dynamic bind
-                $typesS = str_repeat('i', count($participantIds) + count($critIds));
-                $sqlS = "SELECT participant_id, criterion_id, COALESCE(override_score, raw_score) as score
-                         FROM scores
-                         WHERE participant_id IN ($inIds) AND criterion_id IN ($inCrt)";
+              $typesS = str_repeat('i', count($participantIds) + count($critIds)) . ($selected_judge ? 'i' : '');
+              $sqlS = "SELECT participant_id, criterion_id, ".($selected_judge? 'raw_score':'COALESCE(override_score, raw_score)')." as score
+                   FROM scores
+                   WHERE participant_id IN ($inIds) AND criterion_id IN ($inCrt)" . ($selected_judge? " AND judge_user_id = ?" : "");
         $stmtS = $conn->prepare($sqlS);
-                $bindVals = array_merge($participantIds, $critIds);
+              $bindVals = array_merge($participantIds, $critIds);
+              if ($selected_judge) { $bindVals[] = $selected_judge; }
                 $stmtS->bind_param($typesS, ...$bindVals);
                 $stmtS->execute();
                 $rsS = $stmtS->get_result();
@@ -576,7 +590,13 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                 foreach ($criteria as $c) {
                     $cid = (int)$c['criterion_id'];
                     $raw = $scoresByPidCid[$row['id']][$cid] ?? 0.0;
-                    $weighted = $raw * ((float)$c['weight'] / 100.0);
+                if ($selected_judge) {
+                  $weighted = $raw; // in raw view for single judge, show raw values
+                } else {
+                  $w = (float)$c['weight'];
+                  $factor = ($w > 1.0) ? ($w/100.0) : $w;
+                  $weighted = $raw * $factor;
+                }
                     $row['criteria'][] = [
                         'criterion_id' => $cid,
                         'name' => $c['criterion_name'],
@@ -602,7 +622,7 @@ include __DIR__ . '/../partials/sidebar_admin.php';
             <button onclick="exportCSV()" class="bg-white bg-opacity-10 hover:bg-white hover:bg-opacity-20 text-white font-medium px-4 py-2 rounded-lg border border-white border-opacity-20 backdrop-blur-sm transition-colors text-sm">Export CSV</button>
           </div>
         </div>
-        <div class="p-6 grid md:grid-cols-3 gap-6">
+  <div class="p-6 grid md:grid-cols-5 gap-6">
           <div>
             <label class="block text-sm font-medium text-slate-200 mb-2">Round</label>
             <select id="tabRound" class="w-full bg-white bg-opacity-20 backdrop-blur-sm border border-white border-opacity-30 rounded-lg px-4 py-3 text-sm text-white" onchange="onTabulatedFilterChange()">
@@ -619,6 +639,34 @@ include __DIR__ . '/../partials/sidebar_admin.php';
               <option value="Ms" <?php echo $selected_division === 'Ms' ? 'selected' : ''; ?>>Ms Division</option>
             </select>
           </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-200 mb-2">Criterion</label>
+            <?php
+              $selected_criterion = isset($_GET['criterion']) ? $_GET['criterion'] : 'all';
+            ?>
+            <select id="tabCriterion" class="w-full bg-white bg-opacity-20 backdrop-blur-sm border border-white border-opacity-30 rounded-lg px-4 py-3 text-sm text-white" onchange="onTabulatedFilterChange()">
+              <option value="all" <?php echo $selected_criterion==='all'?'selected':''; ?>>All Criteria</option>
+              <?php foreach ($criteria as $c): ?>
+                <option value="<?php echo (int)$c['criterion_id']; ?>" <?php echo ((string)$selected_criterion === (string)$c['criterion_id'])?'selected':''; ?>><?php echo htmlspecialchars($c['criterion_name']); ?></option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+          <?php
+            // Judges for selector (role must be 'JUDGE')
+            $judges = [];
+            $resJ = $conn->query("SELECT u.id, u.full_name FROM users u JOIN pageant_users pu ON pu.user_id=u.id WHERE pu.pageant_id=".(int)$pageant_id." AND (pu.role='JUDGE' OR pu.role='judge') AND u.is_active=1");
+            if ($resJ) { $judges = $resJ->fetch_all(MYSQLI_ASSOC); }
+            $selected_judge = isset($_GET['judge']) ? (int)$_GET['judge'] : 0;
+          ?>
+          <div>
+            <label class="block text-sm font-medium text-slate-200 mb-2">Judge</label>
+            <select id="tabJudge" class="w-full bg-white bg-opacity-20 backdrop-blur-sm border border-white border-opacity-30 rounded-lg px-4 py-3 text-sm text-white" onchange="onTabulatedFilterChange()">
+              <option value="0" <?php echo $selected_judge===0? 'selected':''; ?>>All Judges (Weighted)</option>
+              <?php foreach ($judges as $j): ?>
+                <option value="<?php echo (int)$j['id']; ?>" <?php echo $selected_judge===(int)$j['id']? 'selected':''; ?>><?php echo htmlspecialchars($j['full_name']); ?></option>
+              <?php endforeach; ?>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -632,9 +680,15 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                   <th class="px-6 py-4 text-left text-sm font-semibold text-white">Name</th>
                   <th class="px-6 py-4 text-left text-sm font-semibold text-white">Division</th>
                   <?php foreach ($criteria as $c): ?>
-                    <th class="px-6 py-4 text-right text-sm font-semibold text-white"><?php echo htmlspecialchars($c['criterion_name']); ?> <span class="text-xs text-slate-300">(<?php echo number_format($c['weight'], 0); ?>%)</span></th>
+                    <th class="px-6 py-4 text-right text-sm font-semibold text-white"><?php echo htmlspecialchars($c['criterion_name']); ?>
+                      <?php if (($selected_judge ?? 0) === 0): ?>
+                        <span class="text-xs text-slate-300">(<?php echo number_format(((float)$c['weight']>1?$c['weight']:$c['weight']*100), 0); ?>%)</span>
+                      <?php else: ?>
+                        <span class="text-xs text-slate-300">(raw)</span>
+                      <?php endif; ?>
+                    </th>
                   <?php endforeach; ?>
-                  <th class="px-6 py-4 text-right text-sm font-semibold text-white">Total</th>
+                  <th class="px-6 py-4 text-right text-sm font-semibold text-white"><?php echo ($selected_judge ?? 0)===0? 'Total (weighted)':'Total (raw sum)'; ?></th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-white divide-opacity-5">
@@ -646,8 +700,17 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                       <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium <?php echo ($row['division'] === 'Mr') ? 'bg-blue-500 bg-opacity-20 text-blue-200' : 'bg-pink-500 bg-opacity-20 text-pink-200'; ?>"><?php echo htmlspecialchars($row['division']); ?></span>
                     </td>
                     <?php foreach ($row['criteria'] as $cell): ?>
-                      <td class="px-6 py-3 text-right text-slate-100 font-mono text-sm" title="Raw: <?php echo number_format($cell['raw'], 2); ?> | Weight: <?php echo number_format($cell['weight'], 0); ?>%">
-                        <?php echo number_format($cell['weighted'], 2); ?>
+                      <td class="px-6 py-3 text-right text-slate-100 font-mono text-sm">
+                        <?php if (($selected_judge ?? 0) !== 0): ?>
+                          <button class="underline decoration-dotted hover:text-white" title="Click to edit raw score"
+                            onclick="openEditScore(<?php echo (int)$row['id']; ?>, <?php echo (int)$cell['criterion_id']; ?>, '<?php echo htmlspecialchars('#'.$row['number_label'].' — '.addslashes($row['name']), ENT_QUOTES); ?>', '<?php echo htmlspecialchars(addslashes($cell['name']), ENT_QUOTES); ?>')">
+                            <?php echo number_format($cell['raw'], 2); ?>
+                          </button>
+                        <?php else: ?>
+                          <span title="Raw: <?php echo number_format($cell['raw'], 2); ?> | Weight: <?php echo number_format($cell['weight']>1?$cell['weight']:$cell['weight']*100, 0); ?>%">
+                            <?php echo number_format($cell['weighted'], 2); ?>
+                          </span>
+                        <?php endif; ?>
                       </td>
                     <?php endforeach; ?>
                     <td class="px-6 py-3 text-right text-white font-semibold font-mono"><?php echo number_format($row['total'], 2); ?></td>
@@ -676,11 +739,13 @@ function refreshLeaderboard() {
 }
 
 function updateFilters() {
-  const roundFilter = document.getElementById('roundFilter');
-  const divisionFilter = document.getElementById('divisionFilter');
+  const stageFilter = document.getElementById('stageFilter');
   const url = new URL(window.location);
-  if (roundFilter) url.searchParams.set('round', roundFilter.value);
-  if (divisionFilter) url.searchParams.set('division', divisionFilter.value);
+  if (stageFilter) {
+    const val = stageFilter.value;
+    url.searchParams.set('stage', val);
+    url.searchParams.set('round', 'all');
+  }
   window.location.href = url.toString();
 }
 
@@ -701,10 +766,14 @@ setInterval(function() {
 function onTabulatedFilterChange() {
   const tabRound = document.getElementById('tabRound');
   const tabDivision = document.getElementById('tabDivision');
+  const tabCriterion = document.getElementById('tabCriterion');
+  const tabJudge = document.getElementById('tabJudge');
   const url = new URL(window.location);
   url.searchParams.set('tab', 'tabulated');
   if (tabRound) url.searchParams.set('round', tabRound.value);
   if (tabDivision) url.searchParams.set('division', tabDivision.value);
+  if (tabCriterion) url.searchParams.set('criterion', tabCriterion.value);
+  if (tabJudge) url.searchParams.set('judge', tabJudge.value);
   window.location.href = url.toString();
 }
 
@@ -746,13 +815,70 @@ include __DIR__ . '/../components/modal.php';
 ?>
 
 <script>
+let editContext = { participantId: 0, criterionId: 0 };
+function openEditScore(pid, cid, participantLabel, criterionName) {
+  editContext = { participantId: pid, criterionId: cid };
+  const body = document.getElementById('participantDetailsBody');
+  body.innerHTML = `
+    <div class="space-y-3">
+      <div class="text-white">${participantLabel}</div>
+      <div class="text-slate-200 text-sm">Criterion: ${criterionName}</div>
+      <div>
+        <label class="block text-sm text-slate-200 mb-1">New Raw Score</label>
+        <input id="overrideScoreInput" type="number" step="0.01" class="w-full bg-white/20 border border-white/30 rounded px-3 py-2 text-white" />
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div>
+          <label class="block text-sm text-slate-200 mb-1">Judge Username (optional)</label>
+          <input id="overrideJudgeUser" type="text" autocomplete="username" class="w-full bg-white/20 border border-white/30 rounded px-3 py-2 text-white" placeholder="Optional: matches selected judge" />
+        </div>
+        <div>
+          <label class="block text-sm text-slate-200 mb-1">Judge Password</label>
+          <input id="overrideJudgePass" type="password" autocomplete="current-password" class="w-full bg-white/20 border border-white/30 rounded px-3 py-2 text-white" placeholder="Enter judge password" />
+        </div>
+      </div>
+      <div>
+        <label class="block text-sm text-slate-200 mb-1">Reason (required)</label>
+        <textarea id="overrideReasonInput" rows="3" class="w-full bg-white/20 border border-white/30 rounded px-3 py-2 text-white"></textarea>
+      </div>
+      <div class="grid grid-cols-2 gap-2 pt-2">
+        <button onclick="submitOverride()" class="bg-green-500/30 hover:bg-green-600/40 text-white px-4 py-2 rounded border border-white/20">Save</button>
+        <button onclick="hideModal('participantDetailsModal')" class="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded border border-white/20">Cancel</button>
+      </div>
+    </div>`;
+  showModal('participantDetailsModal');
+}
+async function submitOverride() {
+  const score = parseFloat(document.getElementById('overrideScoreInput').value);
+  const reason = (document.getElementById('overrideReasonInput').value||'').trim();
+  const judge = document.getElementById('tabJudge') ? parseInt(document.getElementById('tabJudge').value, 10) : 0;
+  const judgeUsername = (document.getElementById('overrideJudgeUser')?.value || '').trim();
+  const judgePassword = (document.getElementById('overrideJudgePass')?.value || '').trim();
+  if (!judge) { if (typeof showError==='function') showError('Error','Select a Judge to edit raw scores'); return; }
+  if (isNaN(score)) { if (typeof showError==='function') showError('Error','Enter a valid score'); return; }
+  if (!reason) { if (typeof showError==='function') showError('Error','Reason is required'); return; }
+  if (!judgePassword) { if (typeof showError==='function') showError('Error','Judge password is required'); return; }
+  try {
+    const url = new URL(window.location.origin + window.location.pathname.replace(/\/admin\/results\.php$/, '/admin/api_results.php'));
+    url.searchParams.set('action','override_score');
+    const body = { participant_id: editContext.participantId, criterion_id: editContext.criterionId, judge_user_id: judge, raw_score: score, reason, judge_username: judgeUsername, judge_password: judgePassword };
+    const res = await fetch(url.toString(), { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'same-origin', body: JSON.stringify(body) });
+    const data = await res.json();
+    if (!res.ok || !data.success) throw new Error(data.error||'Failed');
+    if (typeof showSuccess==='function') showSuccess('Saved','Score overridden');
+    setTimeout(()=>{ window.location.reload(); }, 600);
+  } catch (e) { if (typeof showError==='function') showError('Error', e.message); }
+}
 async function openParticipantDetails(id) {
   try {
     const url = new URL(window.location.origin + window.location.pathname.replace(/\/admin\/results\.php$/, '/admin/api_results.php'));
-    const roundParam = (new URL(window.location)).searchParams.get('round') || 'all';
+  const urlCurrent = new URL(window.location);
+  const roundParam = urlCurrent.searchParams.get('round') || 'all';
+  const stageParam = urlCurrent.searchParams.get('stage') || 'overall';
     url.searchParams.set('action', 'participant_details');
     url.searchParams.set('participant_id', id);
     url.searchParams.set('round_id', roundParam);
+  url.searchParams.set('stage', stageParam);
     const res = await fetch(url.toString(), { credentials: 'same-origin' });
     const data = await res.json();
     const body = document.getElementById('participantDetailsBody');

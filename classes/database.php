@@ -188,7 +188,7 @@ class database {
             p.full_name,
             p.number_label,
             d.name as division,
-            SUM(COALESCE(s.override_score, s.raw_score) * (rc.weight / 100.0)) as total_score
+            SUM(COALESCE(s.override_score, s.raw_score) * (CASE WHEN rc.weight > 1 THEN rc.weight/100.0 ELSE rc.weight END)) as total_score
         FROM participants p
         JOIN divisions d ON p.division_id = d.id
         LEFT JOIN scores s ON p.id = s.participant_id
@@ -221,7 +221,7 @@ class database {
                 'name' => $row['full_name'],
                 'number_label' => $row['number_label'],
                 'division' => $row['division'],
-                'score' => $current_score > 0 ? number_format($current_score, 2) : null,
+                'score' => number_format($current_score, 2),
                 'raw_score' => $current_score
             ];
             
@@ -253,7 +253,7 @@ class database {
             p.full_name,
             p.number_label,
             d.name as division,
-            SUM(COALESCE(s.override_score, s.raw_score) * (rc.weight / 100.0)) as total_score
+            SUM(COALESCE(s.override_score, s.raw_score) * (CASE WHEN rc.weight > 1 THEN rc.weight/100.0 ELSE rc.weight END)) as total_score
         FROM participants p
         JOIN divisions d ON p.division_id = d.id
         LEFT JOIN scores s ON p.id = s.participant_id
@@ -287,7 +287,7 @@ class database {
                 'name' => $row['full_name'],
                 'number_label' => $row['number_label'],
                 'division' => $row['division'],
-                'total_score' => $current_score > 0 ? number_format($current_score, 2) : '0.00',
+                'total_score' => number_format($current_score, 2),
                 'raw_score' => $current_score
             ];
             
@@ -308,7 +308,7 @@ class database {
             p.id,
             p.full_name,
             p.number_label,
-            SUM(COALESCE(s.override_score, s.raw_score) * (rc.weight / 100.0)) as total_score
+            SUM(COALESCE(s.override_score, s.raw_score) * (CASE WHEN rc.weight > 1 THEN rc.weight/100.0 ELSE rc.weight END)) as total_score
         FROM participants p
         JOIN divisions d ON p.division_id = d.id
         LEFT JOIN scores s ON p.id = s.participant_id
@@ -340,6 +340,48 @@ class database {
         $stmt->close();
         $con->close();
         return $participants;
+    }
+
+    // Function to calculate leaderboard for a stage (scoring_mode PRELIM or FINAL)
+    function getStageLeaderboard($pageant_id, $division, $scoring_mode) {
+        $con = $this->opencon();
+        $sql = "SELECT 
+            p.id,
+            p.full_name,
+            p.number_label,
+            d.name as division,
+            SUM(COALESCE(s.override_score, s.raw_score) * (CASE WHEN rc.weight > 1 THEN rc.weight/100.0 ELSE rc.weight END)) as total_score
+        FROM participants p
+        JOIN divisions d ON p.division_id = d.id
+        LEFT JOIN scores s ON p.id = s.participant_id
+        LEFT JOIN round_criteria rc ON s.criterion_id = rc.criterion_id
+        LEFT JOIN rounds r ON rc.round_id = r.id
+        WHERE r.pageant_id = ? AND r.scoring_mode = ? AND r.state IN ('CLOSED', 'FINALIZED') AND p.is_active = 1 AND d.name = ?
+        GROUP BY p.id, p.full_name, p.number_label, d.name
+        ORDER BY total_score DESC, p.full_name ASC";
+        $stmt = $con->prepare($sql);
+        $stmt->bind_param("iss", $pageant_id, $scoring_mode, $division);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $leaderboard = [];
+        $rank = 1; $prev_score = null; $actual_rank = 1;
+        while ($row = $result->fetch_assoc()) {
+            $current_score = (float)($row['total_score'] ?? 0);
+            if ($prev_score !== null && $current_score !== $prev_score) { $rank = $actual_rank; }
+            $leaderboard[] = [
+                'id' => $row['id'],
+                'rank' => $rank,
+                'name' => $row['full_name'],
+                'number_label' => $row['number_label'],
+                'division' => $row['division'],
+                'total_score' => number_format($current_score, 2),
+                'raw_score' => $current_score
+            ];
+            $prev_score = $current_score; $actual_rank++;
+        }
+        $stmt->close();
+        $con->close();
+        return $leaderboard;
     }
 
     // Function to get awards for public viewing

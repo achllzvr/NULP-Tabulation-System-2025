@@ -18,6 +18,7 @@ try {
     if ($action === 'participant_details') {
         $participantId = isset($_GET['participant_id']) ? (int)$_GET['participant_id'] : 0;
         $roundId = isset($_GET['round_id']) && $_GET['round_id'] !== 'all' ? (int)$_GET['round_id'] : null;
+        $stage = $_GET['stage'] ?? 'overall';
         if ($participantId <= 0) {
             throw new Exception('participant_id required');
         }
@@ -28,8 +29,12 @@ try {
                                      WHERE rc.round_id = ? ORDER BY rc.display_order");
             $stmt->bind_param('i', $roundId);
         } else {
+            // overall: include criteria across closed/finalized rounds only
             $stmt = $conn->prepare("SELECT DISTINCT rc.criterion_id, rc.weight, rc.max_score, c.name
-                                     FROM round_criteria rc JOIN criteria c ON rc.criterion_id=c.id");
+                                     FROM round_criteria rc
+                                     JOIN rounds r ON r.id=rc.round_id
+                                     JOIN criteria c ON rc.criterion_id=c.id
+                                     WHERE r.state IN ('CLOSED','FINALIZED')");
         }
         $stmt->execute();
         $res = $stmt->get_result();
@@ -44,7 +49,10 @@ try {
             $stmt->bind_param('ii', $roundId, $participantId);
         } else {
             $stmt = $conn->prepare("SELECT s.criterion_id, COALESCE(s.override_score, s.raw_score) as score
-                                     FROM scores s WHERE s.participant_id = ?");
+                                     FROM scores s
+                                     JOIN round_criteria rc ON s.criterion_id=rc.criterion_id
+                                     JOIN rounds r ON r.id=rc.round_id
+                                     WHERE s.participant_id = ? AND r.state IN ('CLOSED','FINALIZED')");
             $stmt->bind_param('i', $participantId);
         }
         $stmt->execute();
@@ -59,7 +67,7 @@ try {
             $cid = (int)$c['criterion_id'];
             $raw = $scores[$cid] ?? 0.0;
             $weight = (float)$c['weight'];
-            $weighted = $raw * ($weight / 100.0);
+            $weighted = $raw * (($weight>1)? ($weight/100.0) : $weight);
             $items[] = [
                 'criterion_id' => $cid,
                 'name' => $c['name'],
@@ -70,6 +78,78 @@ try {
             $total += $weighted;
         }
         echo json_encode(['success' => true, 'items' => $items, 'total' => $total]);
+        exit();
+    }
+    if ($action === 'override_score') {
+        $raw = file_get_contents('php://input');
+        $body = json_decode($raw, true);
+        $participant_id = (int)($body['participant_id'] ?? 0);
+        $criterion_id = (int)($body['criterion_id'] ?? 0);
+        $judge_user_id = (int)($body['judge_user_id'] ?? 0);
+        $new_raw = isset($body['raw_score']) ? (float)$body['raw_score'] : null;
+        $reason = trim($body['reason'] ?? '');
+    $judge_username = trim($body['judge_username'] ?? '');
+    $judge_password = (string)($body['judge_password'] ?? '');
+        if (!$participant_id || !$criterion_id || !$judge_user_id || $new_raw===null || $reason==='') {
+            throw new Exception('Missing fields');
+        }
+        if ($judge_password === '') {
+            throw new Exception('Judge password required');
+        }
+        // Validate judge credentials against current pageant context
+        // Try multiple sources to get pageant id
+        $pageant_id = $_SESSION['pageant_id'] ?? ($_SESSION['pageantID'] ?? null);
+        if (!$pageant_id && $participant_id) {
+            // Derive from participant
+            $stmtP = $conn->prepare("SELECT pageant_id FROM participants WHERE id=? LIMIT 1");
+            $stmtP->bind_param('i', $participant_id);
+            $stmtP->execute();
+            $rp = $stmtP->get_result();
+            if ($rw = $rp->fetch_assoc()) { $pageant_id = (int)$rw['pageant_id']; }
+            $stmtP->close();
+        }
+        if (!$pageant_id) { throw new Exception('Pageant context missing'); }
+        // Prefer verifying by selected judge_user_id to avoid username mismatch issues
+        $stmtJ = $conn->prepare("SELECT u.id, u.username, u.password_hash FROM users u JOIN pageant_users pu ON pu.user_id=u.id WHERE u.id=? AND u.is_active=1 AND pu.pageant_id=? AND (pu.role='JUDGE' OR pu.role='judge') LIMIT 1");
+        $stmtJ->bind_param('ii', $judge_user_id, $pageant_id);
+        $stmtJ->execute();
+        $resJ = $stmtJ->get_result();
+        $judgeRow = $resJ->fetch_assoc();
+        $stmtJ->close();
+        if (!$judgeRow) { throw new Exception('Invalid judge for this pageant'); }
+        if (!password_verify($judge_password, $judgeRow['password_hash'])) {
+            throw new Exception('Invalid judge password');
+        }
+        // If username provided and doesn't match the selected judge, we can still proceed since ID+password are valid
+        // Update scores row; create if missing
+        $stmt = $conn->prepare("SELECT id FROM scores WHERE participant_id=? AND criterion_id=? AND judge_user_id=? LIMIT 1");
+        $stmt->bind_param('iii', $participant_id, $criterion_id, $judge_user_id);
+        $stmt->execute();
+        $r = $stmt->get_result();
+        $score_id = null; if ($row = $r->fetch_assoc()) { $score_id = (int)$row['id']; }
+        $stmt->close();
+        if ($score_id) {
+            $stmtU = $conn->prepare("UPDATE scores SET raw_score=?, updated_at=NOW() WHERE id=?");
+            $stmtU->bind_param('di', $new_raw, $score_id);
+            $stmtU->execute();
+            $stmtU->close();
+        } else {
+            // Need round_id to insert minimal row; infer from round_criteria if unique mapping exists
+            $stmtR = $conn->prepare("SELECT DISTINCT round_id FROM round_criteria WHERE criterion_id=? LIMIT 1");
+            $stmtR->bind_param('i', $criterion_id);
+            $stmtR->execute();
+            $rr = $stmtR->get_result();
+            $round_id = ($rw = $rr->fetch_assoc()) ? (int)$rw['round_id'] : null;
+            $stmtR->close();
+            if (!$round_id) throw new Exception('Cannot infer round for criterion');
+            $stmtI = $conn->prepare("INSERT INTO scores(round_id, criterion_id, participant_id, judge_user_id, raw_score, created_at, updated_at) VALUES(?,?,?,?,?,NOW(),NOW())");
+            $stmtI->bind_param('iiiid', $round_id, $criterion_id, $participant_id, $judge_user_id, $new_raw);
+            $stmtI->execute();
+            $stmtI->close();
+        }
+        // Insert audit log if table exists
+        $conn->query("INSERT INTO audit_logs(action, details) VALUES('override_score', 'participant=".$participant_id.";criterion=".$criterion_id.";judge=".$judge_user_id.";by=admin:".$_SESSION['adminID']."')");
+        echo json_encode(['success' => true]);
         exit();
     }
     if ($action === 'save_awards') {
@@ -123,6 +203,93 @@ try {
             $db->rollback();
             throw $e;
         }
+        exit();
+    }
+    if ($action === 'auto_generate_awards') {
+        $pageant_id = $_SESSION['pageant_id'] ?? 1;
+        // Build leaders per division from FINAL rounds
+        // Use single connection
+        // Get top 3 per division
+        $leaders = ['Mr'=>[], 'Ms'=>[]];
+        foreach (['Mr','Ms'] as $div) {
+            $stmt = $conn->prepare(
+                "SELECT p.id, SUM(COALESCE(s.override_score, s.raw_score) * (CASE WHEN rc.weight>1 THEN rc.weight/100.0 ELSE rc.weight END)) as total
+                 FROM participants p
+                 JOIN divisions d ON p.division_id=d.id
+                 JOIN scores s ON s.participant_id=p.id
+                 JOIN round_criteria rc ON rc.criterion_id=s.criterion_id
+                 JOIN rounds r ON r.id=rc.round_id
+                 WHERE r.pageant_id=? AND r.scoring_mode='FINAL' AND r.state IN ('CLOSED','FINALIZED') AND p.is_active=1 AND d.name=?
+                 GROUP BY p.id
+                 ORDER BY total DESC, p.full_name ASC
+                 LIMIT 3"
+            );
+            $stmt->bind_param('is', $pageant_id, $div);
+            $stmt->execute();
+            $rs = $stmt->get_result();
+            while ($row = $rs->fetch_assoc()) { $leaders[$div][] = (int)$row['id']; }
+            $stmt->close();
+        }
+        // Upsert using existing save_awards transaction path for consistency
+        $_POST = [];
+        $payload = ['divisions' => $leaders];
+        // Reuse code: open new db for transaction
+        $db = $con->opencon();
+        $db->begin_transaction();
+        try {
+            foreach (['Mr','Ms'] as $div) {
+                $positions = $leaders[$div];
+                $awardName = 'Overall Winner';
+                $stmt = $db->prepare("SELECT id FROM awards WHERE pageant_id=? AND name=? AND division_scope=? LIMIT 1");
+                $stmt->bind_param('iss', $pageant_id, $awardName, $div);
+                $stmt->execute();
+                $r = $stmt->get_result();
+                $awardId = null;
+                if ($row = $r->fetch_assoc()) { $awardId = (int)$row['id']; }
+                $stmt->close();
+                if (!$awardId) {
+                    $stmtI = $db->prepare("INSERT INTO awards(pageant_id, name, division_scope, sequence) VALUES(?,?,?,?)");
+                    $seq = ($div === 'Mr') ? 1 : 2;
+                    $stmtI->bind_param('issi', $pageant_id, $awardName, $div, $seq);
+                    $stmtI->execute();
+                    $awardId = $stmtI->insert_id;
+                    $stmtI->close();
+                }
+                $db->query("DELETE aw FROM award_winners aw JOIN awards a ON aw.award_id=a.id WHERE a.id={$awardId}");
+                for ($i=0;$i<count($positions);$i++) {
+                    $pid = $positions[$i];
+                    if ($pid) {
+                        $stmtW = $db->prepare("INSERT INTO award_winners(award_id, participant_id, position) VALUES(?,?,?)");
+                        $pos = $i+1;
+                        $stmtW->bind_param('iii', $awardId, $pid, $pos);
+                        $stmtW->execute();
+                        $stmtW->close();
+                    }
+                }
+            }
+            $db->commit();
+            echo json_encode(['success' => true]);
+        } catch (Exception $e) {
+            $db->rollback();
+            throw $e;
+        }
+        exit();
+    }
+    if ($action === 'toggle_publish_awards') {
+        // Flip pageant_settings.reveal_awards value
+        $stmt = $conn->prepare("SELECT setting_value FROM pageant_settings WHERE setting_key='reveal_awards' LIMIT 1");
+        $stmt->execute();
+        $val = 0;
+        if ($r = $stmt->get_result()->fetch_assoc()) { $val = (int)$r['setting_value']; }
+        $stmt->close();
+        $newVal = $val ? 0 : 1;
+        // Upsert
+        $conn->query("INSERT INTO pageant_settings(setting_key, setting_value) VALUES('reveal_awards', '0') ON DUPLICATE KEY UPDATE setting_value=setting_value");
+        $stmtU = $conn->prepare("UPDATE pageant_settings SET setting_value=? WHERE setting_key='reveal_awards'");
+        $stmtU->bind_param('s', $sv = (string)$newVal);
+        $stmtU->execute();
+        $stmtU->close();
+        echo json_encode(['success' => true, 'reveal_awards' => $newVal]);
         exit();
     }
     http_response_code(400);
