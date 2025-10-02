@@ -486,6 +486,109 @@ try {
         echo json_encode(['success'=>true,'visibility_state'=>$new]);
         exit();
     }
+    if ($action === 'save_manual_awards') {
+        $pageant_id = isset($_SESSION['pageant_id']) ? (int)$_SESSION['pageant_id'] : (isset($_SESSION['pageantID']) ? (int)$_SESSION['pageantID'] : 0);
+        if ($pageant_id === 0) { echo json_encode(['success'=>false,'error'=>'Missing pageant context']); exit(); }
+        $raw = file_get_contents('php://input');
+        $body = json_decode($raw, true);
+        if (!is_array($body) || !isset($body['picks'])) { echo json_encode(['success'=>false,'error'=>'Invalid payload']); exit(); }
+        $picks = $body['picks'];
+        // Normalize and write manual_votes values as 1 for selected winners
+        $db = $con->opencon();
+        $db->begin_transaction();
+        try {
+            // For each division/type, clear previous nonzero votes then set selected to 1
+            $types = ['PHOTOGENIC','CONGENIALITY'];
+            foreach (['Ambassador','Ambassadress'] as $div) {
+                foreach ($types as $type) {
+                    $pid = (int)($picks[$div][$type] ?? 0);
+                    // Resolve participant list for division to clear
+                    $stmtP = $db->prepare("SELECT p.id FROM participants p JOIN divisions d ON p.division_id=d.id WHERE p.pageant_id=? AND d.name=?");
+                    $stmtP->bind_param('is', $pageant_id, $div);
+                    $stmtP->execute();
+                    $resP = $stmtP->get_result();
+                    $ids = [];
+                    while ($r = $resP->fetch_assoc()) { $ids[] = (int)$r['id']; }
+                    $stmtP->close();
+                    if (!empty($ids)) {
+                        $in = implode(',', array_fill(0, count($ids), '?'));
+                        $typesBind = str_repeat('i', count($ids));
+                        // Zero out prior votes for these participants and this type
+                        $sqlZ = "UPDATE manual_votes SET value=0 WHERE pageant_id=? AND vote_type=? AND participant_id IN ($in)";
+                        $stmtZ = $db->prepare($sqlZ);
+                        $stmtZ->bind_param('is'.$typesBind, $pageant_id, $type, ...$ids);
+                        $stmtZ->execute();
+                        $stmtZ->close();
+                    }
+                    if ($pid > 0) {
+                        // Upsert selected winner to 1 vote
+                        $stmtU = $db->prepare("INSERT INTO manual_votes(pageant_id, participant_id, vote_type, value, entered_by_user_id) VALUES (?,?,?,?,?) ON DUPLICATE KEY UPDATE value=VALUES(value), entered_by_user_id=VALUES(entered_by_user_id) ");
+                        $adminId = isset($_SESSION['adminID']) ? (int)$_SESSION['adminID'] : null;
+                        $val = 1;
+                        $stmtU->bind_param('iisii', $pageant_id, $pid, $type, $val, $adminId);
+                        $stmtU->execute();
+                        $stmtU->close();
+                    }
+                }
+            }
+            // Recompute special awards dependent on manual_votes
+            // Ensure PHOTOGENIC, PEOPLES_CHOICE, CONGENIALITY award results reflect current votes
+            $manualAwards = [
+                ['type'=>'PHOTOGENIC', 'code'=>'PHOTOGENIC', 'name'=>'Photogenic'],
+                ['type'=>'PEOPLES_CHOICE', 'code'=>'PEOPLES_CHOICE', 'name'=>"People's Choice Award"],
+                ['type'=>'CONGENIALITY', 'code'=>'CONGENIALITY', 'name'=>'Congeniality']
+            ];
+            // helper to ensure award
+            $ensure = function($name,$code,$agg,$scope,$cnt) use ($con,$pageant_id) {
+                $db2 = $con->opencon();
+                $stmt = $db2->prepare("SELECT id FROM awards WHERE pageant_id=? AND code=? LIMIT 1");
+                $stmt->bind_param('is', $pageant_id, $code);
+                $stmt->execute();
+                $rs = $stmt->get_result();
+                $id = null; if ($r=$rs->fetch_assoc()) $id=(int)$r['id'];
+                $stmt->close();
+                if (!$id) {
+                    $stmtI = $db2->prepare("INSERT INTO awards(pageant_id, name, code, aggregation_type, division_scope, winners_count, visibility_state) VALUES(?,?,?,?,?,?,'HIDDEN')");
+                    $stmtI->bind_param('issssi', $pageant_id,$name,$code,$agg,$scope,$cnt);
+                    $stmtI->execute(); $id=$stmtI->insert_id; $stmtI->close();
+                } else {
+                    $stmtU = $db2->prepare("UPDATE awards SET name=?, aggregation_type=?, division_scope=?, winners_count=? WHERE id=?");
+                    $stmtU->bind_param('sssii',$name,$agg,$scope,$cnt,$id);
+                    $stmtU->execute(); $stmtU->close();
+                }
+                $db2->close();
+                return $id;
+            };
+            foreach ($manualAwards as $cfg) {
+                $awardId = $ensure($cfg['name'], $cfg['code'], ($cfg['type']==='PEOPLES_CHOICE'?'PEOPLE_CHOICE':'MANUAL'), 'PER_DIVISION', 1);
+                // Clear results
+                $stmtDel = $db->prepare("DELETE FROM award_results WHERE award_id=?");
+                $stmtDel->bind_param('i', $awardId);
+                $stmtDel->execute(); $stmtDel->close();
+                foreach (['Ambassador','Ambassadress'] as $div) {
+                    $stmtV = $db->prepare("SELECT p.id, COALESCE(SUM(mv.value),0) AS total FROM participants p JOIN divisions d ON p.division_id=d.id LEFT JOIN manual_votes mv ON mv.participant_id=p.id AND mv.pageant_id=? AND mv.vote_type=? WHERE p.pageant_id=? AND p.is_active=1 AND d.name=? GROUP BY p.id ORDER BY total DESC, p.id ASC LIMIT 1");
+                    $stmtV->bind_param('isis', $pageant_id, $cfg['type'], $pageant_id, $div);
+                    $stmtV->execute();
+                    $rowV = $stmtV->get_result()->fetch_assoc();
+                    $stmtV->close();
+                    if ($rowV && (int)($rowV['total'] ?? 0) > 0) {
+                        $pid = (int)$rowV['id'];
+                        $stmtIns = $db->prepare("INSERT INTO award_results(award_id, participant_id, position) VALUES(?,?,1)");
+                        $stmtIns->bind_param('ii', $awardId, $pid);
+                        $stmtIns->execute(); $stmtIns->close();
+                    }
+                }
+            }
+            $db->commit();
+            echo json_encode(['success'=>true]);
+        } catch (Exception $e) {
+            $db->rollback();
+            http_response_code(500);
+            echo json_encode(['success'=>false,'error'=>$e->getMessage()]);
+        }
+        $db->close();
+        exit();
+    }
     if ($action === 'toggle_publish_awards') {
         // Toggle awards.visibility_state between HIDDEN and REVEALED for the current pageant
         $pageant_id = isset($_SESSION['pageant_id']) ? (int)$_SESSION['pageant_id'] : (isset($_SESSION['pageantID']) ? (int)$_SESSION['pageantID'] : 0);

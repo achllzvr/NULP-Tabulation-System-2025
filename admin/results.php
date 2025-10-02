@@ -612,6 +612,70 @@ include __DIR__ . '/../partials/sidebar_admin.php';
           </ul>
           <div class="mt-4 text-xs text-slate-300">Manual awards pull from <code>manual_votes</code> (vote_type: PHOTOGENIC, PEOPLES_CHOICE, CONGENIALITY). Update votes in that table to change results.</div>
         </div>
+        <div class="px-6 pb-6">
+          <div class="mt-4 grid md:grid-cols-2 gap-6">
+            <?php
+              // Build participant options by division for manual award selectors
+              $divisions = ['Ambassador','Ambassadress'];
+              $participantsByDiv = [];
+              foreach ($divisions as $div) {
+                $stmt = $conn->prepare("SELECT p.id, p.number_label, p.full_name FROM participants p JOIN divisions d ON p.division_id=d.id WHERE p.pageant_id=? AND p.is_active=1 AND d.name=? ORDER BY p.number_label");
+                $stmt->bind_param('is', $pageant_id, $div);
+                $stmt->execute();
+                $res = $stmt->get_result();
+                $participantsByDiv[$div] = $res->fetch_all(MYSQLI_ASSOC);
+                $stmt->close();
+              }
+              // Helper to get current leader by manual_votes for preselect
+              function getManualLeader($conn, $pageant_id, $divName, $type) {
+                $stmt = $conn->prepare("SELECT p.id, COALESCE(SUM(mv.value),0) AS total FROM participants p JOIN divisions d ON p.division_id=d.id LEFT JOIN manual_votes mv ON mv.participant_id=p.id AND mv.pageant_id=? AND mv.vote_type=? WHERE p.pageant_id=? AND p.is_active=1 AND d.name=? GROUP BY p.id ORDER BY total DESC, p.id ASC LIMIT 1");
+                $stmt->bind_param('isis', $pageant_id, $type, $pageant_id, $divName);
+                $stmt->execute();
+                $row = $stmt->get_result()->fetch_assoc();
+                $stmt->close();
+                return $row ? (int)$row['id'] : 0;
+              }
+              $preselects = [
+                'Ambassador' => [
+                  'PHOTOGENIC' => getManualLeader($conn, $pageant_id, 'Ambassador', 'PHOTOGENIC'),
+                  'CONGENIALITY' => getManualLeader($conn, $pageant_id, 'Ambassador', 'CONGENIALITY')
+                ],
+                'Ambassadress' => [
+                  'PHOTOGENIC' => getManualLeader($conn, $pageant_id, 'Ambassadress', 'PHOTOGENIC'),
+                  'CONGENIALITY' => getManualLeader($conn, $pageant_id, 'Ambassadress', 'CONGENIALITY')
+                ]
+              ];
+            ?>
+            <?php foreach (['Ambassador','Ambassadress'] as $div): ?>
+              <div class="border border-white/10 rounded-lg p-4 bg-white/10">
+                <h4 class="font-semibold text-white mb-3"><?php echo $div; ?> Manual Awards</h4>
+                <div class="space-y-3">
+                  <label class="block">
+                    <span class="text-sm text-slate-200">Photogenic (<?php echo $div; ?>)</span>
+                    <select id="manual_<?php echo $div; ?>_PHOTOGENIC" class="mt-1 w-full bg-white/20 border border-white/30 rounded px-3 py-2 text-white text-sm">
+                      <option value="0">-- Select --</option>
+                      <?php foreach ($participantsByDiv[$div] as $p): $sel = ($preselects[$div]['PHOTOGENIC'] ?? 0) == (int)$p['id'] ? 'selected' : ''; ?>
+                        <option value="<?php echo (int)$p['id']; ?>" <?php echo $sel; ?>>#<?php echo htmlspecialchars($p['number_label']); ?> — <?php echo htmlspecialchars($p['full_name']); ?></option>
+                      <?php endforeach; ?>
+                    </select>
+                  </label>
+                  <label class="block">
+                    <span class="text-sm text-slate-200">Congeniality (<?php echo $div; ?>)</span>
+                    <select id="manual_<?php echo $div; ?>_CONGENIALITY" class="mt-1 w-full bg-white/20 border border-white/30 rounded px-3 py-2 text-white text-sm">
+                      <option value="0">-- Select --</option>
+                      <?php foreach ($participantsByDiv[$div] as $p): $sel = ($preselects[$div]['CONGENIALITY'] ?? 0) == (int)$p['id'] ? 'selected' : ''; ?>
+                        <option value="<?php echo (int)$p['id']; ?>" <?php echo $sel; ?>>#<?php echo htmlspecialchars($p['number_label']); ?> — <?php echo htmlspecialchars($p['full_name']); ?></option>
+                      <?php endforeach; ?>
+                    </select>
+                  </label>
+                </div>
+              </div>
+            <?php endforeach; ?>
+          </div>
+          <div class="mt-4 flex items-center justify-end gap-2">
+            <button onclick="saveManualAwards()" class="bg-blue-500/30 hover:bg-blue-600/40 text-white text-sm px-4 py-2 rounded border border-white/20">Save Manual Awards</button>
+          </div>
+        </div>
       </div>
       <script>
       async function generateSpecialAwards() {
@@ -633,6 +697,30 @@ include __DIR__ . '/../partials/sidebar_admin.php';
           if (!res.ok || !data.success) throw new Error(data.error||'Failed to toggle');
           if (typeof showSuccess==='function') showSuccess('Updated', `Special awards ${data.visibility_state==='REVEALED'?'published':'hidden'}`);
         } catch (e) { if (typeof showError==='function') showError('Error', e.message); }
+      }
+      async function saveManualAwards() {
+        const picks = {};
+        ['Ambassador','Ambassadress'].forEach(div => {
+          picks[div] = {
+            PHOTOGENIC: parseInt(document.getElementById(`manual_${div}_PHOTOGENIC`).value || '0', 10),
+            CONGENIALITY: parseInt(document.getElementById(`manual_${div}_CONGENIALITY`).value || '0', 10)
+          };
+        });
+        try {
+          const url = new URL(window.location.origin + window.location.pathname.replace(/\/admin\/results\.php$/, '/admin/api_results.php'));
+          url.searchParams.set('action', 'save_manual_awards');
+          const res = await fetch(url.toString(), {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            credentials:'same-origin',
+            body: JSON.stringify({ picks })
+          });
+          const data = await res.json();
+          if (!res.ok || !data.success) throw new Error(data.error||'Failed to save manual awards');
+          if (typeof showSuccess==='function') showSuccess('Saved', 'Manual awards saved to votes');
+        } catch (e) {
+          if (typeof showError==='function') showError('Error', e.message);
+        }
       }
       </script>
       <?php endif; ?>

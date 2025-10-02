@@ -119,6 +119,18 @@ if (isset($_POST['close_advancement_validation'])) {
       $stmt->bind_param("i", $verification_id);
       $stmt->execute();
       $stmt->close();
+      // Immediately revert panels to idle state:
+      // 1) Close any in-progress tie groups under this pageant so judges see no tie-breaker context
+      $stmtT = $conn->prepare("UPDATE tie_groups SET state='closed', tie_breaker_status='CLOSED', tie_breaker_closed_at = NOW() WHERE pageant_id = ? AND (state = 'in_progress' OR tie_breaker_status IN ('OPEN','TIMER_ENDED','CLOSE_ENABLED'))");
+      $stmtT->bind_param("i", $pageant_id);
+      $stmtT->execute();
+      $stmtT->close();
+
+      // 2) Ensure no rounds are accidentally left OPEN; admin must explicitly open the Final round next
+      $stmtR = $conn->prepare("UPDATE rounds SET state='CLOSED', closed_at = COALESCE(closed_at, NOW()) WHERE pageant_id = ? AND state = 'OPEN'");
+      $stmtR->bind_param("i", $pageant_id);
+      $stmtR->execute();
+      $stmtR->close();
     }
     $conn->commit();
     $success_message = "Advancements validation finalized. Final round can now be opened.";
