@@ -7,6 +7,14 @@ if (!isset($pageTitle)) { $pageTitle = 'Pageant Tabulation System'; }
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title><?= htmlspecialchars($pageTitle, ENT_QUOTES, 'UTF-8') ?></title>
+<?php
+  // Compute asset prefix so favicon path works from admin/, judge/, public/, or root
+  $__phpSelf = $_SERVER['PHP_SELF'] ?? '';
+  $__prefix = (strpos($__phpSelf, '/admin/') !== false || strpos($__phpSelf, '/judge/') !== false || strpos($__phpSelf, '/public/') !== false) ? '../' : '';
+?>
+<link rel="icon" type="image/png" href="<?= $__prefix ?>assets/media/NULP.png" />
+<link rel="shortcut icon" href="<?= $__prefix ?>assets/media/NULP.png" />
+<link rel="apple-touch-icon" href="<?= $__prefix ?>assets/media/NULP.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">

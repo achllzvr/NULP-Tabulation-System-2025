@@ -13,6 +13,15 @@ class database {
         if ($con->connect_error) {
             die("Connection failed: " . $con->connect_error);
         }
+        // Ensure consistent charset and collation for this connection to avoid collation mix errors
+        // Use utf8mb4 with unicode collation which is generally recommended
+        // Note: set_charset sets the character set; we explicitly set collation_connection as well.
+        if (method_exists($con, 'set_charset')) {
+            $con->set_charset('utf8mb4');
+        }
+        // Best-effort: ignore errors if server does not allow changing session collation
+        @$con->query("SET NAMES 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'");
+        @$con->query("SET SESSION collation_connection = 'utf8mb4_unicode_ci'");
         return $con;
     }
 

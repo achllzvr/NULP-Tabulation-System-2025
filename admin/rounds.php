@@ -109,9 +109,16 @@ if (isset($_POST['toggle_round'])) {
             $new_state = 'PENDING';
     }
     
-    try {
-        $stmt = $conn->prepare("UPDATE rounds SET state = ?, opened_at = CASE WHEN ? = 'OPEN' THEN NOW() ELSE opened_at END, closed_at = CASE WHEN ? IN ('CLOSED', 'FINALIZED') THEN NOW() ELSE closed_at END WHERE id = ?");
-        $stmt->bind_param("sssi", $new_state, $new_state, $new_state, $round_id);
+  try {
+    // Use integer flags to avoid string collation comparisons inside CASE
+    $is_open = ($new_state === 'OPEN') ? 1 : 0;
+    $is_closed_or_final = (in_array($new_state, ['CLOSED', 'FINALIZED'], true)) ? 1 : 0;
+    $stmt = $conn->prepare("UPDATE rounds 
+      SET state = ?, 
+        opened_at = CASE WHEN ? = 1 THEN NOW() ELSE opened_at END, 
+        closed_at = CASE WHEN ? = 1 THEN NOW() ELSE closed_at END 
+      WHERE id = ?");
+    $stmt->bind_param("siii", $new_state, $is_open, $is_closed_or_final, $round_id);
         
         if ($stmt->execute()) {
             $success_message = "Round status updated successfully to " . $new_state . ".";
@@ -174,7 +181,6 @@ $stmt->execute();
 $result = $stmt->get_result();
 $rounds = $result->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
-
 
 // Fetch criteria for the pageant with parent-child relationships
 $stmt = $conn->prepare("
