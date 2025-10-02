@@ -4,10 +4,10 @@ class database {
     
     // Function to open connection with database
     function opencon() {
-        $host = getenv('DB_HOST') ?: '127.0.0.1';
-        $db   = getenv('DB_NAME') ?: 'NULP-Tabulation-DB';
-        $user = getenv('DB_USER') ?: 'root';
-        $pass = getenv('DB_PASS') ?: '';
+        $host = getenv('DB_HOST') ?: 'localhost';
+        $db   = getenv('DB_NAME') ?: 'u754480983_TabSys_DB';
+        $user = getenv('DB_USER') ?: 'u754480983_NULP';
+        $pass = getenv('DB_PASS') ?: 'NULPPageant2025';
         
         $con = new mysqli($host, $user, $pass, $db);
         if ($con->connect_error) {
