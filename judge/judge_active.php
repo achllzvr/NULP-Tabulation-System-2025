@@ -199,6 +199,17 @@ if (isset($_POST['submit_scores_duo'])) {
       if (!$round_id) {
         $error_message = "No active round found.";
       } else {
+        // Ensure pair scoring is only allowed for Advocacy or Talent rounds
+        $stmt = $conn->prepare("SELECT name FROM rounds WHERE id = ? LIMIT 1");
+        $stmt->bind_param("i", $round_id);
+        $stmt->execute();
+        $rinfo = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        $rname = trim((string)($rinfo['name'] ?? ''));
+        $allowedByName = (stripos($rname, 'advocacy') !== false) || (stripos($rname, 'talent') !== false);
+        if (empty($rinfo) || !$allowedByName) {
+          $error_message = "Duo scoring is only available for Advocacy or Talent rounds.";
+        } else {
         $success_count = 0; $error_count = 0;
         // Save duo scores
         foreach ($_POST as $key => $value) {
@@ -239,6 +250,7 @@ if (isset($_POST['submit_scores_duo'])) {
         }
         if ($success_count > 0) { $success_message = "Saved $success_count duo score(s) successfully."; }
         if ($error_count > 0) { $error_message = "Failed to save $error_count duo score(s)."; }
+        }
       }
       $conn->close();
     }
@@ -355,7 +367,9 @@ if ($tie_group) {
             }
         }
 
-        $is_pair_scoring = !empty($active_round['pair_scoring']) && (int)$active_round['pair_scoring'] === 1;
+    // Enforce pair scoring based on round name (Advocacy/Talent) regardless of DB flag
+    $rname = trim((string)$active_round['name']);
+    $is_pair_scoring = (stripos($rname, 'advocacy') !== false) || (stripos($rname, 'talent') !== false);
 
         // Load criteria once
         $stmt = $conn->prepare("SELECT c.*, rc.weight, rc.max_score FROM criteria c JOIN round_criteria rc ON c.id = rc.criterion_id WHERE rc.round_id = ? AND c.is_active = 1 ORDER BY rc.display_order");

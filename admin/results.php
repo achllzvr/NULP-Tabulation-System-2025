@@ -364,9 +364,7 @@ include __DIR__ . '/../partials/sidebar_admin.php';
           <?php else: ?>
             <div class="text-center p-10">
               <p class="text-slate-200">No awards to display yet. Configure awards and winners, or generate once scoring is complete.</p>
-              <div class="mt-4">
-                <a href="awards.php" class="bg-blue-500 bg-opacity-30 hover:bg-blue-600 hover:bg-opacity-40 text-white font-medium px-6 py-3 rounded-lg transition-colors inline-flex items-center gap-2 border border-white border-opacity-20 backdrop-blur-md">Go to Awards Management</a>
-              </div>
+              <div class="mt-4 text-slate-300 text-sm">Use the controls above to Auto-Generate and Publish/Hide awards. This is now the single place to manage awards.</div>
             </div>
           <?php endif; ?>
         </div>

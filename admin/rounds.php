@@ -160,29 +160,7 @@ if (isset($_POST['assign_judges_to_round'])) {
   }
 }
 
-// Toggle Pre-Pageant / Pair Scoring controls
-if (isset($_POST['toggle_pair_scoring'])) {
-  $round_id = intval($_POST['round_id']);
-  $enable = intval($_POST['enable'] ?? 0) === 1;
-  try {
-    if ($enable) {
-      // Enable pair scoring and set scoring_mode to PRE_PAGEANT
-      $stmt = $conn->prepare("UPDATE rounds SET pair_scoring=1, scoring_mode='PRE_PAGEANT' WHERE id=? AND pageant_id=?");
-      $stmt->bind_param("ii", $round_id, $pageant_id);
-    } else {
-      // Disable pair scoring; keep scoring_mode as-is unless it was PRE_PAGEANT; fallback to PRELIM
-      $stmt = $conn->prepare("UPDATE rounds SET pair_scoring=0, scoring_mode=CASE WHEN scoring_mode='PRE_PAGEANT' THEN 'PRELIM' ELSE scoring_mode END WHERE id=? AND pageant_id=?");
-      $stmt->bind_param("ii", $round_id, $pageant_id);
-    }
-    $stmt->execute();
-    $stmt->close();
-    $success_message = $enable ? 'Pair scoring enabled (Pre-Pageant).' : 'Pair scoring disabled.';
-    $show_success_alert = true;
-  } catch (Exception $e) {
-    $error_message = 'Error updating pair scoring: ' . $e->getMessage();
-    $show_error_alert = true;
-  }
-}
+// Pair Scoring: enforced for Advocacy & Talent rounds; no manual toggle (UI removed)
 
 // Fetch rounds with their criteria
 $stmt = $conn->prepare("SELECT r.*, COUNT(rc.criterion_id) as criteria_count 
@@ -230,6 +208,19 @@ $advancements_by_round = [];
 foreach ($rounds as $r) {
   $advancements_by_round[$r['id']] = get_advancements_for_round($conn, $r['id']);
 }
+
+// Pre-fetch judge assignments for all rounds in this pageant
+$assignments_by_round = [];
+$stmt = $conn->prepare("SELECT round_id, judge_user_id FROM round_judges WHERE pageant_id = ?");
+$stmt->bind_param("i", $pageant_id);
+$stmt->execute();
+$res = $stmt->get_result();
+while ($row = $res->fetch_assoc()) {
+  $rid = (int)$row['round_id'];
+  if (!isset($assignments_by_round[$rid])) { $assignments_by_round[$rid] = []; }
+  $assignments_by_round[$rid][] = (int)$row['judge_user_id'];
+}
+$stmt->close();
 
 // Calculate statistics
 $total_rounds = count($rounds);
@@ -406,27 +397,27 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                     
                     <div class="mb-4">
                       <p class="text-sm text-slate-200">
-                        <strong>Type:</strong> <?php echo ucfirst(strtolower($round['scoring_mode'])); ?> Round
+                        <?php $scoring_label = (isset($round['scoring_mode']) && $round['scoring_mode'] !== '') ? ucfirst(strtolower((string)$round['scoring_mode'])) : 'Prelim'; ?>
+                        <strong>Type:</strong> <?php echo htmlspecialchars($scoring_label, ENT_QUOTES, 'UTF-8'); ?> Round
                         <?php if ($round['advancement_limit']): ?>
                           • <strong>Advances:</strong> Top <?php echo $round['advancement_limit']; ?>
                         <?php endif; ?>
                       </p>
-                      <div class="mt-2 flex items-center gap-3">
-                        <form method="POST" class="inline">
-                          <input type="hidden" name="toggle_pair_scoring" value="1">
-                          <input type="hidden" name="round_id" value="<?php echo $round['id']; ?>">
-                          <input type="hidden" name="enable" value="<?php echo (int)($round['pair_scoring'] ? 0 : 1); ?>">
-                          <?php if (!empty($round['pair_scoring'])): ?>
-                            <button type="submit" class="bg-white bg-opacity-10 hover:bg-white hover:bg-opacity-20 text-white text-xs font-medium px-3 py-1.5 rounded border border-white border-opacity-20">
-                              Disable Pair Scoring
-                            </button>
-                            <span class="text-xs text-green-300">Pair scoring is ON</span>
-                          <?php else: ?>
-                            <button type="submit" class="bg-white bg-opacity-10 hover:bg-white hover:bg-opacity-20 text-white text-xs font-medium px-3 py-1.5 rounded border border-white border-opacity-20">
-                              Enable Pair Scoring (Pre-Pageant)
-                            </button>
-                          <?php endif; ?>
-                        </form>
+                      <?php 
+                        $rname = trim((string)$round['name']);
+                        $isPairRoundByName = (stripos($rname, 'advocacy') !== false) || (stripos($rname, 'talent') !== false);
+                      ?>
+                      <div class="mt-2 flex items-center gap-2">
+                        <?php if ($isPairRoundByName): ?>
+                          <span class="inline-flex items-center gap-2 text-xs px-2 py-1 rounded border border-white border-opacity-20 bg-white bg-opacity-10 text-green-300">
+                            <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-7.25 7.25a1 1 0 01-1.414 0l-3-3a1 1 0 111.414-1.414L8.5 11.586l6.543-6.543a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                            Pair Scoring (duos) enforced
+                          </span>
+                        <?php else: ?>
+                          <span class="inline-flex items-center gap-2 text-xs px-2 py-1 rounded border border-white border-opacity-20 bg-white bg-opacity-10 text-slate-200">
+                            Individual scoring
+                          </span>
+                        <?php endif; ?>
                       </div>
                       <?php if ($round['opened_at']): ?>
                         <p class="text-sm text-slate-200 mt-1">
@@ -440,14 +431,8 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                       <?php endif; ?>
                     </div>
                     <?php 
-                      // Load judges list once above (ensure variable $judges exists); fetch assignments for this round here
-                      $assigned = [];
-                      $stmtA = $conn->prepare("SELECT judge_user_id FROM round_judges WHERE round_id=?");
-                      $stmtA->bind_param("i", $round['id']);
-                      $stmtA->execute();
-                      $resA = $stmtA->get_result();
-                      while ($ra = $resA->fetch_assoc()) { $assigned[] = (int)$ra['judge_user_id']; }
-                      $stmtA->close();
+                      // Use prefetched assignments to avoid DB calls after connection close
+                      $assigned = $assignments_by_round[$round['id']] ?? [];
                     ?>
                     <form method="POST" class="mb-4">
                       <input type="hidden" name="assign_judges_to_round" value="1">
