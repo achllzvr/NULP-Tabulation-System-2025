@@ -646,11 +646,24 @@ function confirmLogout() {
              class="<?= $baseClass . ' ' . ($isSelected ? $selectedClass : $unselectedClass) ?> group"
              style="<?= $isSelected ? 'box-shadow: 0 0 0 4px rgba(255,215,0,0.25), 0 4px 24px 0 rgba(0,0,0,0.10); min-width: 8rem;' : 'min-width: 8rem;' ?>">
             <?php if (!empty($settings['judge_reveal_photos']) && $settings['judge_reveal_photos']): ?>
+              <?php 
+                $thumb = !empty($participant['photo_path']) ? ('../' . $participant['photo_path']) : '';
+              ?>
               <div class="relative flex justify-center">
-                <div class="mx-auto mb-2 w-36 h-36 bg-slate-300 rounded-md flex items-center justify-center text-slate-500 text-base transition-transform duration-200 group-hover:scale-105" style="object-fit:cover;">Photo</div>
-                <div class="absolute left-1/2 top-1/2 z-50 pointer-events-none opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-300 ease-in-out -translate-x-1/2 -translate-y-1/2">
-                  <div class="w-72 h-72 bg-slate-300 rounded-md flex items-center justify-center text-slate-500 text-lg shadow-2xl border-4 border-yellow-300" style="object-fit:cover;">Photo Zoom</div>
+                <div class="mx-auto mb-2 w-36 h-36 bg-white bg-opacity-10 border border-white border-opacity-20 rounded-md overflow-hidden flex items-center justify-center text-slate-300 text-[11px] transition-transform duration-200 group-hover:scale-105" style="object-fit:cover;">
+                  <?php if ($thumb): ?>
+                    <img src="<?= htmlspecialchars($thumb, ENT_QUOTES, 'UTF-8') ?>" alt="Photo" class="w-full h-full object-cover"/>
+                  <?php else: ?>
+                    No Photo
+                  <?php endif; ?>
                 </div>
+                <?php if ($thumb): ?>
+                <div class="absolute left-1/2 top-1/2 z-50 pointer-events-none opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-300 ease-in-out -translate-x-1/2 -translate-y-1/2">
+                  <div class="w-72 h-72 bg-white bg-opacity-10 border border-yellow-300 rounded-md overflow-hidden shadow-2xl" style="object-fit:cover;">
+                    <img src="<?= htmlspecialchars($thumb, ENT_QUOTES, 'UTF-8') ?>" alt="Photo Zoom" class="w-full h-full object-cover"/>
+                  </div>
+                </div>
+                <?php endif; ?>
               </div>
             <?php endif; ?>
             <div class="font-semibold">#<?= htmlspecialchars($participant['number_label'], ENT_QUOTES, 'UTF-8') ?></div>

@@ -20,6 +20,65 @@ require_once('../classes/database.php');
 // Create an instance of the database class
 $con = new database();
 
+// Ensure participants table has photo_path column (one-time migration)
+function ensurePhotoColumn($con) {
+  $conn = $con->opencon();
+  $exists = false;
+  if ($res = $conn->query("SHOW COLUMNS FROM participants LIKE 'photo_path'")) {
+    $exists = $res->num_rows > 0;
+    $res->close();
+  }
+  if (!$exists) {
+    // Best-effort; ignore errors if lacking permission
+    @$conn->query("ALTER TABLE participants ADD COLUMN photo_path VARCHAR(255) NULL AFTER advocacy");
+  }
+  $conn->close();
+}
+
+// Save uploaded photo and return relative path (assets/media/participants/{pageant_id}/filename.ext)
+function saveUploadedPhoto($fileInfo, $pageant_id) {
+  if (!isset($fileInfo) || !is_array($fileInfo) || ($fileInfo['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+    return null;
+  }
+  $allowed = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
+  $mime = mime_content_type($fileInfo['tmp_name']);
+  if (!isset($allowed[$mime])) {
+    return ['error' => 'Unsupported image type. Allowed: JPG, PNG, WEBP.'];
+  }
+  $maxBytes = 5 * 1024 * 1024; // 5MB
+  if (($fileInfo['size'] ?? 0) > $maxBytes) {
+    return ['error' => 'Image too large. Max size is 5MB.'];
+  }
+  $ext = $allowed[$mime];
+  $safeBase = preg_replace('/[^A-Za-z0-9_-]/', '', (string)$pageant_id);
+  $subdir = "assets/media/participants/{$safeBase}";
+  $root = dirname(__DIR__);
+  $targetDir = $root . '/' . $subdir;
+  if (!is_dir($targetDir)) {
+    @mkdir($targetDir, 0775, true);
+  }
+  $fname = date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . ".{$ext}";
+  $targetPath = $targetDir . '/' . $fname;
+  if (!move_uploaded_file($fileInfo['tmp_name'], $targetPath)) {
+    return ['error' => 'Failed to move uploaded file.'];
+  }
+  // Tighten permissions
+  @chmod($targetPath, 0644);
+  return $subdir . '/' . $fname;
+}
+
+function deletePhotoFile($photo_path) {
+  if (!$photo_path) return;
+  $root = dirname(__DIR__);
+  $full = $root . '/' . ltrim($photo_path, '/');
+  if (is_file($full)) {
+    @unlink($full);
+  }
+}
+
+// Run schema check
+ensurePhotoColumn($con);
+
 // Handle form submissions
 if (isset($_POST['add_participant'])) {
     $division = $_POST['division'];
@@ -43,21 +102,31 @@ if (isset($_POST['add_participant'])) {
         if ($result->num_rows > 0) {
             $error_message = "Participant number '$number_label' already exists.";
             $show_error_alert = true;
-        } else {
+    } else {
             // Convert division name to division_id
             $division_id = ($division === 'Ambassador') ? 1 : (($division === 'Ambassadress') ? 2 : 1);
             
-            // Add participant to database
-            $stmt = $conn->prepare("INSERT INTO participants (pageant_id, division_id, number_label, full_name, advocacy, is_active) VALUES (?, ?, ?, ?, ?, 1)");
-            $stmt->bind_param("iisss", $pageant_id, $division_id, $number_label, $full_name, $advocacy);
+      // Handle optional photo upload
+      $upload = saveUploadedPhoto($_FILES['photo'] ?? null, $pageant_id);
+      if (is_array($upload) && isset($upload['error'])) {
+        $error_message = $upload['error'];
+        $show_error_alert = true;
+      } else {
+        $photo_path = is_string($upload) ? $upload : null;
+        // Add participant to database
+        $stmt = $conn->prepare("INSERT INTO participants (pageant_id, division_id, number_label, full_name, advocacy, photo_path, is_active) VALUES (?, ?, ?, ?, ?, ?, 1)");
+        $stmt->bind_param("iissss", $pageant_id, $division_id, $number_label, $full_name, $advocacy, $photo_path);
             
-            if ($stmt->execute()) {
-                $success_message = "Participant '$full_name' (#$number_label) added successfully.";
-                $show_success_alert = true;
-            } else {
-                $error_message = "Error adding participant: " . $conn->error;
-                $show_error_alert = true;
-            }
+        if ($stmt->execute()) {
+          $success_message = "Participant '$full_name' (#$number_label) added successfully.";
+          $show_success_alert = true;
+        } else {
+          // If DB insert fails, clean up uploaded file if any
+          if ($photo_path) { deletePhotoFile($photo_path); }
+          $error_message = "Error adding participant: " . $conn->error;
+          $show_error_alert = true;
+        }
+      }
         }
         $stmt->close();
         $conn->close();
@@ -70,10 +139,19 @@ if (isset($_POST['delete_participant'])) {
     $pageant_id = $_SESSION['pageant_id'] ?? 1;
     
     $conn = $con->opencon();
+  // Fetch photo to delete from disk
+  $old = null;
+  $stmt = $conn->prepare("SELECT photo_path FROM participants WHERE id = ? AND pageant_id = ?");
+  $stmt->bind_param("ii", $participant_id, $pageant_id);
+  $stmt->execute();
+  $res = $stmt->get_result();
+  if ($res && $row = $res->fetch_assoc()) { $old = $row['photo_path']; }
+  $stmt->close();
     $stmt = $conn->prepare("DELETE FROM participants WHERE id = ? AND pageant_id = ?");
     $stmt->bind_param("ii", $participant_id, $pageant_id);
     
     if ($stmt->execute()) {
+    if ($old) { deletePhotoFile($old); }
         $success_message = "Participant deleted successfully.";
         $show_success_alert = true;
     } else {
@@ -129,25 +207,80 @@ if (isset($_POST['edit_participant'])) {
         if ($result->num_rows > 0) {
             $error_message = "Participant number '$number_label' already exists.";
             $show_error_alert = true;
-        } else {
+    } else {
             // Convert division name to division_id
             $division_id = ($division === 'Ambassador') ? 1 : (($division === 'Ambassadress') ? 2 : 1);
             
-            // Update participant
-            $stmt = $conn->prepare("UPDATE participants SET division_id = ?, number_label = ?, full_name = ?, advocacy = ? WHERE id = ? AND pageant_id = ?");
-            $stmt->bind_param("isssii", $division_id, $number_label, $full_name, $advocacy, $participant_id, $pageant_id);
-            
-            if ($stmt->execute()) {
-                $success_message = "Participant '$full_name' (#$number_label) updated successfully.";
-                $show_success_alert = true;
-            } else {
-                $error_message = "Error updating participant: " . $conn->error;
-                $show_error_alert = true;
-            }
+      // Check for new photo upload
+      $newPhotoPath = null;
+      $upload = saveUploadedPhoto($_FILES['photo_edit'] ?? null, $pageant_id);
+      if (is_array($upload) && isset($upload['error'])) {
+        $error_message = $upload['error'];
+        $show_error_alert = true;
+      } else {
+        if (is_string($upload)) {
+          // Delete old photo file
+          $stmtOld = $conn->prepare("SELECT photo_path FROM participants WHERE id = ? AND pageant_id = ?");
+          $stmtOld->bind_param("ii", $participant_id, $pageant_id);
+          $stmtOld->execute();
+          $rOld = $stmtOld->get_result();
+          if ($rOld && $rowOld = $rOld->fetch_assoc()) {
+            if (!empty($rowOld['photo_path'])) { deletePhotoFile($rowOld['photo_path']); }
+          }
+          $stmtOld->close();
+          $newPhotoPath = $upload;
+        }
+
+        if ($newPhotoPath) {
+          $stmt = $conn->prepare("UPDATE participants SET division_id = ?, number_label = ?, full_name = ?, advocacy = ?, photo_path = ? WHERE id = ? AND pageant_id = ?");
+          $stmt->bind_param("issssii", $division_id, $number_label, $full_name, $advocacy, $newPhotoPath, $participant_id, $pageant_id);
+        } else {
+          $stmt = $conn->prepare("UPDATE participants SET division_id = ?, number_label = ?, full_name = ?, advocacy = ? WHERE id = ? AND pageant_id = ?");
+          $stmt->bind_param("isssii", $division_id, $number_label, $full_name, $advocacy, $participant_id, $pageant_id);
+        }
+                
+        if ($stmt->execute()) {
+          $success_message = "Participant '$full_name' (#$number_label) updated successfully.";
+          $show_success_alert = true;
+        } else {
+          // If DB update fails, clean up newly uploaded file
+          if ($newPhotoPath) { deletePhotoFile($newPhotoPath); }
+          $error_message = "Error updating participant: " . $conn->error;
+          $show_error_alert = true;
+        }
+      }
         }
         $stmt->close();
         $conn->close();
     }
+}
+
+// Handle removing a participant photo
+if (isset($_POST['remove_photo'])) {
+  $participant_id = intval($_POST['participant_id'] ?? 0);
+  $pageant_id = $_SESSION['pageant_id'] ?? 1;
+  if ($participant_id > 0) {
+    $conn = $con->opencon();
+    $old = null;
+    $stmt = $conn->prepare("SELECT photo_path FROM participants WHERE id = ? AND pageant_id = ?");
+    $stmt->bind_param("ii", $participant_id, $pageant_id);
+    $stmt->execute();
+    $res = $stmt->get_result();
+    if ($res && $row = $res->fetch_assoc()) { $old = $row['photo_path']; }
+    $stmt->close();
+    $stmt = $conn->prepare("UPDATE participants SET photo_path = NULL WHERE id = ? AND pageant_id = ?");
+    $stmt->bind_param("ii", $participant_id, $pageant_id);
+    if ($stmt->execute()) {
+      if ($old) { deletePhotoFile($old); }
+      $success_message = "Photo removed successfully.";
+      $show_success_alert = true;
+    } else {
+      $error_message = "Failed to remove photo.";
+      $show_error_alert = true;
+    }
+    $stmt->close();
+    $conn->close();
+  }
 }
 
 // Fetch participants with filters (division, status, search)
@@ -322,6 +455,7 @@ include __DIR__ . '/../partials/sidebar_admin.php';
         <table class="min-w-full">
           <thead class="bg-white bg-opacity-10 backdrop-blur-sm">
             <tr>
+              <th class="px-6 py-4 text-left text-xs font-medium text-slate-200 uppercase tracking-wider">Photo</th>
               <th class="px-6 py-4 text-left text-xs font-medium text-slate-200 uppercase tracking-wider">Number</th>
               <th class="px-6 py-4 text-left text-xs font-medium text-slate-200 uppercase tracking-wider">Division</th>
               <th class="px-6 py-4 text-left text-xs font-medium text-slate-200 uppercase tracking-wider">Name</th>
@@ -334,6 +468,18 @@ include __DIR__ . '/../partials/sidebar_admin.php';
             <?php if (!empty($participants)): ?>
               <?php foreach ($participants as $participant): ?>
                 <tr class="hover:bg-white hover:bg-opacity-5 transition-colors">
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <?php 
+                      $src = !empty($participant['photo_path']) ? ('../' . $participant['photo_path']) : '';
+                    ?>
+                    <div class="w-12 h-12 rounded-md bg-white bg-opacity-10 border border-white border-opacity-20 overflow-hidden flex items-center justify-center">
+                      <?php if ($src): ?>
+                        <img src="<?= htmlspecialchars($src, ENT_QUOTES, 'UTF-8') ?>" alt="Photo" class="w-full h-full object-cover"/>
+                      <?php else: ?>
+                        <span class="text-[10px] text-slate-300">No Photo</span>
+                      <?php endif; ?>
+                    </div>
+                  </td>
                   <td class="px-6 py-4 whitespace-nowrap">
                     <div class="flex items-center">
                       <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
@@ -364,7 +510,7 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                     </span>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div class="flex space-x-2">
+                    <div class="flex flex-wrap gap-2 items-center">
                       <button onclick="editParticipant(<?php echo $participant['id']; ?>, '<?php echo htmlspecialchars($participant['full_name'], ENT_QUOTES); ?>', '<?php echo $participant['number_label']; ?>', '<?php echo isset($participant['division']) ? $participant['division'] : 'General'; ?>', '<?php echo htmlspecialchars($participant['advocacy'], ENT_QUOTES); ?>')" class="text-blue-300 hover:text-blue-200 font-medium">Edit</button>
                       
                       <form method="POST" class="inline" onsubmit="return confirm('Are you sure you want to delete this participant?')">
@@ -379,6 +525,12 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                           <?php echo $participant['is_active'] ? 'Deactivate' : 'Activate'; ?>
                         </button>
                       </form>
+                      <?php if (!empty($participant['photo_path'])): ?>
+                      <form method="POST" class="inline" onsubmit="return confirm('Remove this photo?')">
+                        <input type="hidden" name="participant_id" value="<?php echo $participant['id']; ?>">
+                        <button name="remove_photo" type="submit" class="text-yellow-300 hover:text-yellow-200 font-medium">Remove Photo</button>
+                      </form>
+                      <?php endif; ?>
                     </div>
                   </td>
                 </tr>
@@ -407,7 +559,7 @@ include __DIR__ . '/../partials/sidebar_admin.php';
 <?php
 $modalId = 'addParticipantModal';
 $title = 'Add New Participant';
-$bodyHtml = '<form id="addParticipantForm" method="POST" class="space-y-6">'
+$bodyHtml = '<form id="addParticipantForm" method="POST" enctype="multipart/form-data" class="space-y-6">'
   .'<div class="grid grid-cols-2 gap-4">'
     .'<div>'
       .'<label class="block text-sm font-medium text-slate-700 mb-2">Division</label>'
@@ -430,6 +582,11 @@ $bodyHtml .= '</select>'
     .'<label class="block text-sm font-medium text-slate-700 mb-2">Advocacy</label>'
     .'<textarea name="advocacy" placeholder="Enter participant advocacy or cause (optional)" class="w-full border border-slate-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none" rows="4"></textarea>'
   .'</div>'
+  .'<div>'
+    .'<label class="block text-sm font-medium text-slate-700 mb-2">Photo (optional)</label>'
+    .'<input name="photo" type="file" accept="image/png,image/jpeg,image/webp" class="w-full border border-slate-300 rounded-lg px-4 py-2 text-sm bg-white" />'
+    .'<p class="text-xs text-slate-500 mt-1">Max size 5MB. JPG, PNG, or WEBP.</p>'
+  .'</div>'
   .'<div class="flex gap-3 pt-4">'
   .'<button type="button" onclick="hideModal(\'addParticipantModal\')" class="flex-1 bg-white bg-opacity-10 hover:bg-white hover:bg-opacity-20 text-white font-medium px-6 py-3 rounded-lg border border-white border-opacity-20 backdrop-blur-sm transition-colors">Cancel</button>'
   .'<button name="add_participant" type="submit" class="flex-1 bg-blue-500 bg-opacity-30 hover:bg-blue-500/40 text-white font-medium px-6 py-3 rounded-lg border border-blue-400 border-opacity-50 backdrop-blur-sm transition-colors flex items-center justify-center gap-2">'
@@ -447,7 +604,7 @@ include __DIR__ . '/../components/modal.php';
 // Edit Participant Modal
 $modalId = 'editParticipantModal';
 $title = 'Edit Participant';
-$bodyHtml = '<form id="editParticipantForm" method="POST" class="space-y-6">'
+$bodyHtml = '<form id="editParticipantForm" method="POST" enctype="multipart/form-data" class="space-y-6">'
   .'<input type="hidden" name="edit_participant" value="1">'
   .'<input type="hidden" name="participant_id" id="edit_participant_id">'
   .'<div class="grid grid-cols-2 gap-4">'
@@ -471,6 +628,11 @@ $bodyHtml .= '</select>'
   .'<div>'
     .'<label class="block text-sm font-medium text-slate-700 mb-2">Advocacy</label>'
     .'<textarea name="advocacy" id="edit_advocacy" class="w-full border border-slate-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none" rows="4"></textarea>'
+  .'</div>'
+  .'<div>'
+    .'<label class="block text-sm font-medium text-slate-700 mb-2">Replace Photo</label>'
+    .'<input name="photo_edit" type="file" accept="image/png,image/jpeg,image/webp" class="w-full border border-slate-300 rounded-lg px-4 py-2 text-sm bg-white" />'
+    .'<p class="text-xs text-slate-500 mt-1">Uploading a new image will replace the existing photo.</p>'
   .'</div>'
   .'<div class="flex gap-3 pt-4">'
   .'<button type="button" onclick="hideModal(\'editParticipantModal\')" class="flex-1 bg-white bg-opacity-10 hover:bg-white hover:bg-opacity-20 text-white font-medium px-6 py-3 rounded-lg border border-white border-opacity-20 backdrop-blur-sm transition-colors">Cancel</button>'
