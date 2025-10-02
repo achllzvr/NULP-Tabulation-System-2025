@@ -146,6 +146,17 @@ if ($tab === 'awards') {
   }
   $stmtA->close();
   $awardGroups = array_values($map);
+
+  // Published/Hidden state (true if any award is revealed)
+  $awards_published = false;
+  $stmtPub = $conn->prepare("SELECT COUNT(*) AS cnt FROM awards WHERE pageant_id = ? AND visibility_state = 'REVEALED'");
+  $stmtPub->bind_param('i', $pageant_id);
+  $stmtPub->execute();
+  if ($rsPub = $stmtPub->get_result()) {
+    $rowPub = $rsPub->fetch_assoc();
+    $awards_published = ($rowPub && (int)$rowPub['cnt'] > 0);
+  }
+  $stmtPub->close();
 }
 
 // Note: Keep connection open for subsequent tab-specific queries below; we'll close at the end
@@ -358,13 +369,19 @@ include __DIR__ . '/../partials/sidebar_admin.php';
       <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20">
         <div class="px-6 py-4 border-b border-white border-opacity-10">
           <div class="flex items-center justify-between">
-            <div>
-              <h3 class="text-lg font-semibold text-white">Award Results</h3>
-              <p class="text-sm text-slate-200 mt-1">Preview of configured awards and winners</p>
+            <div class="flex items-center gap-3">
+              <div>
+                <h3 class="text-lg font-semibold text-white">Award Results</h3>
+                <p class="text-sm text-slate-200 mt-1">Preview of configured awards and winners</p>
+              </div>
+              <span class="px-2 py-1 text-xs rounded-full border border-white/20 backdrop-blur-sm <?php echo $awards_published ? 'bg-emerald-500/20 text-emerald-200' : 'bg-slate-400/20 text-slate-200'; ?>">
+                <?php echo $awards_published ? 'Published' : 'Hidden'; ?>
+              </span>
             </div>
             <div class="flex gap-2">
               <button onclick="autoGenerateAwards()" class="bg-purple-500/30 hover:bg-purple-600/40 text-white text-sm px-4 py-2 rounded border border-white/20">Auto-Generate</button>
-              <button onclick="togglePublishAwards()" class="bg-emerald-500/30 hover:bg-emerald-600/40 text-white text-sm px-4 py-2 rounded border border-white/20">Publish / Hide</button>
+              <?php $toggleLabel = $awards_published ? 'Hide' : 'Publish'; $toggleClass = $awards_published ? 'bg-slate-500/30 hover:bg-slate-600/40' : 'bg-emerald-500/30 hover:bg-emerald-600/40'; ?>
+              <button onclick="togglePublishAwards()" class="<?php echo $toggleClass; ?> text-white text-sm px-4 py-2 rounded border border-white/20"><?php echo $toggleLabel; ?></button>
             </div>
           </div>
         </div>
@@ -508,7 +525,8 @@ include __DIR__ . '/../partials/sidebar_admin.php';
           const res = await fetch(url.toString(), { credentials: 'same-origin' });
           const data = await res.json();
           if (!res.ok || !data.success) throw new Error(data.error||'Failed to toggle');
-          if (typeof showSuccess==='function') showSuccess('Updated', 'Awards visibility toggled');
+          if (typeof showSuccess==='function') showSuccess('Updated', `Awards ${data.visibility_state === 'REVEALED' ? 'published' : 'hidden'}`);
+          setTimeout(()=>window.location.reload(), 600);
         } catch (e) { if (typeof showError==='function') showError('Error', e.message); }
       }
       function proposeWinners() {

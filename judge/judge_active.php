@@ -93,6 +93,47 @@ if (isset($_POST['confirm_advancements'])) {
 $active_verification = getActiveAdvancementVerification($con, $pageant_id);
 $judge_confirmation = $active_verification ? getJudgeAdvancementConfirmation($con, $active_verification['id'], $judge_id) : null;
 $advancing_participants = $active_verification ? getAdvancingParticipants($con, $pageant_id) : [];
+
+// Helper: when validation is active but advancements table is still empty, build a preview
+function findAdvancementRoundsForPreview($con, $pageant_id) {
+  $conn = $con->opencon();
+  $stmt = $conn->prepare("SELECT id, name, sequence FROM rounds WHERE pageant_id = ? AND state IN ('CLOSED','FINALIZED') ORDER BY sequence DESC LIMIT 1");
+  $stmt->bind_param("i", $pageant_id);
+  $stmt->execute();
+  $from = $stmt->get_result()->fetch_assoc();
+  $stmt->close();
+  $to = null;
+  if ($from) {
+    $stmt = $conn->prepare("SELECT id, name FROM rounds WHERE pageant_id = ? AND sequence > ? ORDER BY sequence ASC LIMIT 1");
+    $stmt->bind_param("ii", $pageant_id, $from['sequence']);
+    $stmt->execute();
+    $to = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+  }
+  $conn->close();
+  return [$from, $to];
+}
+
+function getPreviewAdvancingParticipants($con, $pageant_id, $limitPerDivision = 5) {
+  [$from, $to] = findAdvancementRoundsForPreview($con, $pageant_id);
+  if (!$from || !$to) return [];
+  $from_round_id = (int)$from['id'];
+  $preview = [];
+  // Use round leaderboard for latest closed round, per division
+  foreach ([['Ambassador','Ambassador'], ['Ambassadress','Ambassadress']] as $div) {
+    $rows = $con->getRoundLeaderboard($from_round_id, $div[0]);
+    $rows = array_slice($rows, 0, max(0, (int)$limitPerDivision));
+    foreach ($rows as $r) {
+      $preview[] = [
+        'participant_id' => (int)$r['id'],
+        'full_name' => $r['name'],
+        'number_label' => $r['number_label'],
+        'division' => $div[1]
+      ];
+    }
+  }
+  return $preview;
+}
 try {
   $conn_settings = $con->opencon();
   $result = $conn_settings->query("SELECT setting_key, setting_value FROM pageant_settings");
@@ -530,13 +571,23 @@ include __DIR__ . '/../partials/head.php';
                   </tr>
                 </thead>
                 <tbody>
-                  <?php foreach ($advancing_participants as $ap): ?>
+                  <?php
+                    $rowsToRender = $advancing_participants;
+                    $isPreview = false;
+                    if (empty($rowsToRender)) {
+                      // Build a preview list so judges see context even before admin finalizes
+                      $rowsToRender = getPreviewAdvancingParticipants($con, $pageant_id, 5);
+                      $isPreview = !empty($rowsToRender);
+                    }
+                  ?>
+                  <?php if (!empty($rowsToRender)): ?>
+                  <?php foreach ($rowsToRender as $ap): ?>
                     <tr class="border-b border-white border-opacity-10">
                       <td class="px-3 py-2"><?= htmlspecialchars($ap['number_label']) ?></td>
                       <td class="px-3 py-2"><?= htmlspecialchars($ap['full_name']) ?></td>
                       <td class="px-3 py-2"><?= htmlspecialchars($ap['division']) ?></td>
                       <td class="px-3 py-2">
-                        <?php $scores = getParticipantScoresByJudge($con, $ap['participant_id'], $judge_id); ?>
+                        <?php $scores = isset($ap['participant_id']) ? getParticipantScoresByJudge($con, $ap['participant_id'], $judge_id) : []; ?>
                         <?php if ($scores): ?>
                           <ul class="list-disc list-inside">
                             <?php foreach ($scores as $s): ?>
@@ -544,11 +595,16 @@ include __DIR__ . '/../partials/head.php';
                             <?php endforeach; ?>
                           </ul>
                         <?php else: ?>
-                          <span class="text-yellow-200">No scores found</span>
+                          <span class="text-yellow-200"><?= $isPreview ? 'Preview list — no finalized advancements yet' : 'No scores found' ?></span>
                         <?php endif; ?>
                       </td>
                     </tr>
                   <?php endforeach; ?>
+                  <?php else: ?>
+                    <tr>
+                      <td colspan="4" class="px-3 py-3 text-yellow-200">No advancements yet. Waiting for admin to finalize.</td>
+                    </tr>
+                  <?php endif; ?>
                 </tbody>
               </table>
             </div>
@@ -594,13 +650,21 @@ function confirmLogout() {
     </div>
   <?php endif; ?>
 
-  <?php if (!$active_round): ?>
+  <?php if (!$active_round && !$active_verification): ?>
     <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
       <svg class="mx-auto h-12 w-12 text-yellow-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
       </svg>
       <h3 class="text-lg font-medium text-yellow-800 mb-2">No Active Round</h3>
       <p class="text-yellow-700">There are currently no rounds open for judging. Please wait for the administrator to open a round.</p>
+    </div>
+  <?php elseif (!$active_round && $active_verification): ?>
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
+      <svg class="mx-auto h-12 w-12 text-blue-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+      <h3 class="text-lg font-medium text-blue-800 mb-2">Advancements Validation Ongoing</h3>
+      <p class="text-blue-700">The admin is validating advancements. You can review and confirm above. The next round will open after finalization.</p>
     </div>
   <?php elseif (empty($criteria)): ?>
     <div class="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
