@@ -150,11 +150,40 @@ if (isset($_POST['edit_participant'])) {
     }
 }
 
-// Fetch participants with division names
+// Fetch participants with filters (division, status, search)
 $conn = $con->opencon();
 $pageant_id = $_SESSION['pageant_id'] ?? 1; // Use consistent session variable
-$stmt = $conn->prepare("SELECT p.*, d.name as division FROM participants p JOIN divisions d ON p.division_id = d.id WHERE p.pageant_id = ? ORDER BY p.number_label");
-$stmt->bind_param("i", $pageant_id);
+
+$divisionFilter = isset($_GET['division']) ? trim($_GET['division']) : '';
+$statusFilter = isset($_GET['status']) ? trim($_GET['status']) : '';
+$searchQuery = isset($_GET['q']) ? trim($_GET['q']) : '';
+
+$conditions = ["p.pageant_id = ?"];
+$types = 'i';
+$params = [$pageant_id];
+
+if ($divisionFilter !== '' && in_array($divisionFilter, ['Mr','Ms'])) {
+  $conditions[] = 'd.name = ?';
+  $types .= 's';
+  $params[] = $divisionFilter;
+}
+if ($statusFilter !== '' && in_array($statusFilter, ['active','inactive'])) {
+  $conditions[] = 'p.is_active = ?';
+  $types .= 'i';
+  $params[] = $statusFilter === 'active' ? 1 : 0;
+}
+if ($searchQuery !== '') {
+  // search in name or number label
+  $conditions[] = '(p.full_name LIKE ? OR p.number_label LIKE ?)';
+  $types .= 'ss';
+  $like = '%' . $searchQuery . '%';
+  $params[] = $like; $params[] = $like;
+}
+
+$whereSql = implode(' AND ', $conditions);
+$sql = "SELECT p.*, d.name as division FROM participants p JOIN divisions d ON p.division_id = d.id WHERE $whereSql ORDER BY p.number_label";
+$stmt = $conn->prepare($sql);
+$stmt->bind_param($types, ...$params);
 $stmt->execute();
 $result = $stmt->get_result();
 $participants = $result->fetch_all(MYSQLI_ASSOC);
@@ -251,6 +280,36 @@ include __DIR__ . '/../partials/sidebar_admin.php';
         <?= htmlspecialchars($error_message, ENT_QUOTES, 'UTF-8') ?>
       </div>
     <?php endif; ?>
+
+    <!-- Filters Bar -->
+    <div class="bg-white bg-opacity-10 backdrop-blur-md border border-white border-opacity-20 rounded-xl p-4 mb-4">
+      <form method="GET" class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+        <div>
+          <label class="block text-xs text-slate-300 mb-1">Division</label>
+          <select name="division" class="w-full rounded-lg bg-white bg-opacity-10 border border-white border-opacity-20 text-white px-3 py-2">
+            <option value="" <?= $divisionFilter===''? 'selected':'' ?>>All</option>
+            <option value="Mr" <?= $divisionFilter==='Mr'? 'selected':'' ?>>Mr</option>
+            <option value="Ms" <?= $divisionFilter==='Ms'? 'selected':'' ?>>Ms</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-slate-300 mb-1">Status</label>
+          <select name="status" class="w-full rounded-lg bg-white bg-opacity-10 border border-white border-opacity-20 text-white px-3 py-2">
+            <option value="" <?= $statusFilter===''? 'selected':'' ?>>All</option>
+            <option value="active" <?= $statusFilter==='active'? 'selected':'' ?>>Active</option>
+            <option value="inactive" <?= $statusFilter==='inactive'? 'selected':'' ?>>Inactive</option>
+          </select>
+        </div>
+        <div class="md:col-span-2">
+          <label class="block text-xs text-slate-300 mb-1">Search</label>
+          <div class="flex gap-2">
+            <input type="text" name="q" placeholder="Search name or number..." value="<?= htmlspecialchars($searchQuery, ENT_QUOTES, 'UTF-8') ?>" class="flex-1 rounded-lg bg-white bg-opacity-10 border border-white border-opacity-20 text-white px-3 py-2" />
+            <button type="submit" class="px-4 py-2 rounded-lg bg-blue-600 text-white">Filter</button>
+            <a href="participants.php" class="px-4 py-2 rounded-lg bg-slate-600 text-white">Reset</a>
+          </div>
+        </div>
+      </form>
+    </div>
 
     <!-- Participants Table -->
     <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20">

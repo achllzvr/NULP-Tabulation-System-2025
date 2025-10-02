@@ -346,33 +346,38 @@ class database {
     function getPublicAwards($pageant_id) {
         $con = $this->opencon();
         
-        // First check if awards table exists, if not create it
-        $checkTable = "SHOW TABLES LIKE 'awards'";
-        $result = $con->query($checkTable);
-        
-        if ($result->num_rows == 0) {
-            $createAwardsTable = "CREATE TABLE awards (
+        // Ensure awards tables exist
+        $resAwards = $con->query("SHOW TABLES LIKE 'awards'");
+        if (!$resAwards || $resAwards->num_rows == 0) {
+            $con->query("CREATE TABLE IF NOT EXISTS awards (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 pageant_id INT NOT NULL,
                 name VARCHAR(255) NOT NULL,
                 division_scope ENUM('ALL', 'Mr', 'Ms') DEFAULT 'ALL',
                 sequence INT DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )";
-            $con->query($createAwardsTable);
-            
-            $createWinnersTable = "CREATE TABLE award_winners (
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        }
+        // Backfill missing columns for existing installations
+        $colSeq = $con->query("SHOW COLUMNS FROM awards LIKE 'sequence'");
+        if ($colSeq && $colSeq->num_rows == 0) {
+            $con->query("ALTER TABLE awards ADD COLUMN sequence INT DEFAULT 0");
+        }
+        $colDiv = $con->query("SHOW COLUMNS FROM awards LIKE 'division_scope'");
+        if ($colDiv && $colDiv->num_rows == 0) {
+            $con->query("ALTER TABLE awards ADD COLUMN division_scope ENUM('ALL','Mr','Ms') DEFAULT 'ALL' AFTER name");
+        }
+        $resWinners = $con->query("SHOW TABLES LIKE 'award_winners'");
+        if (!$resWinners || $resWinners->num_rows == 0) {
+            $con->query("CREATE TABLE IF NOT EXISTS award_winners (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 award_id INT NOT NULL,
                 participant_id INT NOT NULL,
-                position INT DEFAULT 1,
-                FOREIGN KEY (award_id) REFERENCES awards(id) ON DELETE CASCADE,
-                FOREIGN KEY (participant_id) REFERENCES participants(id) ON DELETE CASCADE
-            )";
-            $con->query($createWinnersTable);
+                position INT DEFAULT 1
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
         }
         
-        $sql = "SELECT a.name, a.division_scope,
+    $sql = "SELECT a.name, a.division_scope,
                        p.full_name, p.number_label, aw.position
                 FROM awards a
                 LEFT JOIN award_winners aw ON a.id = aw.award_id
