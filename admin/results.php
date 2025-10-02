@@ -589,7 +589,18 @@ include __DIR__ . '/../partials/sidebar_admin.php';
               if (el) el.value = String(perDiv[div]||0);
             });
           });
-          if (typeof showSuccess==='function') showSuccess('Calculated', 'Special awardees populated');
+          // Auto-save Best-in categories immediately; leave manual categories for admin to adjust
+          const bestCodes = ['BEST_ADVOCACY','BEST_TALENT','BEST_PRODUCTION','BEST_UNIFORM','BEST_SPORTS','BEST_FORMAL'];
+          const picksToSave = { picks: {} };
+          bestCodes.forEach(code => { if (data.picks && data.picks[code]) { picksToSave.picks[code] = data.picks[code]; } });
+          if (Object.keys(picksToSave.picks).length > 0) {
+            const saveUrl = new URL(window.location.origin + window.location.pathname.replace(/\/admin\/results\.php$/, '/admin/api_results.php'));
+            saveUrl.searchParams.set('action', 'save_special_awards_picks');
+            const saveRes = await fetch(saveUrl.toString(), { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'same-origin', body: JSON.stringify(picksToSave) });
+            const saveData = await saveRes.json();
+            if (!saveRes.ok || !saveData.success) throw new Error(saveData.error||'Failed to save best-in awards');
+          }
+          if (typeof showSuccess==='function') showSuccess('Calculated', 'Best-in awardees computed and saved. Adjust manual awards as needed.');
         } catch (e) { if (typeof showError==='function') showError('Error', e.message); }
       }
       async function saveSpecialPicks() {
