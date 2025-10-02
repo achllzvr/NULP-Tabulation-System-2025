@@ -48,118 +48,75 @@ $result = $stmt->get_result();
 $rounds = $result->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
 
-// Completed/finalized rounds stats
-$stmt = $conn->prepare("SELECT COUNT(*) as count FROM rounds WHERE pageant_id = ? AND state IN ('CLOSED', 'FINALIZED')");
-$stmt->bind_param("i", $pageant_id);
-$stmt->execute();
-$result = $stmt->get_result();
-$completed_rounds = $result->fetch_assoc()['count'];
-$stmt->close();
+// Derived dashboard metrics and datasets
+// 1) Round states
+$has_open_round = false;
+$stmtOpen = $conn->prepare("SELECT COUNT(*) AS c FROM rounds WHERE pageant_id=? AND state='OPEN'");
+$stmtOpen->bind_param('i', $pageant_id);
+$stmtOpen->execute();
+$rOpen = $stmtOpen->get_result()->fetch_assoc();
+$stmtOpen->close();
+$has_open_round = ($rOpen && (int)$rOpen['c'] > 0);
 
-$stmt = $conn->prepare("SELECT COUNT(*) as count FROM rounds WHERE pageant_id = ? AND state = 'FINALIZED'");
-$stmt->bind_param("i", $pageant_id);
-$stmt->execute();
-$result = $stmt->get_result();
-$finalized_rounds = $result->fetch_assoc()['count'];
-$stmt->close();
+$stmtComp = $conn->prepare("SELECT COUNT(*) AS c FROM rounds WHERE pageant_id=? AND state IN ('CLOSED','FINALIZED')");
+$stmtComp->bind_param('i', $pageant_id);
+$stmtComp->execute();
+$rComp = $stmtComp->get_result()->fetch_assoc();
+$stmtComp->close();
+$completed_rounds = (int)($rComp['c'] ?? 0);
+$finalized_rounds = $completed_rounds;
 
-// Awards-specific flags
-$stmt = $conn->prepare("SELECT COUNT(*) as count FROM rounds WHERE pageant_id = ? AND scoring_mode = 'FINAL' AND state = 'FINALIZED'");
-$stmt->bind_param("i", $pageant_id);
-$stmt->execute();
-$result = $stmt->get_result();
-$final_rounds_completed = $result->fetch_assoc()['count'];
-$stmt->close();
-
-$stmt = $conn->prepare("SELECT COUNT(*) as count FROM rounds WHERE pageant_id = ? AND scoring_mode = 'FINAL'");
-$stmt->bind_param("i", $pageant_id);
-$stmt->execute();
-$result = $stmt->get_result();
-$total_final_rounds = $result->fetch_assoc()['count'];
-$stmt->close();
-
-$all_final_rounds_completed = ($total_final_rounds > 0 && $final_rounds_completed >= $total_final_rounds);
-
-// Prelim rounds closed (used for awards gating after Round 6)
-$stmt = $conn->prepare("SELECT COUNT(*) as count FROM rounds WHERE pageant_id = ? AND scoring_mode = 'PRELIM' AND state IN ('CLOSED','FINALIZED')");
-$stmt->bind_param("i", $pageant_id);
-$stmt->execute();
-$result = $stmt->get_result();
-$prelim_rounds_closed = (int)$result->fetch_assoc()['count'];
-$stmt->close();
-
+// 2) Prelim gating for awards
+$stmtPre = $conn->prepare("SELECT COUNT(*) AS c FROM rounds WHERE pageant_id=? AND scoring_mode='PRELIM' AND state IN ('CLOSED','FINALIZED')");
+$stmtPre->bind_param('i', $pageant_id);
+$stmtPre->execute();
+$rPre = $stmtPre->get_result()->fetch_assoc();
+$stmtPre->close();
+$prelim_rounds_closed = (int)($rPre['c'] ?? 0);
 $awards_prelim_ready = ($prelim_rounds_closed >= 6);
 
-// Detect if any round is currently OPEN (to blur results during live scoring)
-$stmt = $conn->prepare("SELECT COUNT(*) AS cnt FROM rounds WHERE pageant_id = ? AND state = 'OPEN'");
-$stmt->bind_param('i', $pageant_id);
-$stmt->execute();
-$resOpen = $stmt->get_result();
-$rowOpen = $resOpen->fetch_assoc();
-$has_open_round = ($rowOpen && (int)$rowOpen['cnt'] > 0);
-$stmt->close();
+// 3) Leaderboard datasets per division based on stage filter
+$leaderboardRows = ['Ambassador'=>[], 'Ambassadress'=>[]];
+$stageFilter = ($selected_stage === 'final') ? 'FINAL' : 'PRELIM';
+foreach (['Ambassador','Ambassadress'] as $div) {
+  $stmtLb = $conn->prepare(
+    "SELECT p.id, p.full_name AS name, p.number_label,
+            SUM(COALESCE(s.override_score, s.raw_score) * (CASE WHEN rc.weight>1 THEN rc.weight/100.0 ELSE rc.weight END)) AS total
+     FROM participants p
+     JOIN divisions d ON p.division_id=d.id
+     JOIN scores s ON s.participant_id=p.id
+     JOIN round_criteria rc ON rc.criterion_id=s.criterion_id
+     JOIN rounds r ON r.id=rc.round_id
+     WHERE p.pageant_id=? AND p.is_active=1 AND d.name=?
+       AND r.scoring_mode=? AND r.state IN ('CLOSED','FINALIZED')
+     GROUP BY p.id, p.full_name, p.number_label
+     ORDER BY total DESC, p.full_name ASC"
+  );
+  $stmtLb->bind_param('iss', $pageant_id, $div, $stageFilter);
+  $stmtLb->execute();
+  $resLb = $stmtLb->get_result();
+  $rank = 1; $rows = [];
+  while ($row = $resLb->fetch_assoc()) {
+    $rows[] = [
+      'id' => (int)$row['id'],
+      'name' => $row['name'],
+      'number_label' => $row['number_label'],
+      'total_score' => number_format((float)($row['total'] ?? 0), 2),
+      'rank' => $rank++
+    ];
+  }
+  $stmtLb->close();
+  $leaderboardRows[$div] = $rows;
+}
 
-// Data for leaderboard tab
-$leaderboardRows = [];
+// 4) Current leader overall
 $current_leader = null;
-if ($tab === 'leaderboard') {
-  $leaderboardRows = ['Ambassador'=>[], 'Ambassadress'=>[]];
-  $stage = $selected_stage; // 'prelim' or 'final'
-  $mode = ($stage === 'final') ? 'FINAL' : 'PRELIM';
-  foreach (['Ambassador','Ambassadress'] as $div) {
-    $leaderboardRows[$div] = $con->getStageLeaderboard($pageant_id, $div, $mode);
-  }
-  $current_leader = ($leaderboardRows['Ambassador'][0] ?? $leaderboardRows['Ambassadress'][0] ?? null);
+$allRows = array_merge($leaderboardRows['Ambassador'], $leaderboardRows['Ambassadress']);
+if (!empty($allRows)) {
+  usort($allRows, function($a,$b){ return (float)$b['total_score'] <=> (float)$a['total_score']; });
+  $top = $allRows[0];
+  $current_leader = ['name' => $top['name'], 'total_score' => $top['total_score']];
 }
-
-// Data for awards tab (admin sees awards regardless of publish state)
-$awardGroups = [];
-if ($tab === 'awards') {
-  $stmtA = $conn->prepare("SELECT a.id, a.name, a.division_scope, a.visibility_state, ar.position, p.full_name, p.number_label
-                FROM awards a
-                LEFT JOIN award_results ar ON ar.award_id = a.id
-                LEFT JOIN participants p ON p.id = ar.participant_id
-                WHERE a.pageant_id = ?
-                ORDER BY a.id, ar.position");
-  $stmtA->bind_param('i', $pageant_id);
-  $stmtA->execute();
-  $resA = $stmtA->get_result();
-  $map = [];
-  while ($row = $resA->fetch_assoc()) {
-    $key = (int)$row['id'];
-    if (!isset($map[$key])) {
-      $map[$key] = [
-        'id' => $key,
-        'name' => $row['name'],
-        'division_scope' => $row['division_scope'],
-        'visibility_state' => $row['visibility_state'],
-        'winners' => []
-      ];
-    }
-    if (!empty($row['full_name'])) {
-      $map[$key]['winners'][] = [
-        'full_name' => $row['full_name'],
-        'number_label' => $row['number_label'],
-        'position' => (int)$row['position']
-      ];
-    }
-  }
-  $stmtA->close();
-  $awardGroups = array_values($map);
-
-  // Published/Hidden state (true if any award is revealed)
-  $awards_published = false;
-  $stmtPub = $conn->prepare("SELECT COUNT(*) AS cnt FROM awards WHERE pageant_id = ? AND visibility_state = 'REVEALED'");
-  $stmtPub->bind_param('i', $pageant_id);
-  $stmtPub->execute();
-  if ($rsPub = $stmtPub->get_result()) {
-    $rowPub = $rsPub->fetch_assoc();
-    $awards_published = ($rowPub && (int)$rowPub['cnt'] > 0);
-  }
-  $stmtPub->close();
-}
-
-// Note: Keep connection open for subsequent tab-specific queries below; we'll close at the end
 
 $pageTitle = 'Results';
 include __DIR__ . '/../partials/head.php';
@@ -366,59 +323,7 @@ include __DIR__ . '/../partials/sidebar_admin.php';
         </div>
       <?php endif; ?>
 
-      <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20">
-        <div class="px-6 py-4 border-b border-white border-opacity-10">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-3">
-              <div>
-                <h3 class="text-lg font-semibold text-white">Award Results</h3>
-                <p class="text-sm text-slate-200 mt-1">Preview of configured awards and winners</p>
-              </div>
-              <span class="px-2 py-1 text-xs rounded-full border border-white/20 backdrop-blur-sm <?php echo $awards_published ? 'bg-emerald-500/20 text-emerald-200' : 'bg-slate-400/20 text-slate-200'; ?>">
-                <?php echo $awards_published ? 'Published' : 'Hidden'; ?>
-              </span>
-            </div>
-            <div class="flex gap-2">
-              <button onclick="autoGenerateAwards()" class="bg-purple-500/30 hover:bg-purple-600/40 text-white text-sm px-4 py-2 rounded border border-white/20">Auto-Generate Major</button>
-              <?php $toggleLabel = $awards_published ? 'Hide All' : 'Publish All'; $toggleClass = $awards_published ? 'bg-slate-500/30 hover:bg-slate-600/40' : 'bg-emerald-500/30 hover:bg-emerald-600/40'; ?>
-              <button onclick="togglePublishAwards()" class="<?php echo $toggleClass; ?> text-white text-sm px-4 py-2 rounded border border-white/20"><?php echo $toggleLabel; ?></button>
-            </div>
-          </div>
-        </div>
-        <div class="p-6">
-          <?php if (!empty($awardGroups)): ?>
-            <div class="grid md:grid-cols-2 gap-6">
-              <?php foreach ($awardGroups as $group): ?>
-                <div class="border border-white border-opacity-10 rounded-lg p-4 bg-white bg-opacity-10">
-                  <div class="flex items-center justify-between mb-2">
-                    <h5 class="font-medium text-white"><?php echo htmlspecialchars($group['name']); ?></h5>
-                    <span class="px-2 py-1 text-xs rounded-full <?php echo ($group['division_scope'] === 'Ambassador') ? 'bg-blue-400 bg-opacity-20 text-blue-200' : (($group['division_scope'] === 'Ambassadress') ? 'bg-pink-400 bg-opacity-20 text-pink-200' : 'bg-slate-400 bg-opacity-20 text-slate-200'); ?>">
-                      <?php echo htmlspecialchars($group['division_scope']); ?>
-                    </span>
-                  </div>
-                  <?php if (!empty($group['winners'])): ?>
-                    <ul class="space-y-2">
-                      <?php foreach ($group['winners'] as $winner): ?>
-                        <li class="flex items-center justify-between text-sm text-slate-200">
-                          <span>#<?php echo htmlspecialchars($winner['number_label']); ?> — <?php echo htmlspecialchars($winner['full_name']); ?></span>
-                          <span class="text-xs text-slate-300">Pos <?php echo (int)$winner['position']; ?></span>
-                        </li>
-                      <?php endforeach; ?>
-                    </ul>
-                  <?php else: ?>
-                    <p class="text-sm text-slate-300">No winners configured yet.</p>
-                  <?php endif; ?>
-                </div>
-              <?php endforeach; ?>
-            </div>
-          <?php else: ?>
-            <div class="text-center p-10">
-              <p class="text-slate-200">No awards to display yet. Configure awards and winners, or generate once scoring is complete.</p>
-              <div class="mt-4 text-slate-300 text-sm">Use the controls above to Auto-Generate and Publish/Hide awards. This is now the single place to manage awards.</div>
-            </div>
-          <?php endif; ?>
-        </div>
-      </div>
+      <!-- Award Results preview panel removed per request -->
 
   <?php if ($awards_prelim_ready): ?>
       <?php
@@ -467,8 +372,8 @@ include __DIR__ . '/../partials/sidebar_admin.php';
             <p class="text-sm text-slate-200 mt-1">Propose from Pre-Q&A leaderboard (after Round 6), then save winners</p>
           </div>
           <div class="flex gap-2">
-            <button onclick="proposeWinners()" class="bg-blue-500 bg-opacity-30 hover:bg-blue-600/40 text-white font-medium px-4 py-2 rounded-lg border border-white border-opacity-20">Propose Top 5</button>
-            <button onclick="saveWinners()" class="bg-green-500 bg-opacity-30 hover:bg-green-600/40 text-white font-medium px-4 py-2 rounded-lg border border-white border-opacity-20">Save Winners (Top 5)</button>
+            <button onclick="proposeWinners()" class="bg-blue-500 bg-opacity-30 hover:bg-blue-600/40 text-white font-medium px-4 py-2 rounded-lg border border-white border-opacity-20">Propose Top 3</button>
+            <button onclick="saveWinners()" class="bg-green-500 bg-opacity-30 hover:bg-green-600/40 text-white font-medium px-4 py-2 rounded-lg border border-white border-opacity-20">Save Winners (Top 3)</button>
             <button onclick="togglePublishMajorAwards()" class="bg-emerald-500/30 hover:bg-emerald-600/40 text-white font-medium px-4 py-2 rounded-lg border border-white/20">Publish/Hide Major</button>
           </div>
         </div>
@@ -501,14 +406,6 @@ include __DIR__ . '/../partials/sidebar_admin.php';
               <label class="block">
                 <span class="text-sm text-slate-200">2nd Runner-up (3rd)</span>
                 <select id="winner_<?php echo $div; ?>_3" class="mt-1 w-full bg-white bg-opacity-20 border border-white/30 rounded px-3 py-2 text-white text-sm"><?php echo $optHtml($savedMap[$div][3] ?? ($options[2]['id'] ?? null)); ?></select>
-              </label>
-              <label class="block">
-                <span class="text-sm text-slate-200">3rd Runner-up (4th)</span>
-                <select id="winner_<?php echo $div; ?>_4" class="mt-1 w-full bg-white bg-opacity-20 border border-white/30 rounded px-3 py-2 text-white text-sm"><?php echo $optHtml($savedMap[$div][4] ?? ($options[3]['id'] ?? null)); ?></select>
-              </label>
-              <label class="block">
-                <span class="text-sm text-slate-200">4th Runner-up (5th)</span>
-                <select id="winner_<?php echo $div; ?>_5" class="mt-1 w-full bg-white bg-opacity-20 border border-white/30 rounded px-3 py-2 text-white text-sm"><?php echo $optHtml($savedMap[$div][5] ?? ($options[4]['id'] ?? null)); ?></select>
               </label>
             </div>
           </div>
@@ -550,9 +447,9 @@ include __DIR__ . '/../partials/sidebar_admin.php';
         } catch (e) { if (typeof showError==='function') showError('Error', e.message); }
       }
       function proposeWinners() {
-  // Preselect top 5 per division based on the existing options order
+        // Preselect top 3 per division based on the existing options order
         ['Ambassador','Ambassadress'].forEach(div => {
-          for (let pos = 1; pos <= 5; pos++) {
+          for (let pos = 1; pos <= 3; pos++) {
             const sel = document.getElementById(`winner_${div}_${pos}`);
             if (sel && sel.options.length > pos) sel.selectedIndex = pos; // idx 1..3 maps to top3 with placeholder at 0
           }
@@ -562,7 +459,7 @@ include __DIR__ . '/../partials/sidebar_admin.php';
       async function saveWinners() {
         const payload = { divisions: { Ambassador: [], Ambassadress: [] } };
         ['Ambassador','Ambassadress'].forEach(div => {
-          for (let pos = 1; pos <= 5; pos++) {
+          for (let pos = 1; pos <= 3; pos++) {
             const sel = document.getElementById(`winner_${div}_${pos}`);
             const val = sel && sel.value ? parseInt(sel.value, 10) : null;
             payload.divisions[div][pos-1] = val;
@@ -586,109 +483,87 @@ include __DIR__ . '/../partials/sidebar_admin.php';
         }
       }
       </script>
-      <!-- Special Awards -->
+      <!-- Special Awards (Calculate/Select/Save + Publish toggle) -->
+      <?php
+        // Compute current special awards published state
+        $special_codes = ['BEST_ADVOCACY','BEST_TALENT','BEST_PRODUCTION','BEST_UNIFORM','BEST_SPORTS','BEST_FORMAL','PHOTOGENIC','PEOPLES_CHOICE','CONGENIALITY'];
+        $placeholders = implode(',', array_fill(0, count($special_codes), '?'));
+        $typesSp = 'i' . str_repeat('s', count($special_codes));
+        $paramsSp = array_merge([$pageant_id], $special_codes);
+        $stmtSp = $conn->prepare("SELECT COUNT(*) AS cnt FROM awards WHERE pageant_id=? AND code IN ($placeholders) AND visibility_state='REVEALED'");
+        $stmtSp->bind_param($typesSp, ...$paramsSp);
+        $stmtSp->execute();
+        $rowSp = $stmtSp->get_result()->fetch_assoc();
+        $stmtSp->close();
+        $special_published = ($rowSp && (int)$rowSp['cnt'] > 0);
+
+        // Participants per division for selectors
+        $divisions = ['Ambassador','Ambassadress'];
+        $participantsByDiv = [];
+        foreach ($divisions as $div) {
+          $stmt = $conn->prepare("SELECT p.id, p.number_label, p.full_name FROM participants p JOIN divisions d ON p.division_id=d.id WHERE p.pageant_id=? AND p.is_active=1 AND d.name=? ORDER BY p.number_label");
+          $stmt->bind_param('is', $pageant_id, $div);
+          $stmt->execute();
+          $res = $stmt->get_result();
+          $participantsByDiv[$div] = $res->fetch_all(MYSQLI_ASSOC);
+          $stmt->close();
+        }
+      ?>
       <div class="mt-8 bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20">
         <div class="px-6 py-4 border-b border-white/10 flex items-center justify-between">
           <div>
             <h3 class="text-lg font-semibold text-white">Special Awards</h3>
-            <p class="text-sm text-slate-200 mt-1">Auto-generate Best-in awards per round + manual inputs for Photogenic, People's Choice, and Congeniality.</p>
+            <p class="text-sm text-slate-200 mt-1">Calculate, review, adjust, then save all special awardees.</p>
           </div>
-          <div class="flex gap-2">
-            <button onclick="generateSpecialAwards()" class="bg-purple-500/30 hover:bg-purple-600/40 text-white text-sm px-4 py-2 rounded border border-white/20">Generate Special Awards</button>
-            <button onclick="togglePublishSpecialAwards()" class="bg-emerald-500/30 hover:bg-emerald-600/40 text-white text-sm px-4 py-2 rounded border border-white/20">Publish/Hide Special</button>
+          <div class="flex items-center gap-4">
+            <button onclick="calculateSpecialAwards()" class="bg-purple-500/30 hover:bg-purple-600/40 text-white text-sm px-4 py-2 rounded border border-white/20">Calculate Special Awardees</button>
+            <label class="flex items-center gap-2 text-slate-200 text-sm">
+              <span>Public</span>
+              <input id="specialPublishToggle" type="checkbox" <?php echo $special_published ? 'checked' : ''; ?> onchange="onToggleSpecialPublish(this)" class="appearance-none w-10 h-6 rounded-full bg-white/20 border border-white/20 relative cursor-pointer">
+            </label>
           </div>
         </div>
-        <div class="p-6 text-sm text-slate-200">
-          <ul class="list-disc list-inside space-y-1">
-            <li>Best in Talent</li>
-            <li>Best in Advocacy</li>
-            <li>Best in Production Number</li>
-            <li>Best in Uniform Wear</li>
-            <li>Best in Sports Wear</li>
-            <li>Best in Formal Wear</li>
-            <li>Ambassador and Ambassadress Photogenic (manual)</li>
-            <li>People's Choice Award (manual votes)</li>
-            <li>Ambassador and Ambassadress Congeniality (manual)</li>
-          </ul>
-          <div class="mt-4 text-xs text-slate-300">Manual awards pull from <code>manual_votes</code> (vote_type: PHOTOGENIC, PEOPLES_CHOICE, CONGENIALITY). Update votes in that table to change results.</div>
-        </div>
-        <div class="px-6 pb-6">
-          <div class="mt-4 grid md:grid-cols-2 gap-6">
+        <div class="p-6">
+          <div class="grid md:grid-cols-2 gap-6">
             <?php
-              // Build participant options by division for manual award selectors
-              $divisions = ['Ambassador','Ambassadress'];
-              $participantsByDiv = [];
-              foreach ($divisions as $div) {
-                $stmt = $conn->prepare("SELECT p.id, p.number_label, p.full_name FROM participants p JOIN divisions d ON p.division_id=d.id WHERE p.pageant_id=? AND p.is_active=1 AND d.name=? ORDER BY p.number_label");
-                $stmt->bind_param('is', $pageant_id, $div);
-                $stmt->execute();
-                $res = $stmt->get_result();
-                $participantsByDiv[$div] = $res->fetch_all(MYSQLI_ASSOC);
-                $stmt->close();
-              }
-              // Helper to get current leader by manual_votes for preselect
-              function getManualLeader($conn, $pageant_id, $divName, $type) {
-                $stmt = $conn->prepare("SELECT p.id, COALESCE(SUM(mv.value),0) AS total FROM participants p JOIN divisions d ON p.division_id=d.id LEFT JOIN manual_votes mv ON mv.participant_id=p.id AND mv.pageant_id=? AND mv.vote_type=? WHERE p.pageant_id=? AND p.is_active=1 AND d.name=? GROUP BY p.id ORDER BY total DESC, p.id ASC LIMIT 1");
-                $stmt->bind_param('isis', $pageant_id, $type, $pageant_id, $divName);
-                $stmt->execute();
-                $row = $stmt->get_result()->fetch_assoc();
-                $stmt->close();
-                return $row ? (int)$row['id'] : 0;
-              }
-              $preselects = [
-                'Ambassador' => [
-                  'PHOTOGENIC' => getManualLeader($conn, $pageant_id, 'Ambassador', 'PHOTOGENIC'),
-                  'CONGENIALITY' => getManualLeader($conn, $pageant_id, 'Ambassador', 'CONGENIALITY')
-                ],
-                'Ambassadress' => [
-                  'PHOTOGENIC' => getManualLeader($conn, $pageant_id, 'Ambassadress', 'PHOTOGENIC'),
-                  'CONGENIALITY' => getManualLeader($conn, $pageant_id, 'Ambassadress', 'CONGENIALITY')
-                ]
+              $categories = [
+                ['code'=>'BEST_ADVOCACY','label'=>'Best in Advocacy'],
+                ['code'=>'BEST_TALENT','label'=>'Best in Talent'],
+                ['code'=>'BEST_PRODUCTION','label'=>'Best in Production Number'],
+                ['code'=>'BEST_UNIFORM','label'=>'Best in Uniform Wear'],
+                ['code'=>'BEST_SPORTS','label'=>'Best in Sports Wear'],
+                ['code'=>'BEST_FORMAL','label'=>'Best in Formal Wear'],
+                ['code'=>'PHOTOGENIC','label'=>'Photogenic'],
+                ['code'=>'PEOPLES_CHOICE','label'=>"People's Choice"],
+                ['code'=>'CONGENIALITY','label'=>'Congeniality']
               ];
             ?>
-            <?php foreach (['Ambassador','Ambassadress'] as $div): ?>
-              <div class="border border-white/10 rounded-lg p-4 bg-white/10">
-                <h4 class="font-semibold text-white mb-3"><?php echo $div; ?> Manual Awards</h4>
-                <div class="space-y-3">
-                  <label class="block">
-                    <span class="text-sm text-slate-200">Photogenic (<?php echo $div; ?>)</span>
-                    <select id="manual_<?php echo $div; ?>_PHOTOGENIC" class="mt-1 w-full bg-white/20 border border-white/30 rounded px-3 py-2 text-white text-sm">
-                      <option value="0">-- Select --</option>
-                      <?php foreach ($participantsByDiv[$div] as $p): $sel = ($preselects[$div]['PHOTOGENIC'] ?? 0) == (int)$p['id'] ? 'selected' : ''; ?>
-                        <option value="<?php echo (int)$p['id']; ?>" <?php echo $sel; ?>>#<?php echo htmlspecialchars($p['number_label']); ?> — <?php echo htmlspecialchars($p['full_name']); ?></option>
-                      <?php endforeach; ?>
-                    </select>
-                  </label>
-                  <label class="block">
-                    <span class="text-sm text-slate-200">Congeniality (<?php echo $div; ?>)</span>
-                    <select id="manual_<?php echo $div; ?>_CONGENIALITY" class="mt-1 w-full bg-white/20 border border-white/30 rounded px-3 py-2 text-white text-sm">
-                      <option value="0">-- Select --</option>
-                      <?php foreach ($participantsByDiv[$div] as $p): $sel = ($preselects[$div]['CONGENIALITY'] ?? 0) == (int)$p['id'] ? 'selected' : ''; ?>
-                        <option value="<?php echo (int)$p['id']; ?>" <?php echo $sel; ?>>#<?php echo htmlspecialchars($p['number_label']); ?> — <?php echo htmlspecialchars($p['full_name']); ?></option>
-                      <?php endforeach; ?>
-                    </select>
-                  </label>
-                </div>
+            <?php foreach ($categories as $cat): ?>
+            <div class="border border-white/10 rounded-lg p-4 bg-white/10">
+              <h4 class="font-semibold text-white mb-3"><?php echo htmlspecialchars($cat['label']); ?></h4>
+              <div class="grid grid-cols-1 gap-3">
+                <?php foreach ($divisions as $div): ?>
+                <label class="block">
+                  <span class="text-sm text-slate-200"><?php echo $div; ?></span>
+                  <select id="spec_<?php echo $cat['code']; ?>_<?php echo $div; ?>" class="mt-1 w-full bg-white/20 border border-white/30 rounded px-3 py-2 text-white text-sm">
+                    <option value="0">-- Select --</option>
+                    <?php foreach ($participantsByDiv[$div] as $p): ?>
+                    <option value="<?php echo (int)$p['id']; ?>">#<?php echo htmlspecialchars($p['number_label']); ?> — <?php echo htmlspecialchars($p['full_name']); ?></option>
+                    <?php endforeach; ?>
+                  </select>
+                </label>
+                <?php endforeach; ?>
               </div>
+            </div>
             <?php endforeach; ?>
           </div>
-          <div class="mt-4 flex items-center justify-end gap-2">
-            <button onclick="saveManualAwards()" class="bg-blue-500/30 hover:bg-blue-600/40 text-white text-sm px-4 py-2 rounded border border-white/20">Save Manual Awards</button>
+          <div class="mt-6 flex items-center justify-end gap-2">
+            <button onclick="saveSpecialPicks()" class="bg-blue-500/30 hover:bg-blue-600/40 text-white text-sm px-4 py-2 rounded border border-white/20">Save Special Awards</button>
           </div>
         </div>
       </div>
       <script>
-      async function generateSpecialAwards() {
-        try {
-          const url = new URL(window.location.origin + window.location.pathname.replace(/\/admin\/results\.php$/, '/admin/api_results.php'));
-          url.searchParams.set('action', 'save_special_awards');
-          const res = await fetch(url.toString(), { credentials:'same-origin' });
-          const data = await res.json();
-          if (!res.ok || !data.success) throw new Error(data.error||'Failed to generate special awards');
-          if (typeof showSuccess==='function') showSuccess('Generated', 'Special awards computed and saved');
-        } catch (e) { if (typeof showError==='function') showError('Error', e.message); }
-      }
-      async function togglePublishSpecialAwards() {
+      async function onToggleSpecialPublish(el) {
         try {
           const url = new URL(window.location.origin + window.location.pathname.replace(/\/admin\/results\.php$/, '/admin/api_results.php'));
           url.searchParams.set('action', 'toggle_publish_special_awards');
@@ -696,31 +571,46 @@ include __DIR__ . '/../partials/sidebar_admin.php';
           const data = await res.json();
           if (!res.ok || !data.success) throw new Error(data.error||'Failed to toggle');
           if (typeof showSuccess==='function') showSuccess('Updated', `Special awards ${data.visibility_state==='REVEALED'?'published':'hidden'}`);
+          el.checked = data.visibility_state==='REVEALED';
+        } catch (e) { if (typeof showError==='function') showError('Error', e.message); el.checked = !el.checked; }
+      }
+      async function calculateSpecialAwards() {
+        try {
+          const url = new URL(window.location.origin + window.location.pathname.replace(/\/admin\/results\.php$/, '/admin/api_results.php'));
+          url.searchParams.set('action', 'calculate_special_awards');
+          const res = await fetch(url.toString(), { credentials:'same-origin' });
+          const data = await res.json();
+          if (!res.ok || !data.success) throw new Error(data.error||'Failed to calculate');
+          // data.picks: { CODE: { Ambassador: pid, Ambassadress: pid } }
+          Object.keys(data.picks||{}).forEach(code => {
+            const perDiv = data.picks[code];
+            Object.keys(perDiv).forEach(div => {
+              const el = document.getElementById(`spec_${code}_${div}`);
+              if (el) el.value = String(perDiv[div]||0);
+            });
+          });
+          if (typeof showSuccess==='function') showSuccess('Calculated', 'Special awardees populated');
         } catch (e) { if (typeof showError==='function') showError('Error', e.message); }
       }
-      async function saveManualAwards() {
-        const picks = {};
-        ['Ambassador','Ambassadress'].forEach(div => {
-          picks[div] = {
-            PHOTOGENIC: parseInt(document.getElementById(`manual_${div}_PHOTOGENIC`).value || '0', 10),
-            CONGENIALITY: parseInt(document.getElementById(`manual_${div}_CONGENIALITY`).value || '0', 10)
-          };
+      async function saveSpecialPicks() {
+        // Collect picks from all selectors
+        const codes = ['BEST_ADVOCACY','BEST_TALENT','BEST_PRODUCTION','BEST_UNIFORM','BEST_SPORTS','BEST_FORMAL','PHOTOGENIC','PEOPLES_CHOICE','CONGENIALITY'];
+        const payload = { picks: {} };
+        codes.forEach(code => {
+          payload.picks[code] = {};
+          ['Ambassador','Ambassadress'].forEach(div => {
+            const el = document.getElementById(`spec_${code}_${div}`);
+            payload.picks[code][div] = el ? parseInt(el.value||'0', 10) : 0;
+          });
         });
         try {
           const url = new URL(window.location.origin + window.location.pathname.replace(/\/admin\/results\.php$/, '/admin/api_results.php'));
-          url.searchParams.set('action', 'save_manual_awards');
-          const res = await fetch(url.toString(), {
-            method:'POST',
-            headers:{'Content-Type':'application/json'},
-            credentials:'same-origin',
-            body: JSON.stringify({ picks })
-          });
+          url.searchParams.set('action', 'save_special_awards_picks');
+          const res = await fetch(url.toString(), { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'same-origin', body: JSON.stringify(payload) });
           const data = await res.json();
-          if (!res.ok || !data.success) throw new Error(data.error||'Failed to save manual awards');
-          if (typeof showSuccess==='function') showSuccess('Saved', 'Manual awards saved to votes');
-        } catch (e) {
-          if (typeof showError==='function') showError('Error', e.message);
-        }
+          if (!res.ok || !data.success) throw new Error(data.error||'Failed to save');
+          if (typeof showSuccess==='function') showSuccess('Saved', 'Special awards saved');
+        } catch (e) { if (typeof showError==='function') showError('Error', e.message); }
       }
       </script>
       <?php endif; ?>
