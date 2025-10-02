@@ -169,14 +169,96 @@ if (isset($_POST['submit_scores'])) {
     $conn->close();
 }
 
-// Fetch data for judge interface
+// Handle duo score submissions
+if (isset($_POST['submit_scores_duo'])) {
+    $duo_id = intval($_POST['duo_id'] ?? 0);
+    $judge_id = $_SESSION['judgeID'];
+    $pageant_id = $_SESSION['pageantID'];
+    if ($duo_id <= 0) {
+      $error_message = "Invalid duo.";
+    } else {
+      $conn = $con->opencon();
+      // Determine round context (tie-breaker overrides to a round if present)
+      $stmt = $conn->prepare("SELECT round_id FROM tie_groups WHERE pageant_id = ? AND state = 'in_progress' ORDER BY created_at DESC LIMIT 1");
+      $stmt->bind_param("i", $pageant_id);
+      $stmt->execute();
+      $tg_result = $stmt->get_result();
+      $tg_row = $tg_result->fetch_assoc();
+      $stmt->close();
+      if ($tg_row) {
+        $round_id = $tg_row['round_id'];
+      } else {
+        $stmt = $conn->prepare("SELECT id FROM rounds WHERE pageant_id = ? AND state = 'OPEN' LIMIT 1");
+        $stmt->bind_param("i", $pageant_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $round = $result->fetch_assoc();
+        $stmt->close();
+        $round_id = $round ? $round['id'] : null;
+      }
+      if (!$round_id) {
+        $error_message = "No active round found.";
+      } else {
+        $success_count = 0; $error_count = 0;
+        // Save duo scores
+        foreach ($_POST as $key => $value) {
+          if (strpos($key, 'criterion_') === 0) {
+            $criterion_id = intval(str_replace('criterion_', '', $key));
+            $score = floatval($value);
+            if ($score >= 0) {
+              $stmt = $conn->prepare("INSERT INTO scores_duo (round_id, criterion_id, duo_id, judge_user_id, raw_score) VALUES (?,?,?,?,?) ON DUPLICATE KEY UPDATE raw_score = VALUES(raw_score), updated_at = CURRENT_TIMESTAMP");
+              $stmt->bind_param("iiiid", $round_id, $criterion_id, $duo_id, $judge_id, $score);
+              if ($stmt->execute()) { $success_count++; } else { $error_count++; }
+              $stmt->close();
+            }
+          }
+        }
+        // Mirror to individual participants of the duo
+        $member_ids = [];
+        $stmt = $conn->prepare("SELECT participant_id FROM duo_members WHERE duo_id=?");
+        $stmt->bind_param("i", $duo_id);
+        $stmt->execute();
+        $resM = $stmt->get_result();
+        while ($row = $resM->fetch_assoc()) { $member_ids[] = (int)$row['participant_id']; }
+        $stmt->close();
+        if (!empty($member_ids)) {
+          foreach ($_POST as $key => $value) {
+            if (strpos($key, 'criterion_') === 0) {
+              $criterion_id = intval(str_replace('criterion_', '', $key));
+              $score = floatval($value);
+              if ($score >= 0) {
+                foreach ($member_ids as $pid) {
+                  $stmt = $conn->prepare("INSERT INTO scores (round_id, criterion_id, participant_id, judge_user_id, raw_score) VALUES (?,?,?,?,?) ON DUPLICATE KEY UPDATE raw_score = VALUES(raw_score), updated_at = CURRENT_TIMESTAMP");
+                  $stmt->bind_param("iiiid", $round_id, $criterion_id, $pid, $judge_id, $score);
+                  $stmt->execute();
+                  $stmt->close();
+                }
+              }
+            }
+          }
+        }
+        if ($success_count > 0) { $success_message = "Saved $success_count duo score(s) successfully."; }
+        if ($error_count > 0) { $error_message = "Failed to save $error_count duo score(s)."; }
+      }
+      $conn->close();
+    }
+}
+
+// Fetch data for judge interface (tie-breaker aware, duo-aware)
 $conn = $con->opencon();
 $pageant_id = $_SESSION['pageantID'] ?? 1;
 $judge_id = $_SESSION['judgeID'];
 
-// Check for active tie breaker round in tie_groups
+// Common defaults used by the view
+$participants = [];
+$criteria = [];
+$existingScores = [];
+$current_participant = null;
+$is_pair_scoring = false;
+$duos = [];
+$current_duo = null;
 
-// Use created_at for ordering (since updated_at may not exist)
+// Check for active tie breaker group
 $stmt = $conn->prepare("SELECT * FROM tie_groups WHERE pageant_id = ? AND state = 'in_progress' ORDER BY created_at DESC LIMIT 1");
 $stmt->bind_param("i", $pageant_id);
 $stmt->execute();
@@ -184,103 +266,149 @@ $tie_group = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
 if ($tie_group) {
-  // Tie breaker round is active
-  // Get participant IDs from tie_group_participants
-  $stmt = $conn->prepare("SELECT participant_id FROM tie_group_participants WHERE tie_group_id = ?");
-  $stmt->bind_param("i", $tie_group['id']);
-  $stmt->execute();
-  $result = $stmt->get_result();
-  $participant_ids = [];
-  while ($row = $result->fetch_assoc()) {
-    $participant_ids[] = $row['participant_id'];
-  }
-  $stmt->close();
-  $participants = [];
-  if (!empty($participant_ids)) {
-    $in = implode(',', array_fill(0, count($participant_ids), '?'));
-    $types = str_repeat('i', count($participant_ids));
-    $sql = "SELECT p.*, d.name as division FROM participants p JOIN divisions d ON p.division_id = d.id WHERE p.id IN ($in) AND p.is_active = 1 ORDER BY p.number_label";
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param($types, ...$participant_ids);
+    // Use the round associated with the tie group to derive criteria and context
+    $round_id = (int)$tie_group['round_id'];
+    $stmt = $conn->prepare("SELECT * FROM rounds WHERE id = ? LIMIT 1");
+    $stmt->bind_param("i", $round_id);
     $stmt->execute();
-    $result = $stmt->get_result();
-    $participants = $result->fetch_all(MYSQLI_ASSOC);
+    $active_round = $stmt->get_result()->fetch_assoc();
     $stmt->close();
-  }
-  // Use the most recent finalized round for criteria
-  $stmt = $conn->prepare("SELECT id FROM rounds WHERE pageant_id = ? AND state = 'FINALIZED' ORDER BY sequence DESC LIMIT 1");
-  $stmt->bind_param("i", $pageant_id);
-  $stmt->execute();
-  $round = $stmt->get_result()->fetch_assoc();
-  $stmt->close();
-  $criteria = [];
-  if ($round) {
-    $stmt = $conn->prepare("SELECT c.*, rc.weight, rc.max_score FROM criteria c JOIN round_criteria rc ON c.id = rc.criterion_id WHERE rc.round_id = ? AND c.is_active = 1 ORDER BY rc.display_order");
-    $stmt->bind_param("i", $round['id']);
+
+    // Participants limited to those in the tie group
+    $participant_ids = [];
+    $stmt = $conn->prepare("SELECT participant_id FROM tie_group_participants WHERE tie_group_id = ?");
+    $stmt->bind_param("i", $tie_group['id']);
     $stmt->execute();
-    $result = $stmt->get_result();
-    $criteria = $result->fetch_all(MYSQLI_ASSOC);
+    $res = $stmt->get_result();
+    while ($row = $res->fetch_assoc()) { $participant_ids[] = (int)$row['participant_id']; }
     $stmt->close();
-  }
-  $participant_index = intval($_GET['participant'] ?? 0);
-  $current_participant = isset($participants[$participant_index]) ? $participants[$participant_index] : null;
-  $existingScores = [];
-  if ($current_participant && $round) {
-    $stmt = $conn->prepare("SELECT criterion_id, raw_score FROM scores WHERE round_id = ? AND participant_id = ? AND judge_user_id = ?");
-    $stmt->bind_param("iii", $round['id'], $current_participant['id'], $judge_id);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    while ($row = $result->fetch_assoc()) {
-      $existingScores[$row['criterion_id']] = ['score_value' => $row['raw_score']];
+
+    if (!empty($participant_ids)) {
+        $placeholders = implode(',', array_fill(0, count($participant_ids), '?'));
+        $types = str_repeat('i', count($participant_ids));
+        $sql = "SELECT p.*, d.name as division FROM participants p JOIN divisions d ON p.division_id = d.id WHERE p.id IN ($placeholders) AND p.is_active = 1 ORDER BY p.number_label";
+        $stmt = $conn->prepare($sql);
+        // Spread params dynamically
+        $stmt->bind_param($types, ...$participant_ids);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $participants = $result->fetch_all(MYSQLI_ASSOC);
+        $stmt->close();
     }
-    $stmt->close();
-  }
-  $active_round = [
-    'name' => 'Tie Breaker Round (Score: ' . $tie_group['score'] . ')',
-    'start_time' => $tie_group['start_time'] ?? null,
-    'tie_group_id' => $tie_group['id'],
-    'state' => $tie_group['state'],
-  ];
+
+    // Criteria for this round
+    if (!empty($active_round)) {
+        $stmt = $conn->prepare("SELECT c.*, rc.weight, rc.max_score FROM criteria c JOIN round_criteria rc ON c.id = rc.criterion_id WHERE rc.round_id = ? AND c.is_active = 1 ORDER BY rc.display_order");
+        $stmt->bind_param("i", $active_round['id']);
+        $stmt->execute();
+        $criteria = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+        $stmt->close();
+
+        // Current selected participant in tie-breaker mode
+        $participant_index = intval($_GET['participant'] ?? 0);
+        if (isset($participants[$participant_index])) {
+            $current_participant = $participants[$participant_index];
+            $stmt = $conn->prepare("SELECT criterion_id, raw_score FROM scores WHERE round_id = ? AND participant_id = ? AND judge_user_id = ?");
+            $stmt->bind_param("iii", $active_round['id'], $current_participant['id'], $judge_id);
+            $stmt->execute();
+            $res = $stmt->get_result();
+            while ($row = $res->fetch_assoc()) { $existingScores[$row['criterion_id']] = ['score_value' => $row['raw_score']]; }
+            $stmt->close();
+        }
+    }
+
+    // Enrich $active_round for the tie-breaker timer UI
+    if (!empty($active_round)) {
+        $active_round['name'] = 'Tie Breaker: ' . $active_round['name'];
+    } else {
+        $active_round = ['id' => $round_id, 'name' => 'Tie Breaker Round', 'pair_scoring' => 0];
+    }
+    $active_round['start_time'] = $tie_group['start_time'] ?? null;
+    $active_round['tie_group_id'] = $tie_group['id'];
+    $active_round['state'] = $tie_group['state'];
 } else {
-  // Fallback to normal round logic
-  $stmt = $conn->prepare("SELECT * FROM rounds WHERE pageant_id = ? AND state = 'OPEN' ORDER BY sequence LIMIT 1");
-  $stmt->bind_param("i", $pageant_id);
-  $stmt->execute();
-  $active_round = $stmt->get_result()->fetch_assoc();
-  $stmt->close();
-  $participants = [];
-  $criteria = [];
-  $existingScores = [];
-  $current_participant = null;
-  if ($active_round) {
-    $stmt = $conn->prepare("SELECT p.*, d.name as division FROM participants p JOIN divisions d ON p.division_id = d.id WHERE p.pageant_id = ? AND p.is_active = 1 ORDER BY p.number_label");
+    // Normal active round
+    $stmt = $conn->prepare("SELECT * FROM rounds WHERE pageant_id = ? AND state = 'OPEN' ORDER BY sequence LIMIT 1");
     $stmt->bind_param("i", $pageant_id);
     $stmt->execute();
-    $result = $stmt->get_result();
-    $participants = $result->fetch_all(MYSQLI_ASSOC);
+    $active_round = $stmt->get_result()->fetch_assoc();
     $stmt->close();
-    $stmt = $conn->prepare("SELECT c.*, rc.weight, rc.max_score FROM criteria c JOIN round_criteria rc ON c.id = rc.criterion_id WHERE rc.round_id = ? AND c.is_active = 1 ORDER BY rc.display_order");
-    $stmt->bind_param("i", $active_round['id']);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $criteria = $result->fetch_all(MYSQLI_ASSOC);
-    $stmt->close();
-    $participant_index = intval($_GET['participant'] ?? 0);
-    if (isset($participants[$participant_index])) {
-      $current_participant = $participants[$participant_index];
-      $stmt = $conn->prepare("SELECT criterion_id, raw_score FROM scores WHERE round_id = ? AND participant_id = ? AND judge_user_id = ?");
-      $stmt->bind_param("iii", $active_round['id'], $current_participant['id'], $judge_id);
-      $stmt->execute();
-      $result = $stmt->get_result();
-      while ($row = $result->fetch_assoc()) {
-        $existingScores[$row['criterion_id']] = ['score_value' => $row['raw_score']];
-      }
-      $stmt->close();
+
+    if ($active_round) {
+        // Gate by assignments if exist
+        $stmt = $conn->prepare("SELECT COUNT(*) AS cnt FROM round_judges WHERE round_id=?");
+        $stmt->bind_param("i", $active_round['id']);
+        $stmt->execute();
+        $hasAssignments = (int)$stmt->get_result()->fetch_assoc()['cnt'] > 0;
+        $stmt->close();
+        if ($hasAssignments) {
+            $stmt = $conn->prepare("SELECT 1 FROM round_judges WHERE round_id=? AND judge_user_id=? LIMIT 1");
+            $stmt->bind_param("ii", $active_round['id'], $judge_id);
+            $stmt->execute();
+            $allowed = (bool)$stmt->get_result()->fetch_row();
+            $stmt->close();
+            if (!$allowed) {
+                $error_message = "You are not assigned to this round. Please wait for the admin to assign you.";
+                // Do not proceed with loading data
+                $conn->close();
+                goto RENDER_VIEW;
+            }
+        }
+
+        $is_pair_scoring = !empty($active_round['pair_scoring']) && (int)$active_round['pair_scoring'] === 1;
+
+        // Load criteria once
+        $stmt = $conn->prepare("SELECT c.*, rc.weight, rc.max_score FROM criteria c JOIN round_criteria rc ON c.id = rc.criterion_id WHERE rc.round_id = ? AND c.is_active = 1 ORDER BY rc.display_order");
+        $stmt->bind_param("i", $active_round['id']);
+        $stmt->execute();
+        $criteria = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+        $stmt->close();
+
+        if ($is_pair_scoring) {
+            // Duo mode
+            $stmt = $conn->prepare("SELECT d.* FROM duos d WHERE d.pageant_id=? ORDER BY d.id");
+            $stmt->bind_param("i", $pageant_id);
+            $stmt->execute();
+            $resD = $stmt->get_result();
+            while ($d = $resD->fetch_assoc()) { $duos[] = $d; }
+            $stmt->close();
+
+            $duo_index = intval($_GET['duo'] ?? 0);
+            if (isset($duos[$duo_index])) {
+                $current_duo = $duos[$duo_index];
+                $stmt = $conn->prepare("SELECT criterion_id, raw_score FROM scores_duo WHERE round_id = ? AND duo_id = ? AND judge_user_id = ?");
+                $stmt->bind_param("iii", $active_round['id'], $current_duo['id'], $judge_id);
+                $stmt->execute();
+                $res = $stmt->get_result();
+                while ($row = $res->fetch_assoc()) { $existingScores[$row['criterion_id']] = ['score_value' => $row['raw_score']]; }
+                $stmt->close();
+            }
+        } else {
+            // Individual mode
+            $stmt = $conn->prepare("SELECT p.*, d.name as division FROM participants p JOIN divisions d ON p.division_id = d.id WHERE p.pageant_id = ? AND p.is_active = 1 ORDER BY p.number_label");
+            $stmt->bind_param("i", $pageant_id);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $participants = $result->fetch_all(MYSQLI_ASSOC);
+            $stmt->close();
+
+            $participant_index = intval($_GET['participant'] ?? 0);
+            if (isset($participants[$participant_index])) {
+                $current_participant = $participants[$participant_index];
+                $stmt = $conn->prepare("SELECT criterion_id, raw_score FROM scores WHERE round_id = ? AND participant_id = ? AND judge_user_id = ?");
+                $stmt->bind_param("iii", $active_round['id'], $current_participant['id'], $judge_id);
+                $stmt->execute();
+                $res = $stmt->get_result();
+                while ($row = $res->fetch_assoc()) { $existingScores[$row['criterion_id']] = ['score_value' => $row['raw_score']]; }
+                $stmt->close();
+            }
+        }
     }
-  }
 }
 
 $conn->close();
+
+RENDER_VIEW:
 
 $pageTitle = 'Judge Active Round';
 include __DIR__ . '/../partials/head.php';
@@ -470,8 +598,21 @@ function confirmLogout() {
 
     <!-- Participant Navigation -->
     <div class="bg-white bg-opacity-10 border border-white border-opacity-20 rounded-xl p-4 mb-6 backdrop-blur-md">
-      <h3 class="text-lg font-semibold text-white mb-4">Select Participant to Score</h3>
+      <h3 class="text-lg font-semibold text-white mb-4"><?= $is_pair_scoring ? 'Select Duo to Score' : 'Select Participant to Score' ?></h3>
       <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+        <?php if ($is_pair_scoring): ?>
+          <?php foreach ($duos as $index => $duo):
+            $isSelected = ($current_duo && $current_duo['id'] == $duo['id']);
+            $baseClass = 'block text-center p-3 rounded-lg border transition-colors font-semibold shadow-sm';
+            $selectedClass = 'bg-blue-500 bg-opacity-20 text-white border-2 border-yellow-400 drop-shadow-lg';
+            $unselectedClass = 'bg-white bg-opacity-10 text-slate-200 border-white border-opacity-10 hover:bg-white hover:bg-opacity-20';
+          ?>
+            <a href="?duo=<?= $index ?>" class="<?= $baseClass . ' ' . ($isSelected ? $selectedClass : $unselectedClass) ?>">
+              <div class="font-semibold"><?= htmlspecialchars($duo['name'], ENT_QUOTES, 'UTF-8') ?></div>
+              <div class="text-xs mt-1 text-slate-200">Duo</div>
+            </a>
+          <?php endforeach; ?>
+        <?php else: ?>
         <?php foreach ($participants as $index => $participant):
           $isSelected = ($current_participant && $current_participant['id'] == $participant['id']);
           $baseClass = 'block text-center p-3 rounded-lg border transition-colors font-semibold shadow-sm';
@@ -501,10 +642,21 @@ function confirmLogout() {
             </div>
           </a>
         <?php endforeach; ?>
+        <?php endif; ?>
       </div>
     </div>
 
-    <?php if ($current_participant): ?>
+    <?php if ($is_pair_scoring && $current_duo): ?>
+      <div class="bg-white bg-opacity-10 border border-white border-opacity-20 rounded-xl p-6 backdrop-blur-md">
+        <div class="flex items-center justify-between mb-6">
+          <div>
+            <h3 class="text-lg font-semibold text-white">Scoring: Duo <?= htmlspecialchars($current_duo['name'], ENT_QUOTES, 'UTF-8') ?></h3>
+          </div>
+          <div class="text-sm text-slate-300">Duo <?= $duo_index + 1 ?> of <?= count($duos) ?></div>
+        </div>
+        <?php $duo = $current_duo; include __DIR__ . '/../components/score_form_duo.php'; ?>
+      </div>
+    <?php elseif ($current_participant): ?>
       <!-- Scoring Form -->
       <div class="bg-white bg-opacity-10 border border-white border-opacity-20 rounded-xl p-6 backdrop-blur-md">
         <div class="flex items-center justify-between mb-6">

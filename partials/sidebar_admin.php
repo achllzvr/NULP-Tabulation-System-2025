@@ -25,6 +25,11 @@ $navItems = [
         'href' => $prefix . 'rounds.php',
         'icon' => 'M9 5H7a2 2 0 00-2 2v4a2 2 0 002 2h2m2-6h6a2 2 0 012 2v4a2 2 0 01-2 2h-6m2-6V4a2 2 0 00-2-2H9a2 2 0 00-2 2v1m2 0h4'
     ],
+  [
+    'label' => 'Duos / Pairs',
+    'href' => $prefix . 'duos.php',
+    'icon' => 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m8-9a3 3 0 11-6 0 3 3 0 016 0z'
+  ],
     [
         'label' => 'Live Control',
         'href' => $prefix . 'live_control.php',

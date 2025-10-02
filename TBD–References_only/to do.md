@@ -68,8 +68,8 @@ REWORK
     - [ ] Pre-Pageant Round Type uses Duos/ by pair scoring.
 - [ ] REQUIRED: Assign Judges on Round Feature.
 - [ ] In Live Control Center, instead of Live Activity, Have a live judge monitoring similar to the advancements panel. This will display the judges and their progress FOR THE CURRENT ACTIVE ROUND.
-- [ ] If there is ongoing round, blur the rows in the results page and an indicator that indicates “Ongoing Round. Results will reveal afterwards”
-- [ ] Participant Details Modal. Display Criteria and Score.
+- [x] If there is ongoing round, blur the rows in the results page and an indicator that indicates “Ongoing Round. Results will reveal afterwards”
+- [x] Participant Details Modal. Display Criteria and Score.
 - [ ] Judges’ Advancements Validation UI Fix
     - [ ] Ongoing Advancement Validation but UI still displays the No Active Round below the Advancements Validation Card
     - [ ] Also, details are not showing up.
@@ -79,12 +79,12 @@ REWORK
     - [ ] Once Advancements are confirmed, disable page again.
 - [ ] Results Page and Advancements Computations
     - [ ] Scores for all rounds should be a max of 100% (as per guidelines) and computations of the scores and weights of individual round will be followed as per guidelines.
-- [ ] Remove the Awards Page since we’ll be using the Awards in the Results page.
-- [ ] Make Public View fetch real data.
+- [x] Remove the Awards Page since we’ll be using the Awards in the Results page.
+- [x] Make Public View fetch real data.
 
 Questions
-- [ ] What does Propose in Assign Major Awards do and What does Save Winners do.
-- [ ] For Auto-Generate in Award Results, this shows up:
+- [x] What does Propose in Assign Major Awards do and What does Save Winners do.
+- [x] For Auto-Generate in Award Results, this shows up:
 	“Data truncated for column 'division_scope' at row 1”
 
 OTHERS
