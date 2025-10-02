@@ -20,8 +20,21 @@
       </div>
     <?php endif; ?>
   </div>
-  <!-- Ensure showModal makes the container flex -->
+  <!-- Fallback: define minimal showModal/hideModal if global not present yet -->
   <script>
-    // no-op, styles rely on global showModal/hideModal in assets/js/scoring.js
+    (function(){
+      if (typeof window.showModal !== 'function') {
+        window.showModal = function(id){
+          var el = document.getElementById(id); if(!el) return;
+          el.classList.remove('hidden','invisible'); el.classList.add('flex'); el.setAttribute('aria-hidden','false');
+        };
+      }
+      if (typeof window.hideModal !== 'function') {
+        window.hideModal = function(id){
+          var el = document.getElementById(id); if(!el) return;
+          el.classList.add('hidden'); el.classList.remove('flex'); el.setAttribute('aria-hidden','true');
+        };
+      }
+    })();
   </script>
 </div>

@@ -138,12 +138,15 @@ function submitScores(e){
   return false;
 }
 
-function showModal(id){
+window.showModal = function(id){
   const el = document.getElementById(id);
   if (!el) return;
   const card = el.firstElementChild;
-  el.classList.remove('hidden');
+  // Remove any visibility blockers first
+  el.classList.remove('hidden','invisible');
+  // Ensure flex display (for centering)
   el.classList.add('flex');
+  el.setAttribute('aria-hidden','false');
   if (card) {
     // Reset exit classes and apply enter animation
     card.classList.remove('modal-exit','modal-exit-active');
@@ -155,8 +158,8 @@ function showModal(id){
       }, 170);
     });
   }
-}
-function hideModal(id){
+};
+window.hideModal = function(id){
   const el = document.getElementById(id);
   if (!el) return;
   const card = el.firstElementChild;
@@ -169,10 +172,12 @@ function hideModal(id){
         card.classList.remove('modal-exit','modal-exit-active');
         el.classList.add('hidden');
         el.classList.remove('flex');
+        el.setAttribute('aria-hidden','true');
       }, 140);
     });
   } else {
     el.classList.add('hidden');
     el.classList.remove('flex');
+    el.setAttribute('aria-hidden','true');
   }
-}
+};
