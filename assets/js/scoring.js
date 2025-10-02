@@ -138,5 +138,41 @@ function submitScores(e){
   return false;
 }
 
-function showModal(id){ const el=document.getElementById(id); if(el){ el.classList.remove('hidden'); el.classList.add('flex'); }}
-function hideModal(id){ const el=document.getElementById(id); if(el){ el.classList.add('hidden'); el.classList.remove('flex'); }}
+function showModal(id){
+  const el = document.getElementById(id);
+  if (!el) return;
+  const card = el.firstElementChild;
+  el.classList.remove('hidden');
+  el.classList.add('flex');
+  if (card) {
+    // Reset exit classes and apply enter animation
+    card.classList.remove('modal-exit','modal-exit-active');
+    card.classList.add('modal-enter');
+    requestAnimationFrame(() => {
+      card.classList.add('modal-enter-active');
+      setTimeout(() => {
+        card.classList.remove('modal-enter','modal-enter-active');
+      }, 170);
+    });
+  }
+}
+function hideModal(id){
+  const el = document.getElementById(id);
+  if (!el) return;
+  const card = el.firstElementChild;
+  if (card) {
+    card.classList.remove('modal-enter','modal-enter-active');
+    card.classList.add('modal-exit');
+    requestAnimationFrame(() => {
+      card.classList.add('modal-exit-active');
+      setTimeout(() => {
+        card.classList.remove('modal-exit','modal-exit-active');
+        el.classList.add('hidden');
+        el.classList.remove('flex');
+      }, 140);
+    });
+  } else {
+    el.classList.add('hidden');
+    el.classList.remove('flex');
+  }
+}

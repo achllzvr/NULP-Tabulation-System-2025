@@ -88,7 +88,7 @@ try {
         $judge_user_id = (int)($body['judge_user_id'] ?? 0);
         $new_raw = isset($body['raw_score']) ? (float)$body['raw_score'] : null;
         $reason = trim($body['reason'] ?? '');
-    $judge_username = trim($body['judge_username'] ?? '');
+    // username is no longer needed; we validate by judge_user_id + password
     $judge_password = (string)($body['judge_password'] ?? '');
         if (!$participant_id || !$criterion_id || !$judge_user_id || $new_raw===null || $reason==='') {
             throw new Exception('Missing fields');
@@ -96,11 +96,10 @@ try {
         if ($judge_password === '') {
             throw new Exception('Judge password required');
         }
-        // Validate judge credentials against current pageant context
-        // Try multiple sources to get pageant id
-        $pageant_id = $_SESSION['pageant_id'] ?? ($_SESSION['pageantID'] ?? null);
-        if (!$pageant_id && $participant_id) {
-            // Derive from participant
+        // Validate judge credentials against the participant's pageant context
+        // Always try to derive from participant first to avoid session mismatches
+        $pageant_id = null;
+        if ($participant_id) {
             $stmtP = $conn->prepare("SELECT pageant_id FROM participants WHERE id=? LIMIT 1");
             $stmtP->bind_param('i', $participant_id);
             $stmtP->execute();
@@ -108,9 +107,13 @@ try {
             if ($rw = $rp->fetch_assoc()) { $pageant_id = (int)$rw['pageant_id']; }
             $stmtP->close();
         }
+        if (!$pageant_id) {
+            // Fallback to session if participant lookup failed
+            $pageant_id = $_SESSION['pageant_id'] ?? ($_SESSION['pageantID'] ?? null);
+        }
         if (!$pageant_id) { throw new Exception('Pageant context missing'); }
         // Prefer verifying by selected judge_user_id to avoid username mismatch issues
-        $stmtJ = $conn->prepare("SELECT u.id, u.username, u.password_hash FROM users u JOIN pageant_users pu ON pu.user_id=u.id WHERE u.id=? AND u.is_active=1 AND pu.pageant_id=? AND (pu.role='JUDGE' OR pu.role='judge') LIMIT 1");
+    $stmtJ = $conn->prepare("SELECT u.id, u.username, u.password_hash FROM users u JOIN pageant_users pu ON pu.user_id=u.id WHERE u.id=? AND u.is_active=1 AND pu.pageant_id=? AND LOWER(TRIM(pu.role))='judge' LIMIT 1");
         $stmtJ->bind_param('ii', $judge_user_id, $pageant_id);
         $stmtJ->execute();
         $resJ = $stmtJ->get_result();
@@ -129,8 +132,9 @@ try {
         $score_id = null; if ($row = $r->fetch_assoc()) { $score_id = (int)$row['id']; }
         $stmt->close();
         if ($score_id) {
-            $stmtU = $conn->prepare("UPDATE scores SET raw_score=?, updated_at=NOW() WHERE id=?");
-            $stmtU->bind_param('di', $new_raw, $score_id);
+            $stmtU = $conn->prepare("UPDATE scores SET raw_score=?, override_reason=?, overridden_by_user_id=?, updated_at=NOW() WHERE id=?");
+            $adminId = (int)$_SESSION['adminID'];
+            $stmtU->bind_param('dsii', $new_raw, $reason, $adminId, $score_id);
             $stmtU->execute();
             $stmtU->close();
         } else {
@@ -142,13 +146,26 @@ try {
             $round_id = ($rw = $rr->fetch_assoc()) ? (int)$rw['round_id'] : null;
             $stmtR->close();
             if (!$round_id) throw new Exception('Cannot infer round for criterion');
-            $stmtI = $conn->prepare("INSERT INTO scores(round_id, criterion_id, participant_id, judge_user_id, raw_score, created_at, updated_at) VALUES(?,?,?,?,?,NOW(),NOW())");
-            $stmtI->bind_param('iiiid', $round_id, $criterion_id, $participant_id, $judge_user_id, $new_raw);
+            $stmtI = $conn->prepare("INSERT INTO scores(round_id, criterion_id, participant_id, judge_user_id, raw_score, override_reason, overridden_by_user_id, created_at, updated_at) VALUES(?,?,?,?,?,?,?,NOW(),NOW())");
+            $adminId = (int)$_SESSION['adminID'];
+            $stmtI->bind_param('iiiidsi', $round_id, $criterion_id, $participant_id, $judge_user_id, $new_raw, $reason, $adminId);
             $stmtI->execute();
+            $score_id = $stmtI->insert_id;
             $stmtI->close();
         }
-        // Insert audit log if table exists
-        $conn->query("INSERT INTO audit_logs(action, details) VALUES('override_score', 'participant=".$participant_id.";criterion=".$criterion_id.";judge=".$judge_user_id.";by=admin:".$_SESSION['adminID']."')");
+        // Insert audit log (schema: pageant_id, user_id, action_type, entity_type, entity_id, before_json, after_json)
+        $after = json_encode([
+            'participant_id' => $participant_id,
+            'criterion_id' => $criterion_id,
+            'judge_user_id' => $judge_user_id,
+            'raw_score' => $new_raw,
+            'reason' => $reason
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $stmtAL = $conn->prepare("INSERT INTO audit_logs(pageant_id, user_id, action_type, entity_type, entity_id, before_json, after_json) VALUES(?, ?, 'override_score', 'score', ?, NULL, ?)");
+        $adminId = isset($_SESSION['adminID']) ? (int)$_SESSION['adminID'] : null;
+        $stmtAL->bind_param('iiis', $pageant_id, $adminId, $score_id, $after);
+        $stmtAL->execute();
+        $stmtAL->close();
         echo json_encode(['success' => true]);
         exit();
     }

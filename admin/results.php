@@ -654,7 +654,7 @@ include __DIR__ . '/../partials/sidebar_admin.php';
           <?php
             // Judges for selector (role must be 'JUDGE')
             $judges = [];
-            $resJ = $conn->query("SELECT u.id, u.full_name FROM users u JOIN pageant_users pu ON pu.user_id=u.id WHERE pu.pageant_id=".(int)$pageant_id." AND (pu.role='JUDGE' OR pu.role='judge') AND u.is_active=1");
+            $resJ = $conn->query("SELECT u.id, u.full_name FROM users u JOIN pageant_users pu ON pu.user_id=u.id WHERE pu.pageant_id=".(int)$pageant_id." AND LOWER(TRIM(pu.role))='judge' AND u.is_active=1");
             if ($resJ) { $judges = $resJ->fetch_all(MYSQLI_ASSOC); }
             $selected_judge = isset($_GET['judge']) ? (int)$_GET['judge'] : 0;
           ?>
@@ -811,6 +811,7 @@ $title = 'Participant Details';
 $bodyHtml = '<div id="participantDetailsBody" class="space-y-3 text-slate-200 text-sm">Loading...</div>'
           . '<div class="pt-4"><button onclick="hideModal(\'participantDetailsModal\')" class="w-full bg-white bg-opacity-10 hover:bg-white hover:bg-opacity-20 text-white font-medium px-6 py-3 rounded-lg border border-white border-opacity-20 backdrop-blur-sm transition-colors">Close</button></div>';
 $footerHtml = '';
+$hideCloseButton = true; // remove redundant header close; we already render a Cancel/Close control in body
 include __DIR__ . '/../components/modal.php';
 ?>
 
@@ -819,23 +820,21 @@ let editContext = { participantId: 0, criterionId: 0 };
 function openEditScore(pid, cid, participantLabel, criterionName) {
   editContext = { participantId: pid, criterionId: cid };
   const body = document.getElementById('participantDetailsBody');
+  const judgeSel = document.getElementById('tabJudge');
+  const judgeId = judgeSel ? parseInt(judgeSel.value, 10) : 0;
+  const judgeName = judgeSel && judgeSel.selectedOptions && judgeSel.selectedOptions[0] ? judgeSel.selectedOptions[0].textContent : '';
   body.innerHTML = `
     <div class="space-y-3">
       <div class="text-white">${participantLabel}</div>
       <div class="text-slate-200 text-sm">Criterion: ${criterionName}</div>
+      ${judgeId ? `<div class=\"text-slate-200 text-sm\">Judge: <span class=\"text-white font-medium\">${judgeName}</span></div>` : `<div class=\"text-yellow-200 text-sm\">Select a Judge first to edit raw scores.</div>`}
       <div>
         <label class="block text-sm text-slate-200 mb-1">New Raw Score</label>
         <input id="overrideScoreInput" type="number" step="0.01" class="w-full bg-white/20 border border-white/30 rounded px-3 py-2 text-white" />
       </div>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div>
-          <label class="block text-sm text-slate-200 mb-1">Judge Username (optional)</label>
-          <input id="overrideJudgeUser" type="text" autocomplete="username" class="w-full bg-white/20 border border-white/30 rounded px-3 py-2 text-white" placeholder="Optional: matches selected judge" />
-        </div>
-        <div>
-          <label class="block text-sm text-slate-200 mb-1">Judge Password</label>
-          <input id="overrideJudgePass" type="password" autocomplete="current-password" class="w-full bg-white/20 border border-white/30 rounded px-3 py-2 text-white" placeholder="Enter judge password" />
-        </div>
+      <div>
+        <label class="block text-sm text-slate-200 mb-1">Judge Password</label>
+        <input id="overrideJudgePass" type="password" autocomplete="current-password" class="w-full bg-white/20 border border-white/30 rounded px-3 py-2 text-white" placeholder="Enter judge password" />
       </div>
       <div>
         <label class="block text-sm text-slate-200 mb-1">Reason (required)</label>
@@ -852,7 +851,6 @@ async function submitOverride() {
   const score = parseFloat(document.getElementById('overrideScoreInput').value);
   const reason = (document.getElementById('overrideReasonInput').value||'').trim();
   const judge = document.getElementById('tabJudge') ? parseInt(document.getElementById('tabJudge').value, 10) : 0;
-  const judgeUsername = (document.getElementById('overrideJudgeUser')?.value || '').trim();
   const judgePassword = (document.getElementById('overrideJudgePass')?.value || '').trim();
   if (!judge) { if (typeof showError==='function') showError('Error','Select a Judge to edit raw scores'); return; }
   if (isNaN(score)) { if (typeof showError==='function') showError('Error','Enter a valid score'); return; }
@@ -861,7 +859,7 @@ async function submitOverride() {
   try {
     const url = new URL(window.location.origin + window.location.pathname.replace(/\/admin\/results\.php$/, '/admin/api_results.php'));
     url.searchParams.set('action','override_score');
-    const body = { participant_id: editContext.participantId, criterion_id: editContext.criterionId, judge_user_id: judge, raw_score: score, reason, judge_username: judgeUsername, judge_password: judgePassword };
+    const body = { participant_id: editContext.participantId, criterion_id: editContext.criterionId, judge_user_id: judge, raw_score: score, reason, judge_password: judgePassword };
     const res = await fetch(url.toString(), { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'same-origin', body: JSON.stringify(body) });
     const data = await res.json();
     if (!res.ok || !data.success) throw new Error(data.error||'Failed');
