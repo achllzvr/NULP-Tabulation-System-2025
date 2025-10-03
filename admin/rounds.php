@@ -161,27 +161,54 @@ if (isset($_POST['toggle_round'])) {
       }
       // Guard finalization until all judges sign
       if ($new_state === 'FINALIZED') {
-        // Check round signing complete
-        $stmt4 = $conn->prepare("SELECT rs.id FROM round_signing rs LEFT JOIN round_signing_judges rj ON rj.round_signing_id = rs.id AND rj.confirmed = 0 WHERE rs.round_id = ? AND rs.is_active = 1 GROUP BY rs.id HAVING COUNT(rj.judge_user_id) = 0");
-        $stmt4->bind_param("i", $round_id);
-        $stmt4->execute();
-        $okRow = $stmt4->get_result()->fetch_assoc();
-        $stmt4->close();
-        if (!$okRow) {
+        // Require confirmations from assigned judges (dynamic to current assignments)
+        // Find active signing session
+        $stmtSig = $conn->prepare("SELECT id FROM round_signing WHERE round_id = ? AND is_active = 1 LIMIT 1");
+        $stmtSig->bind_param("i", $round_id);
+        $stmtSig->execute();
+        $sigRow = $stmtSig->get_result()->fetch_assoc();
+        $stmtSig->close();
+        if (!$sigRow) {
           // Revert finalize and prompt
           $stmtB = $conn->prepare("UPDATE rounds SET state='CLOSED' WHERE id = ?");
           $stmtB->bind_param("i", $round_id);
           $stmtB->execute();
           $stmtB->close();
-          throw new Exception('All judges must sign this round before finalization.');
-        } else {
-          // Close signing session
-          $stmtC = $conn->prepare("UPDATE round_signing SET is_active = 0, closed_at = NOW() WHERE id = ?");
-          $sid = (int)$okRow['id'];
-          $stmtC->bind_param("i", $sid);
-          $stmtC->execute();
-          $stmtC->close();
+          throw new Exception('Signing session not found. Start signing and collect confirmations from assigned judges.');
         }
+        $sid = (int)$sigRow['id'];
+        // Assigned active judges
+        $stmtA = $conn->prepare("SELECT COUNT(*) AS assigned
+                                 FROM round_judges rj
+                                 JOIN users u ON u.id = rj.judge_user_id AND u.is_active = 1
+                                 WHERE rj.round_id = ? AND rj.pageant_id = (SELECT pageant_id FROM rounds WHERE id = ?)");
+        $stmtA->bind_param("ii", $round_id, $round_id);
+        $stmtA->execute();
+        $assigned = (int)($stmtA->get_result()->fetch_assoc()['assigned'] ?? 0);
+        $stmtA->close();
+        // Confirmed among assigned
+        $stmtC = $conn->prepare("SELECT SUM(CASE WHEN rjs.confirmed=1 THEN 1 ELSE 0 END) AS confirmed
+                                 FROM round_judges rj
+                                 JOIN users u ON u.id = rj.judge_user_id AND u.is_active = 1
+                                 LEFT JOIN round_signing_judges rjs ON rjs.judge_user_id = rj.judge_user_id AND rjs.round_signing_id = ?
+                                 WHERE rj.round_id = ? AND rj.pageant_id = (SELECT pageant_id FROM rounds WHERE id = ?)");
+        $stmtC->bind_param("iii", $sid, $round_id, $round_id);
+        $stmtC->execute();
+        $confirmed = (int)($stmtC->get_result()->fetch_assoc()['confirmed'] ?? 0);
+        $stmtC->close();
+        if ($assigned === 0 || $confirmed < $assigned) {
+          // Revert finalize and prompt
+          $stmtB = $conn->prepare("UPDATE rounds SET state='CLOSED' WHERE id = ?");
+          $stmtB->bind_param("i", $round_id);
+          $stmtB->execute();
+          $stmtB->close();
+          throw new Exception('All assigned judges must sign this round before finalization.');
+        }
+        // Close signing session
+        $stmtC2 = $conn->prepare("UPDATE round_signing SET is_active = 0, closed_at = NOW() WHERE id = ?");
+        $stmtC2->bind_param("i", $sid);
+        $stmtC2->execute();
+        $stmtC2->close();
       }
       $success_message = "Round status updated successfully to " . $new_state . ".";
       $show_success_alert = true;
@@ -489,21 +516,50 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                     // If round has a signing session active and not all judges confirmed, block finalization action
                     $signing_blocked = false;
                     $signing_tooltip = '';
-                    // We'll check signing state using a lightweight query per round
+                    // Dynamic gating: require confirmations from currently assigned judges only
                     $connChk = $con->opencon();
-                    $stmtS = $connChk->prepare("SELECT rs.id, SUM(CASE WHEN rj.confirmed=0 THEN 1 ELSE 0 END) AS pending FROM round_signing rs LEFT JOIN round_signing_judges rj ON rj.round_signing_id = rs.id WHERE rs.round_id = ? AND rs.is_active = 1 GROUP BY rs.id LIMIT 1");
-                    $stmtS->bind_param("i", $round['id']);
-                    $stmtS->execute();
-                    $resS = $stmtS->get_result()->fetch_assoc();
-                    $stmtS->close();
-                    $connChk->close();
-                    if ($resS) {
-                      $pending = (int)($resS['pending'] ?? 0);
-                      if ($pending > 0) {
+                    // Count active assigned judges for this round
+                    $stmtA = $connChk->prepare("SELECT COUNT(*) AS assigned
+                                                 FROM round_judges rj
+                                                 JOIN users u ON u.id = rj.judge_user_id
+                                                 WHERE rj.round_id = ?
+                                                   AND rj.pageant_id = (SELECT pageant_id FROM rounds WHERE id = ?)
+                                                   AND u.is_active = 1");
+                    $stmtA->bind_param("ii", $round['id'], $round['id']);
+                    $stmtA->execute();
+                    $assigned = (int)($stmtA->get_result()->fetch_assoc()['assigned'] ?? 0);
+                    $stmtA->close();
+                    if ($assigned > 0) {
+                      // Get active signing session id
+                      $stmtSig = $connChk->prepare("SELECT id FROM round_signing WHERE round_id = ? AND is_active = 1 LIMIT 1");
+                      $stmtSig->bind_param("i", $round['id']);
+                      $stmtSig->execute();
+                      $sigRow = $stmtSig->get_result()->fetch_assoc();
+                      $stmtSig->close();
+                      if (!$sigRow) {
                         $signing_blocked = true;
-                        $signing_tooltip = 'Finalize disabled until all judges sign this round.';
+                        $signing_tooltip = 'Start signing: assigned judges must confirm before finalization.';
+                      } else {
+                        $signing_id_chk = (int)$sigRow['id'];
+                        // Count how many assigned judges have confirmed in this signing session
+                        $stmtC = $connChk->prepare("SELECT SUM(CASE WHEN rjs.confirmed = 1 THEN 1 ELSE 0 END) AS confirmed
+                                                     FROM round_judges rj
+                                                     JOIN users u ON u.id = rj.judge_user_id AND u.is_active = 1
+                                                     LEFT JOIN round_signing_judges rjs ON rjs.judge_user_id = rj.judge_user_id AND rjs.round_signing_id = ?
+                                                     WHERE rj.round_id = ?
+                                                       AND rj.pageant_id = (SELECT pageant_id FROM rounds WHERE id = ?)
+                                                    ");
+                        $stmtC->bind_param("iii", $signing_id_chk, $round['id'], $round['id']);
+                        $stmtC->execute();
+                        $confirmed = (int)($stmtC->get_result()->fetch_assoc()['confirmed'] ?? 0);
+                        $stmtC->close();
+                        if ($confirmed < $assigned) {
+                          $signing_blocked = true;
+                          $signing_tooltip = 'Finalize disabled until all assigned judges sign this round.';
+                        }
                       }
                     }
+                    $connChk->close();
                     $tooltip = $final_blocked ? 'Cannot open/close/finalize Final Round until advancements are set.' : ($signing_blocked ? $signing_tooltip : '');
                   ?>
                   <div class="border border-white border-opacity-10 rounded-lg p-6 bg-white bg-opacity-10 relative group"<?php if($final_blocked || $signing_blocked) echo ' data-tooltip="' . htmlspecialchars($tooltip) . '"'; ?>>
@@ -573,19 +629,43 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                       <?php endif; ?>
                       <?php if ($round['state'] === 'CLOSED'): ?>
                         <?php
-                          // Signing progress chip
+                          // Show progress among currently assigned judges only
                           $connProg = $con->opencon();
-                          $stmtP = $connProg->prepare("SELECT COUNT(*) AS total, SUM(CASE WHEN confirmed=1 THEN 1 ELSE 0 END) AS done FROM round_signing_judges WHERE round_signing_id = (SELECT id FROM round_signing WHERE round_id=? AND is_active=1 LIMIT 1)");
-                          $stmtP->bind_param("i", $round['id']);
-                          $stmtP->execute();
-                          $prog = $stmtP->get_result()->fetch_assoc();
-                          $stmtP->close();
+                          // Assigned active judges count
+                          $stmtPA = $connProg->prepare("SELECT COUNT(*) AS assigned
+                                                        FROM round_judges rj
+                                                        JOIN users u ON u.id = rj.judge_user_id AND u.is_active = 1
+                                                        WHERE rj.round_id = ?
+                                                          AND rj.pageant_id = (SELECT pageant_id FROM rounds WHERE id = ?)");
+                          $stmtPA->bind_param("ii", $round['id'], $round['id']);
+                          $stmtPA->execute();
+                          $assignedProg = (int)($stmtPA->get_result()->fetch_assoc()['assigned'] ?? 0);
+                          $stmtPA->close();
+                          // Active signing id
+                          $stmtPS = $connProg->prepare("SELECT id FROM round_signing WHERE round_id=? AND is_active=1 LIMIT 1");
+                          $stmtPS->bind_param("i", $round['id']);
+                          $stmtPS->execute();
+                          $sigProg = $stmtPS->get_result()->fetch_assoc();
+                          $stmtPS->close();
+                          $doneProg = 0;
+                          if ($sigProg && $assignedProg > 0) {
+                            $sid = (int)$sigProg['id'];
+                            $stmtPC = $connProg->prepare("SELECT SUM(CASE WHEN rjs.confirmed=1 THEN 1 ELSE 0 END) AS confirmed
+                                                          FROM round_judges rj
+                                                          JOIN users u ON u.id = rj.judge_user_id AND u.is_active = 1
+                                                          LEFT JOIN round_signing_judges rjs ON rjs.judge_user_id = rj.judge_user_id AND rjs.round_signing_id = ?
+                                                          WHERE rj.round_id = ?
+                                                            AND rj.pageant_id = (SELECT pageant_id FROM rounds WHERE id = ?)");
+                            $stmtPC->bind_param("iii", $sid, $round['id'], $round['id']);
+                            $stmtPC->execute();
+                            $doneProg = (int)($stmtPC->get_result()->fetch_assoc()['confirmed'] ?? 0);
+                            $stmtPC->close();
+                          }
                           $connProg->close();
-                          $t = (int)($prog['total'] ?? 0); $d = (int)($prog['done'] ?? 0);
-                          if ($t > 0):
+                          if ($assignedProg > 0):
                         ?>
                           <p class="text-sm text-slate-200 mt-1">
-                            <strong>Signing:</strong> <?= $d ?>/<?= $t ?> judges confirmed
+                            <strong>Signing:</strong> <?= $doneProg ?>/<?= $assignedProg ?> judges confirmed
                           </p>
                         <?php endif; ?>
                       <?php endif; ?>
