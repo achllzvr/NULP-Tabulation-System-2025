@@ -92,35 +92,36 @@ if (isset($_POST['add_participant'])) {
         $error_message = "Full name and number label are required.";
         $show_error_alert = true;
   } else {
-    // Check if number already exists
         $conn = $con->opencon();
-        $stmt = $conn->prepare("SELECT id FROM participants WHERE pageant_id = ? AND number_label = ?");
-        $stmt->bind_param("is", $pageant_id, $number_label);
+        // Convert division name to division_id via lookup
+        $division_id = 0;
+        $stmtD = $conn->prepare("SELECT id FROM divisions WHERE pageant_id = ? AND name = ? LIMIT 1");
+        $stmtD->bind_param("is", $pageant_id, $division);
+        $stmtD->execute();
+        $resD = $stmtD->get_result();
+        if ($resD && $rowD = $resD->fetch_assoc()) { $division_id = (int)$rowD['id']; }
+        $stmtD->close();
+        if ($division_id === 0) {
+          // Fallback to first available division for the pageant
+          $stmtDf = $conn->prepare("SELECT id FROM divisions WHERE pageant_id = ? ORDER BY sort_order, id LIMIT 1");
+          $stmtDf->bind_param("i", $pageant_id);
+          $stmtDf->execute();
+          $resDf = $stmtDf->get_result();
+          if ($resDf && $rowDf = $resDf->fetch_assoc()) { $division_id = (int)$rowDf['id']; }
+          $stmtDf->close();
+          if ($division_id === 0) { $division_id = 1; }
+        }
+
+        // Check if number already exists within the same division
+        $stmt = $conn->prepare("SELECT id FROM participants WHERE pageant_id = ? AND division_id = ? AND number_label = ?");
+        $stmt->bind_param("iis", $pageant_id, $division_id, $number_label);
         $stmt->execute();
         $result = $stmt->get_result();
         
         if ($result->num_rows > 0) {
-            $error_message = "Participant number '$number_label' already exists.";
+            $error_message = "Participant number '$number_label' already exists in this division.";
             $show_error_alert = true;
-  } else {
-      // Convert division name to division_id via lookup
-      $division_id = 0;
-      $stmtD = $conn->prepare("SELECT id FROM divisions WHERE pageant_id = ? AND name = ? LIMIT 1");
-      $stmtD->bind_param("is", $pageant_id, $division);
-      $stmtD->execute();
-      $resD = $stmtD->get_result();
-      if ($resD && $rowD = $resD->fetch_assoc()) { $division_id = (int)$rowD['id']; }
-      $stmtD->close();
-      if ($division_id === 0) {
-        // Fallback to first available division for the pageant
-        $stmtDf = $conn->prepare("SELECT id FROM divisions WHERE pageant_id = ? ORDER BY sort_order, id LIMIT 1");
-        $stmtDf->bind_param("i", $pageant_id);
-        $stmtDf->execute();
-        $resDf = $stmtDf->get_result();
-        if ($resDf && $rowDf = $resDf->fetch_assoc()) { $division_id = (int)$rowDf['id']; }
-        $stmtDf->close();
-        if ($division_id === 0) { $division_id = 1; }
-      }
+    } else {
             
       // Handle optional photo upload
       $upload = saveUploadedPhoto($_FILES['photo'] ?? null, $pageant_id);
@@ -213,44 +214,45 @@ if (isset($_POST['edit_participant'])) {
         $error_message = "Full name and number label are required.";
         $show_error_alert = true;
     } else {
-        // Check if number already exists (excluding current participant)
         $conn = $con->opencon();
-        $stmt = $conn->prepare("SELECT id FROM participants WHERE pageant_id = ? AND number_label = ? AND id != ?");
-        $stmt->bind_param("isi", $pageant_id, $number_label, $participant_id);
+        // Convert division name to division_id via lookup
+        $division_id = 0;
+        $stmtD = $conn->prepare("SELECT id FROM divisions WHERE pageant_id = ? AND name = ? LIMIT 1");
+        $stmtD->bind_param("is", $pageant_id, $division);
+        $stmtD->execute();
+        $resD = $stmtD->get_result();
+        if ($resD && $rowD = $resD->fetch_assoc()) { $division_id = (int)$rowD['id']; }
+        $stmtD->close();
+        if ($division_id === 0) {
+          // Fallback to existing participant's current division if lookup fails
+          $stmtCur = $conn->prepare("SELECT division_id FROM participants WHERE id = ? AND pageant_id = ? LIMIT 1");
+          $stmtCur->bind_param("ii", $participant_id, $pageant_id);
+          $stmtCur->execute();
+          $resCur = $stmtCur->get_result();
+          if ($resCur && $rowCur = $resCur->fetch_assoc()) { $division_id = (int)$rowCur['division_id']; }
+          $stmtCur->close();
+          if ($division_id === 0) {
+            // Final fallback to first division
+            $stmtDf = $conn->prepare("SELECT id FROM divisions WHERE pageant_id = ? ORDER BY sort_order, id LIMIT 1");
+            $stmtDf->bind_param("i", $pageant_id);
+            $stmtDf->execute();
+            $resDf = $stmtDf->get_result();
+            if ($resDf && $rowDf = $resDf->fetch_assoc()) { $division_id = (int)$rowDf['id']; }
+            $stmtDf->close();
+            if ($division_id === 0) { $division_id = 1; }
+          }
+        }
+
+        // Check if number already exists in the target division (excluding current participant)
+        $stmt = $conn->prepare("SELECT id FROM participants WHERE pageant_id = ? AND division_id = ? AND number_label = ? AND id != ?");
+        $stmt->bind_param("iisi", $pageant_id, $division_id, $number_label, $participant_id);
         $stmt->execute();
         $result = $stmt->get_result();
         
         if ($result->num_rows > 0) {
-            $error_message = "Participant number '$number_label' already exists.";
+            $error_message = "Participant number '$number_label' already exists in this division.";
             $show_error_alert = true;
     } else {
-            // Convert division name to division_id via lookup
-            $division_id = 0;
-            $stmtD = $conn->prepare("SELECT id FROM divisions WHERE pageant_id = ? AND name = ? LIMIT 1");
-            $stmtD->bind_param("is", $pageant_id, $division);
-            $stmtD->execute();
-            $resD = $stmtD->get_result();
-            if ($resD && $rowD = $resD->fetch_assoc()) { $division_id = (int)$rowD['id']; }
-            $stmtD->close();
-            if ($division_id === 0) {
-              // Fallback to existing participant's current division if lookup fails
-              $stmtCur = $conn->prepare("SELECT division_id FROM participants WHERE id = ? AND pageant_id = ? LIMIT 1");
-              $stmtCur->bind_param("ii", $participant_id, $pageant_id);
-              $stmtCur->execute();
-              $resCur = $stmtCur->get_result();
-              if ($resCur && $rowCur = $resCur->fetch_assoc()) { $division_id = (int)$rowCur['division_id']; }
-              $stmtCur->close();
-              if ($division_id === 0) {
-                // Final fallback to first division
-                $stmtDf = $conn->prepare("SELECT id FROM divisions WHERE pageant_id = ? ORDER BY sort_order, id LIMIT 1");
-                $stmtDf->bind_param("i", $pageant_id);
-                $stmtDf->execute();
-                $resDf = $stmtDf->get_result();
-                if ($resDf && $rowDf = $resDf->fetch_assoc()) { $division_id = (int)$rowDf['id']; }
-                $stmtDf->close();
-                if ($division_id === 0) { $division_id = 1; }
-              }
-            }
             
       // Check for new photo upload
       $newPhotoPath = null;
