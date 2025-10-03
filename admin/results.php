@@ -87,7 +87,7 @@ $stmtCnt->close();
 $roundCount = max(1, (int)($cntRow['c'] ?? 0));
 $stageScale = 100.0 / $roundCount;
 foreach (['Ambassador','Ambassadress'] as $div) {
-  $stmtLb = $conn->prepare(
+    $stmtLb = $conn->prepare(
     "SELECT p.id, p.full_name AS name, p.number_label,
             SUM(
               CASE WHEN rc.max_score IS NOT NULL AND rc.max_score > 0
@@ -105,7 +105,8 @@ foreach (['Ambassador','Ambassadress'] as $div) {
      GROUP BY p.id, p.full_name, p.number_label
      ORDER BY total DESC, p.full_name ASC"
   );
-  $stmtLb->bind_param('diss', $stageScale, $pageant_id, $div, $stageFilter);
+  // Bind ONLY 3 params now: pageant_id (i), division (s), scoring_mode (s)
+  $stmtLb->bind_param('iss', $pageant_id, $selected_division, $selected_stage_mode);
   $stmtLb->execute();
   $resLb = $stmtLb->get_result();
   $rank = 1; $rows = [];
