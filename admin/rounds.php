@@ -137,7 +137,7 @@ if (isset($_POST['toggle_round'])) {
           $signing_id = $stmt3->insert_id;
           $stmt3->close();
           // Seed judge confirmations
-          $stmtJ = $conn->prepare("SELECT DISTINCT u.id FROM users u JOIN pageant_users pu ON pu.user_id = u.id JOIN rounds r ON r.pageant_id = pu.pageant_id WHERE r.id = ? AND LOWER(TRIM(pu.role))='judge' AND u.is_active=1");
+          $stmtJ = $conn->prepare("SELECT u.id FROM users u JOIN pageant_users pu ON pu.user_id = u.id JOIN rounds r ON r.pageant_id = pu.pageant_id WHERE r.id = ? AND pu.role='judge' AND u.is_active=1");
           $stmtJ->bind_param("i", $round_id);
           $stmtJ->execute();
           $resJ = $stmtJ->get_result();
@@ -221,7 +221,7 @@ if (isset($_POST['start_round_signing'])) {
     $signing_id = $stmt->insert_id;
     $stmt->close();
     // Seed judge confirmations
-  $stmtJ = $conn->prepare("SELECT DISTINCT u.id FROM users u JOIN pageant_users pu ON pu.user_id = u.id JOIN rounds r ON r.pageant_id = pu.pageant_id WHERE r.id = ? AND LOWER(TRIM(pu.role))='judge' AND u.is_active=1");
+  $stmtJ = $conn->prepare("SELECT u.id FROM users u JOIN pageant_users pu ON pu.user_id = u.id JOIN rounds r ON r.pageant_id = pu.pageant_id WHERE r.id = ? AND pu.role='judge' AND u.is_active=1");
     $stmtJ->bind_param("i", $round_id);
     $stmtJ->execute();
     $resJ = $stmtJ->get_result();
@@ -255,29 +255,14 @@ if (isset($_POST['assign_judges_to_round'])) {
   $stmt->bind_param("ii", $pageant_id, $round_id);
     $stmt->execute();
     $stmt->close();
-    // Whitelist posted judges to valid pageant judges and de-duplicate
+    // Insert posted judge IDs as-is (no dedup/whitelisting)
     if (!empty($judge_ids)) {
-      $allowed = [];
-      $stmt = $conn->prepare("SELECT DISTINCT u.id FROM users u JOIN pageant_users pu ON pu.user_id=u.id WHERE pu.pageant_id=? AND LOWER(TRIM(pu.role))='judge' AND u.is_active=1");
-      $stmt->bind_param("i", $pageant_id);
-      $stmt->execute();
-      $res = $stmt->get_result();
-      while ($row = $res->fetch_assoc()) { $allowed[] = (int)$row['id']; }
-      $stmt->close();
-      $allowedSet = array_flip($allowed);
-      $clean = [];
+      $stmt = $conn->prepare("INSERT INTO round_judges(pageant_id, round_id, judge_user_id) VALUES(?,?,?)");
       foreach ($judge_ids as $jid) {
-        if (isset($allowedSet[$jid])) { $clean[$jid] = true; }
+        $stmt->bind_param("iii", $pageant_id, $round_id, $jid);
+        $stmt->execute();
       }
-      $final_ids = array_keys($clean);
-      if (!empty($final_ids)) {
-        $stmt = $conn->prepare("INSERT INTO round_judges(pageant_id, round_id, judge_user_id) VALUES(?,?,?)");
-        foreach ($final_ids as $jid) {
-          $stmt->bind_param("iii", $pageant_id, $round_id, $jid);
-          $stmt->execute();
-        }
-        $stmt->close();
-      }
+      $stmt->close();
     }
     $conn->commit();
     $show_success_alert = true;
@@ -320,10 +305,10 @@ $stmt->close();
 
 // Fetch judges list for assignments UI
 $judges = [];
-$stmt = $conn->prepare("SELECT DISTINCT u.id, u.full_name, u.username 
+$stmt = $conn->prepare("SELECT u.id, u.full_name, u.username 
                         FROM users u 
                         JOIN pageant_users pu ON pu.user_id = u.id 
-                        WHERE pu.pageant_id = ? AND LOWER(TRIM(pu.role))='judge' AND u.is_active=1
+                        WHERE pu.pageant_id = ? AND pu.role='judge' AND u.is_active=1
                         ORDER BY u.full_name");
 $stmt->bind_param("i", $pageant_id);
 $stmt->execute();

@@ -27,7 +27,7 @@ $pageant_id = $_SESSION['pageant_id'] ?? 1;
 // Helper: Get all judges for this pageant
 function getPageantJudges($con, $pageant_id) {
   $conn = $con->opencon();
-  $stmt = $conn->prepare("SELECT DISTINCT u.id, u.full_name FROM users u JOIN pageant_users pu ON pu.user_id = u.id WHERE pu.pageant_id = ? AND LOWER(TRIM(pu.role)) = 'judge'");
+  $stmt = $conn->prepare("SELECT u.id, u.full_name FROM users u JOIN pageant_users pu ON pu.user_id = u.id WHERE pu.pageant_id = ? AND pu.role = 'judge'");
   $stmt->bind_param("i", $pageant_id);
   $stmt->execute();
   $result = $stmt->get_result();

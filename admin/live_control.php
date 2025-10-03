@@ -32,7 +32,7 @@ if (isset($_POST['action'])) {
     switch ($action) {
         case 'get_current_status':
             // Get current round status and live data
-            $stmt = $conn->prepare("SELECT r.*, COUNT(DISTINCT pu.user_id) as judges_count 
+            $stmt = $conn->prepare("SELECT r.*, COUNT(pu.user_id) as judges_count 
                                     FROM rounds r 
                                     LEFT JOIN pageant_users pu ON pu.pageant_id = r.pageant_id AND pu.role = 'judge'
                                     WHERE r.pageant_id = ? AND r.state = 'OPEN'
@@ -74,7 +74,7 @@ $result = $stmt->get_result();
 $participants_count = $result->fetch_assoc()['count'];
 
 // Get judges count
-$stmt = $conn->prepare("SELECT COUNT(DISTINCT pu.user_id) as count FROM pageant_users pu WHERE pu.pageant_id = ? AND LOWER(TRIM(pu.role)) = 'judge'");
+$stmt = $conn->prepare("SELECT COUNT(pu.user_id) as count FROM pageant_users pu WHERE pu.pageant_id = ? AND pu.role = 'judge'");
 $stmt->bind_param("i", $pageant_id);
 $stmt->execute();
 $result = $stmt->get_result();

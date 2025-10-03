@@ -57,19 +57,11 @@ if (isset($_POST['add_judge'])) {
             if ($stmt->execute()) {
                 $user_id = $conn->insert_id;
                 
-        // Then add to pageant_users mapping (avoid duplicates)
-        $stmt2 = $conn->prepare("SELECT 1 FROM pageant_users WHERE pageant_id = ? AND user_id = ? AND LOWER(TRIM(role)) = 'judge' LIMIT 1");
+        // Then add to pageant_users mapping
+        $stmt2 = $conn->prepare("INSERT INTO pageant_users (pageant_id, user_id, role) VALUES (?, ?, 'judge')");
         $stmt2->bind_param("ii", $pageant_id, $user_id);
         $stmt2->execute();
-        $existsRes = $stmt2->get_result();
-        $exists = $existsRes && $existsRes->num_rows > 0;
         $stmt2->close();
-        if (!$exists) {
-          $stmt2 = $conn->prepare("INSERT INTO pageant_users (pageant_id, user_id, role) VALUES (?, ?, 'judge')");
-          $stmt2->bind_param("ii", $pageant_id, $user_id);
-          $stmt2->execute();
-          $stmt2->close();
-        }
                 
         if (true) {
                     $success_message = "Judge '$full_name' added successfully. Username: $username, Password: $password";
@@ -131,7 +123,7 @@ if (isset($_POST['remove_judge'])) {
     $conn = $con->opencon();
     
     // First remove from pageant_users mapping
-  $stmt = $conn->prepare("DELETE FROM pageant_users WHERE pageant_id = ? AND user_id = ? AND LOWER(TRIM(role)) = 'judge'");
+  $stmt = $conn->prepare("DELETE FROM pageant_users WHERE pageant_id = ? AND user_id = ? AND role = 'judge'");
     $stmt->bind_param("ii", $pageant_id, $user_id);
     
     if ($stmt->execute()) {
@@ -164,10 +156,10 @@ if (isset($_POST['remove_judge'])) {
 // Fetch judges
 $conn = $con->opencon();
 $pageant_id = $_SESSION['pageant_id'] ?? 1; // Use consistent session variable
-$stmt = $conn->prepare("SELECT DISTINCT u.id, u.username, u.full_name, u.email, u.is_active, LOWER(TRIM(pu.role)) AS role
+$stmt = $conn->prepare("SELECT u.id, u.username, u.full_name, u.email, u.is_active, pu.role AS role
                         FROM users u 
                         JOIN pageant_users pu ON u.id = pu.user_id 
-                        WHERE pu.pageant_id = ? AND LOWER(TRIM(pu.role)) = 'judge' 
+                        WHERE pu.pageant_id = ? AND pu.role = 'judge' 
                         ORDER BY u.full_name");
 $stmt->bind_param("i", $pageant_id);
 $stmt->execute();
