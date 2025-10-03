@@ -303,10 +303,11 @@ $stmt->close();
 
 // Fetch judges list for assignments UI
 $judges = [];
-$stmt = $conn->prepare("SELECT u.id, u.full_name, u.username 
+$stmt = $conn->prepare("SELECT DISTINCT u.id, u.full_name, u.username 
                         FROM users u 
                         JOIN pageant_users pu ON pu.user_id = u.id 
-                        WHERE pu.pageant_id = ? AND LOWER(TRIM(pu.role))='judge' AND u.is_active=1");
+                        WHERE pu.pageant_id = ? AND LOWER(TRIM(pu.role))='judge' AND u.is_active=1
+                        ORDER BY u.full_name");
 $stmt->bind_param("i", $pageant_id);
 $stmt->execute();
 $res = $stmt->get_result();
