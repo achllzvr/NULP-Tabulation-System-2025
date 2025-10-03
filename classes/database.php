@@ -46,10 +46,10 @@ class database {
         $stmt->close();
         
         // Now validate admin credentials for this specific pageant
-        $stmt = $con->prepare("SELECT u.id, u.username, u.full_name, u.password_hash, u.global_role, u.is_active, pu.pageant_id, pu.role 
-                               FROM users u 
-                               JOIN pageant_users pu ON u.id = pu.user_id 
-                               WHERE u.username = ? AND u.is_active = 1 AND pu.pageant_id = ? AND (pu.role = 'admin' OR u.global_role = 'SUPERADMIN')");
+    $stmt = $con->prepare("SELECT u.id, u.username, u.full_name, u.password_hash, u.global_role, u.is_active, pu.pageant_id, pu.role 
+                   FROM users u 
+                   JOIN pageant_users pu ON u.id = pu.user_id 
+                   WHERE u.username = ? AND u.is_active = 1 AND pu.pageant_id = ? AND (LOWER(TRIM(pu.role)) = 'admin' OR u.global_role = 'SUPERADMIN')");
         $stmt->bind_param("si", $username, $pageant_id);
         $stmt->execute();
         $result = $stmt->get_result();
@@ -89,10 +89,10 @@ class database {
         $stmt->close();
         
         // Now validate judge credentials for this specific pageant
-        $stmt = $con->prepare("SELECT u.id, u.username, u.full_name, u.password_hash, u.global_role, u.is_active, pu.pageant_id, pu.role 
-                               FROM users u 
-                               JOIN pageant_users pu ON u.id = pu.user_id 
-                               WHERE u.username = ? AND u.is_active = 1 AND pu.pageant_id = ? AND pu.role = 'judge'");
+    $stmt = $con->prepare("SELECT u.id, u.username, u.full_name, u.password_hash, u.global_role, u.is_active, pu.pageant_id, pu.role 
+                   FROM users u 
+                   JOIN pageant_users pu ON u.id = pu.user_id 
+                   WHERE u.username = ? AND u.is_active = 1 AND pu.pageant_id = ? AND LOWER(TRIM(pu.role)) = 'judge'");
         $stmt->bind_param("si", $username, $pageant_id);
         $stmt->execute();
         $result = $stmt->get_result();

@@ -137,7 +137,7 @@ if (isset($_POST['toggle_round'])) {
           $signing_id = $stmt3->insert_id;
           $stmt3->close();
           // Seed judge confirmations
-          $stmtJ = $conn->prepare("SELECT u.id FROM users u JOIN pageant_users pu ON pu.user_id = u.id JOIN rounds r ON r.pageant_id = pu.pageant_id WHERE r.id = ? AND LOWER(TRIM(pu.role))='judge' AND u.is_active=1");
+          $stmtJ = $conn->prepare("SELECT DISTINCT u.id FROM users u JOIN pageant_users pu ON pu.user_id = u.id JOIN rounds r ON r.pageant_id = pu.pageant_id WHERE r.id = ? AND LOWER(TRIM(pu.role))='judge' AND u.is_active=1");
           $stmtJ->bind_param("i", $round_id);
           $stmtJ->execute();
           $resJ = $stmtJ->get_result();
@@ -221,7 +221,7 @@ if (isset($_POST['start_round_signing'])) {
     $signing_id = $stmt->insert_id;
     $stmt->close();
     // Seed judge confirmations
-    $stmtJ = $conn->prepare("SELECT u.id FROM users u JOIN pageant_users pu ON pu.user_id = u.id JOIN rounds r ON r.pageant_id = pu.pageant_id WHERE r.id = ? AND LOWER(TRIM(pu.role))='judge' AND u.is_active=1");
+  $stmtJ = $conn->prepare("SELECT DISTINCT u.id FROM users u JOIN pageant_users pu ON pu.user_id = u.id JOIN rounds r ON r.pageant_id = pu.pageant_id WHERE r.id = ? AND LOWER(TRIM(pu.role))='judge' AND u.is_active=1");
     $stmtJ->bind_param("i", $round_id);
     $stmtJ->execute();
     $resJ = $stmtJ->get_result();

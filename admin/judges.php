@@ -57,24 +57,24 @@ if (isset($_POST['add_judge'])) {
             if ($stmt->execute()) {
                 $user_id = $conn->insert_id;
                 
-                // Then add to pageant_users mapping
-                $stmt2 = $conn->prepare("INSERT INTO pageant_users (pageant_id, user_id, role) VALUES (?, ?, 'judge')");
-                $stmt2->bind_param("ii", $pageant_id, $user_id);
+        // Then add to pageant_users mapping (avoid duplicates)
+        $stmt2 = $conn->prepare("SELECT 1 FROM pageant_users WHERE pageant_id = ? AND user_id = ? AND LOWER(TRIM(role)) = 'judge' LIMIT 1");
+        $stmt2->bind_param("ii", $pageant_id, $user_id);
+        $stmt2->execute();
+        $existsRes = $stmt2->get_result();
+        $exists = $existsRes && $existsRes->num_rows > 0;
+        $stmt2->close();
+        if (!$exists) {
+          $stmt2 = $conn->prepare("INSERT INTO pageant_users (pageant_id, user_id, role) VALUES (?, ?, 'judge')");
+          $stmt2->bind_param("ii", $pageant_id, $user_id);
+          $stmt2->execute();
+          $stmt2->close();
+        }
                 
-                if ($stmt2->execute()) {
+        if (true) {
                     $success_message = "Judge '$full_name' added successfully. Username: $username, Password: $password";
                     $show_success_alert = true;
-                } else {
-                    $error_message = "Error adding judge to pageant.";
-                    $error_type = "FORM_SUBMISSION_ERROR";
-                    $error_details = [
-                        'form_type' => 'add_judge_mapping',
-                        'mysql_error' => $conn->error,
-                        'timestamp' => date('Y-m-d H:i:s')
-                    ];
-                    $show_error_alert = true;
                 }
-                $stmt2->close();
             } else {
                 $error_message = "Error adding judge.";
                 $error_type = "FORM_SUBMISSION_ERROR";
@@ -131,7 +131,7 @@ if (isset($_POST['remove_judge'])) {
     $conn = $con->opencon();
     
     // First remove from pageant_users mapping
-    $stmt = $conn->prepare("DELETE FROM pageant_users WHERE pageant_id = ? AND user_id = ? AND role = 'judge'");
+  $stmt = $conn->prepare("DELETE FROM pageant_users WHERE pageant_id = ? AND user_id = ? AND LOWER(TRIM(role)) = 'judge'");
     $stmt->bind_param("ii", $pageant_id, $user_id);
     
     if ($stmt->execute()) {
@@ -164,7 +164,11 @@ if (isset($_POST['remove_judge'])) {
 // Fetch judges
 $conn = $con->opencon();
 $pageant_id = $_SESSION['pageant_id'] ?? 1; // Use consistent session variable
-$stmt = $conn->prepare("SELECT u.*, pu.role FROM users u JOIN pageant_users pu ON u.id = pu.user_id WHERE pu.pageant_id = ? AND pu.role = 'judge' ORDER BY u.full_name");
+$stmt = $conn->prepare("SELECT DISTINCT u.id, u.username, u.full_name, u.email, u.is_active, LOWER(TRIM(pu.role)) AS role
+                        FROM users u 
+                        JOIN pageant_users pu ON u.id = pu.user_id 
+                        WHERE pu.pageant_id = ? AND LOWER(TRIM(pu.role)) = 'judge' 
+                        ORDER BY u.full_name");
 $stmt->bind_param("i", $pageant_id);
 $stmt->execute();
 $result = $stmt->get_result();
@@ -284,7 +288,7 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                       </div>
                       <div class="ml-4">
                         <div class="text-sm font-medium text-white"><?php echo htmlspecialchars($judge['full_name']); ?></div>
-                        <div class="text-sm text-slate-200">Judge ID: <?php echo $judge['id']; ?></div>
+                        <div class="text-sm text-slate-200">Judge ID: <?php echo (int)$judge['id']; ?></div>
                       </div>
                     </div>
                   </td>

@@ -33,7 +33,7 @@ $participantsCount = $stmt->get_result()->fetch_assoc()['count'];
 $stmt->close();
 
 // Get judges count
-$stmt = $conn->prepare("SELECT COUNT(*) as count FROM users u JOIN pageant_users pu ON u.id = pu.user_id WHERE pu.pageant_id = ? AND pu.role = 'judge' AND u.is_active = 1");
+$stmt = $conn->prepare("SELECT COUNT(DISTINCT u.id) as count FROM users u JOIN pageant_users pu ON u.id = pu.user_id WHERE pu.pageant_id = ? AND LOWER(TRIM(pu.role)) = 'judge' AND u.is_active = 1");
 $stmt->bind_param("i", $pageant_id);
 $stmt->execute();
 $judgesCount = $stmt->get_result()->fetch_assoc()['count'];
