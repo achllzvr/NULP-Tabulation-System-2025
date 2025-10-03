@@ -94,7 +94,7 @@ foreach (['Ambassador','Ambassadress'] as $div) {
                    THEN (COALESCE(s.override_score, s.raw_score) / rc.max_score) * (CASE WHEN rc.weight>1 THEN rc.weight/100.0 ELSE rc.weight END)
                    ELSE 0
               END
-            ) * ? AS total
+            ) * 100.0 AS total
      FROM participants p
      JOIN divisions d ON p.division_id=d.id
      JOIN scores s ON s.participant_id=p.id
