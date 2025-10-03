@@ -511,7 +511,14 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div class="flex flex-wrap gap-2 items-center">
-                      <button onclick="editParticipant(<?php echo $participant['id']; ?>, '<?php echo htmlspecialchars($participant['full_name'], ENT_QUOTES); ?>', '<?php echo $participant['number_label']; ?>', '<?php echo isset($participant['division']) ? $participant['division'] : 'General'; ?>', '<?php echo htmlspecialchars($participant['advocacy'], ENT_QUOTES); ?>')" class="text-blue-300 hover:text-blue-200 font-medium">Edit</button>
+                      <?php
+                        $pId = (int)$participant['id'];
+                        $pName = json_encode((string)$participant['full_name']);
+                        $pNumber = json_encode((string)$participant['number_label']);
+                        $pDivision = json_encode(isset($participant['division']) ? (string)$participant['division'] : 'General');
+                        $pAdvocacy = json_encode(isset($participant['advocacy']) ? (string)$participant['advocacy'] : '');
+                      ?>
+                      <button type="button" onclick='editParticipant(<?= $pId ?>, <?= $pName ?>, <?= $pNumber ?>, <?= $pDivision ?>, <?= $pAdvocacy ?>)' class="text-blue-300 hover:text-blue-200 font-medium">Edit</button>
                       
                       <form method="POST" class="inline" onsubmit="return confirm('Are you sure you want to delete this participant?')">
                         <input type="hidden" name="participant_id" value="<?php echo $participant['id']; ?>">
@@ -646,12 +653,21 @@ include __DIR__ . '/../components/modal.php';
 
 <script>
 function editParticipant(id, name, number, division, advocacy) {
-    document.getElementById('edit_participant_id').value = id;
-    document.getElementById('edit_full_name').value = name;
-    document.getElementById('edit_number_label').value = number;
-    document.getElementById('edit_division').value = division;
-    document.getElementById('edit_advocacy').value = advocacy;
-    showModal('editParticipantModal');
+  try {
+    var $id = document.getElementById('edit_participant_id');
+    var $name = document.getElementById('edit_full_name');
+    var $num = document.getElementById('edit_number_label');
+    var $div = document.getElementById('edit_division');
+    var $adv = document.getElementById('edit_advocacy');
+    if ($id) $id.value = id;
+    if ($name) $name.value = (name ?? '').toString();
+    if ($num) $num.value = (number ?? '').toString();
+    if ($div) $div.value = (division ?? '');
+    if ($adv) $adv.value = (advocacy ?? '');
+  } catch (e) {
+    console.error('Failed to populate edit modal', e);
+  }
+  showModal('editParticipantModal');
 }
 </script>
 
