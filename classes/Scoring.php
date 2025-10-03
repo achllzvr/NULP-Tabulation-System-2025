@@ -20,6 +20,19 @@ class Scoring {
     public static function weighted($raw, $override, $weight) {
         return self::effectiveScore($raw, $override) * self::weightFactor($weight);
     }
+
+    // Compute normalized weighted score: (score/max) * weight, scaled 0..1
+    public static function normalizedWeighted($raw, $override, $weight, $maxScore) {
+        $score = self::effectiveScore($raw, $override);
+        $max = (float)($maxScore ?? 0.0);
+        if ($max <= 0.0) return 0.0;
+        return ($score / $max) * self::weightFactor($weight);
+    }
+
+    // Helper to scale a 0..1 value to percentage 0..100
+    public static function toPercent($value01) {
+        return ((float)$value01) * 100.0;
+    }
 }
 
 ?>

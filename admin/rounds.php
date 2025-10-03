@@ -250,9 +250,9 @@ if (isset($_POST['assign_judges_to_round'])) {
   $judge_ids = array_map('intval', $_POST['judge_ids'] ?? []);
   try {
     $conn->begin_transaction();
-    // Remove existing assignments for this pageant+round to avoid cross-pageant side effects
-    $stmt = $conn->prepare("DELETE FROM round_judges WHERE pageant_id=? AND round_id=?");
-    $stmt->bind_param("ii", $pageant_id, $round_id);
+  // Remove existing assignments for this round scoped to this pageant
+  $stmt = $conn->prepare("DELETE FROM round_judges WHERE pageant_id=? AND round_id=?");
+  $stmt->bind_param("ii", $pageant_id, $round_id);
     $stmt->execute();
     $stmt->close();
     // Whitelist posted judges to valid pageant judges and de-duplicate
@@ -605,12 +605,16 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                       <div class="bg-white bg-opacity-10 rounded-lg p-4 border border-white border-opacity-10">
                         <div class="flex items-center justify-between mb-2">
                           <label class="block text-sm font-medium text-slate-200">Assigned Judges</label>
-                          <span class="text-xs text-slate-300">Check judges allowed to score this round</span>
+                          <div class="flex items-center gap-3 text-xs text-slate-300">
+                            <span>Check judges allowed to score this round</span>
+                            <button type="button" class="px-2 py-1 rounded bg-white/10 hover:bg-white/20 text-white border border-white/20" onclick="toggleRoundJudgeChecks(<?php echo $round['id']; ?>, true)">Select All</button>
+                            <button type="button" class="px-2 py-1 rounded bg-white/10 hover:bg-white/20 text-white border border-white/20" onclick="toggleRoundJudgeChecks(<?php echo $round['id']; ?>, false)">Select None</button>
+                          </div>
                         </div>
                         <div class="grid md:grid-cols-3 gap-2 max-h-40 overflow-auto pr-1">
                           <?php foreach ($judges as $j): $checked = in_array((int)$j['id'], $assigned) ? 'checked' : ''; ?>
                             <label class="inline-flex items-center gap-2 text-slate-200">
-                              <input type="checkbox" name="judge_ids[]" value="<?php echo (int)$j['id']; ?>" <?php echo $checked; ?> class="rounded">
+                              <input type="checkbox" name="judge_ids[]" value="<?php echo (int)$j['id']; ?>" <?php echo $checked; ?> class="rounded round-judge-<?php echo $round['id']; ?>">
                               <span><?php echo htmlspecialchars($j['full_name'] ?: $j['username']); ?></span>
                             </label>
                           <?php endforeach; ?>
@@ -814,6 +818,10 @@ include __DIR__ . '/../components/modal.php';
 </style>
 
 <script>
+function toggleRoundJudgeChecks(roundId, check) {
+  const boxes = document.querySelectorAll('input.round-judge-' + roundId + '[type="checkbox"]');
+  boxes.forEach(cb => { cb.checked = !!check; });
+}
 // Available criteria data (populated from PHP)
 const availableCriteria = <?php echo json_encode($criteria); ?>;
 

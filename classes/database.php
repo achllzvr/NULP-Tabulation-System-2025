@@ -208,7 +208,12 @@ class database {
             p.full_name,
             p.number_label,
             d.name as division,
-            SUM(COALESCE(s.override_score, s.raw_score) * (CASE WHEN rc.weight > 1 THEN rc.weight/100.0 ELSE rc.weight END)) as total_score
+            SUM(
+                CASE WHEN rc.max_score IS NOT NULL AND rc.max_score > 0
+                    THEN (COALESCE(s.override_score, s.raw_score) / rc.max_score) * (CASE WHEN rc.weight > 1 THEN rc.weight/100.0 ELSE rc.weight END)
+                    ELSE 0
+                END
+            ) * 100.0 as total_score
         FROM participants p
         JOIN divisions d ON p.division_id = d.id
         LEFT JOIN scores s ON p.id = s.participant_id
@@ -273,7 +278,12 @@ class database {
             p.full_name,
             p.number_label,
             d.name as division,
-            SUM(COALESCE(s.override_score, s.raw_score) * (CASE WHEN rc.weight > 1 THEN rc.weight/100.0 ELSE rc.weight END)) as total_score
+            SUM(
+                CASE WHEN rc.max_score IS NOT NULL AND rc.max_score > 0
+                    THEN (COALESCE(s.override_score, s.raw_score) / rc.max_score) * (CASE WHEN rc.weight > 1 THEN rc.weight/100.0 ELSE rc.weight END)
+                    ELSE 0
+                END
+            ) * 100.0 as total_score
         FROM participants p
         JOIN divisions d ON p.division_id = d.id
         LEFT JOIN scores s ON p.id = s.participant_id
@@ -328,11 +338,16 @@ class database {
             p.id,
             p.full_name,
             p.number_label,
-            SUM(COALESCE(s.override_score, s.raw_score) * (CASE WHEN rc.weight > 1 THEN rc.weight/100.0 ELSE rc.weight END)) as total_score
+            SUM(
+                CASE WHEN rc.max_score IS NOT NULL AND rc.max_score > 0
+                     THEN (COALESCE(s.override_score, s.raw_score) / rc.max_score) * (CASE WHEN rc.weight > 1 THEN rc.weight/100.0 ELSE rc.weight END)
+                     ELSE 0
+                END
+            ) * 100.0 as total_score
         FROM participants p
         JOIN divisions d ON p.division_id = d.id
         LEFT JOIN scores s ON p.id = s.participant_id
-        LEFT JOIN round_criteria rc ON s.criterion_id = rc.criterion_id
+        LEFT JOIN round_criteria rc ON s.criterion_id = rc.criterion_id AND rc.round_id = s.round_id
         LEFT JOIN rounds r ON rc.round_id = r.id
         WHERE r.pageant_id = ? AND d.name = ? AND r.state IN ('CLOSED', 'FINALIZED') AND p.is_active = 1
         GROUP BY p.id, p.full_name, p.number_label
@@ -365,12 +380,25 @@ class database {
     // Function to calculate leaderboard for a stage (scoring_mode PRELIM or FINAL)
     function getStageLeaderboard($pageant_id, $division, $scoring_mode) {
         $con = $this->opencon();
+        // Count number of closed/finalized rounds in this stage to normalize to 100%
+        $cntStmt = $con->prepare("SELECT COUNT(*) AS c FROM rounds WHERE pageant_id=? AND scoring_mode=? AND state IN ('CLOSED','FINALIZED')");
+        $cntStmt->bind_param('is', $pageant_id, $scoring_mode);
+        $cntStmt->execute();
+        $cntRow = $cntStmt->get_result()->fetch_assoc();
+        $cntStmt->close();
+        $roundCount = max(1, (int)($cntRow['c'] ?? 0));
+        $stageScale = 100.0 / $roundCount; // so that the stage total maxes at 100 when all rounds considered equally
         $sql = "SELECT 
             p.id,
             p.full_name,
             p.number_label,
             d.name as division,
-            SUM(COALESCE(s.override_score, s.raw_score) * (CASE WHEN rc.weight > 1 THEN rc.weight/100.0 ELSE rc.weight END)) as total_score
+            SUM(
+                CASE WHEN rc.max_score IS NOT NULL AND rc.max_score > 0
+                    THEN (COALESCE(s.override_score, s.raw_score) / rc.max_score) * (CASE WHEN rc.weight > 1 THEN rc.weight/100.0 ELSE rc.weight END)
+                    ELSE 0
+                END
+            ) * ? as total_score
         FROM participants p
         JOIN divisions d ON p.division_id = d.id
         LEFT JOIN scores s ON p.id = s.participant_id
@@ -380,7 +408,7 @@ class database {
         GROUP BY p.id, p.full_name, p.number_label, d.name
         ORDER BY total_score DESC, p.full_name ASC";
         $stmt = $con->prepare($sql);
-        $stmt->bind_param("iss", $pageant_id, $scoring_mode, $division);
+        $stmt->bind_param("diss", $stageScale, $pageant_id, $scoring_mode, $division);
         $stmt->execute();
         $result = $stmt->get_result();
         $leaderboard = [];

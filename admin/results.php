@@ -78,21 +78,34 @@ $awards_prelim_ready = ($prelim_rounds_closed >= 6);
 // 3) Leaderboard datasets per division based on stage filter
 $leaderboardRows = ['Ambassador'=>[], 'Ambassadress'=>[]];
 $stageFilter = ($selected_stage === 'final') ? 'FINAL' : 'PRELIM';
+// Determine number of rounds in this stage to normalize totals to 100%
+$stmtCnt = $conn->prepare("SELECT COUNT(*) AS c FROM rounds WHERE pageant_id=? AND scoring_mode=? AND state IN ('CLOSED','FINALIZED')");
+$stmtCnt->bind_param('is', $pageant_id, $stageFilter);
+$stmtCnt->execute();
+$cntRow = $stmtCnt->get_result()->fetch_assoc();
+$stmtCnt->close();
+$roundCount = max(1, (int)($cntRow['c'] ?? 0));
+$stageScale = 100.0 / $roundCount;
 foreach (['Ambassador','Ambassadress'] as $div) {
   $stmtLb = $conn->prepare(
     "SELECT p.id, p.full_name AS name, p.number_label,
-            SUM(COALESCE(s.override_score, s.raw_score) * (CASE WHEN rc.weight>1 THEN rc.weight/100.0 ELSE rc.weight END)) AS total
+            SUM(
+              CASE WHEN rc.max_score IS NOT NULL AND rc.max_score > 0
+                   THEN (COALESCE(s.override_score, s.raw_score) / rc.max_score) * (CASE WHEN rc.weight>1 THEN rc.weight/100.0 ELSE rc.weight END)
+                   ELSE 0
+              END
+            ) * ? AS total
      FROM participants p
      JOIN divisions d ON p.division_id=d.id
      JOIN scores s ON s.participant_id=p.id
-     JOIN round_criteria rc ON rc.criterion_id=s.criterion_id
+     JOIN round_criteria rc ON rc.criterion_id=s.criterion_id AND rc.round_id = s.round_id
      JOIN rounds r ON r.id=rc.round_id
      WHERE p.pageant_id=? AND p.is_active=1 AND d.name=?
        AND r.scoring_mode=? AND r.state IN ('CLOSED','FINALIZED')
      GROUP BY p.id, p.full_name, p.number_label
      ORDER BY total DESC, p.full_name ASC"
   );
-  $stmtLb->bind_param('iss', $pageant_id, $div, $stageFilter);
+  $stmtLb->bind_param('diss', $stageScale, $pageant_id, $div, $stageFilter);
   $stmtLb->execute();
   $resLb = $stmtLb->get_result();
   $rank = 1; $rows = [];
@@ -332,11 +345,16 @@ include __DIR__ . '/../partials/sidebar_admin.php';
   foreach (['Ambassador','Ambassadress'] as $div) {
             $stmtFL = $conn->prepare(
                 "SELECT p.id, p.full_name, p.number_label, d.name as division,
-                        SUM(COALESCE(s.override_score, s.raw_score) * (CASE WHEN rc.weight>1 THEN rc.weight/100.0 ELSE rc.weight END)) as total
+                        SUM(
+                          CASE WHEN rc.max_score IS NOT NULL AND rc.max_score > 0
+                               THEN (COALESCE(s.override_score, s.raw_score) / rc.max_score) * (CASE WHEN rc.weight>1 THEN rc.weight/100.0 ELSE rc.weight END)
+                               ELSE 0
+                          END
+                        ) * 100.0 as total
                  FROM participants p
                  JOIN divisions d ON p.division_id = d.id
                  JOIN scores s ON s.participant_id = p.id
-                 JOIN round_criteria rc ON rc.criterion_id = s.criterion_id
+                 JOIN round_criteria rc ON rc.criterion_id = s.criterion_id AND rc.round_id = s.round_id
                  JOIN rounds r ON r.id = rc.round_id
                  WHERE r.pageant_id = ? AND r.scoring_mode = 'PRELIM' AND r.state IN ('CLOSED','FINALIZED')
                    AND p.is_active=1 AND d.name = ?
@@ -721,7 +739,8 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                 } else {
                   $w = (float)$c['weight'];
                   $factor = ($w > 1.0) ? ($w/100.0) : $w;
-                  $weighted = $raw * $factor;
+                  $maxScore = isset($c['max_score']) ? (float)$c['max_score'] : 0.0;
+                  $weighted = ($maxScore > 0) ? (($raw / $maxScore) * $factor * 100.0) : 0.0;
                 }
                     $row['criteria'][] = [
                         'criterion_id' => $cid,

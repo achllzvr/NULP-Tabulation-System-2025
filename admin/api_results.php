@@ -65,9 +65,11 @@ try {
         $total = 0.0;
         foreach ($criteria as $c) {
             $cid = (int)$c['criterion_id'];
-            $raw = $scores[$cid] ?? 0.0;
+            $raw = (float)($scores[$cid] ?? 0.0);
             $weight = (float)$c['weight'];
-            $weighted = $raw * (($weight>1)? ($weight/100.0) : $weight);
+            $maxScore = isset($c['max_score']) ? (float)$c['max_score'] : 0.0;
+            $factor = ($weight > 1.0) ? ($weight/100.0) : $weight;
+            $weighted = ($maxScore > 0) ? (($raw / $maxScore) * $factor * 100.0) : 0.0;
             $items[] = [
                 'criterion_id' => $cid,
                 'name' => $c['name'],
@@ -237,16 +239,23 @@ try {
     $leaders = ['Ambassador'=>[], 'Ambassadress'=>[]];
     foreach (['Ambassador','Ambassadress'] as $div) {
             $stmt = $conn->prepare(
-                "SELECT p.id, SUM(COALESCE(s.override_score, s.raw_score) * (CASE WHEN rc.weight>1 THEN rc.weight/100.0 ELSE rc.weight END)) as total
+                "SELECT p.id,
+                        SUM(
+                            CASE WHEN rc.max_score IS NOT NULL AND rc.max_score > 0
+                                THEN (COALESCE(s.override_score, s.raw_score) / rc.max_score) *
+                                     (CASE WHEN rc.weight>1 THEN rc.weight/100.0 ELSE rc.weight END)
+                                ELSE 0
+                            END
+                        ) * 100.0 AS total
                  FROM participants p
                  JOIN divisions d ON p.division_id=d.id
                  JOIN scores s ON s.participant_id=p.id
-                 JOIN round_criteria rc ON rc.criterion_id=s.criterion_id
+                 JOIN round_criteria rc ON rc.criterion_id=s.criterion_id AND rc.round_id = s.round_id
                  JOIN rounds r ON r.id=rc.round_id
                  WHERE r.pageant_id=? AND r.scoring_mode='PRELIM' AND r.state IN ('CLOSED','FINALIZED') AND p.is_active=1 AND d.name=?
                  GROUP BY p.id
-              ORDER BY total DESC, p.full_name ASC
-              LIMIT 3"
+                 ORDER BY total DESC, p.full_name ASC
+                 LIMIT 3"
             );
             $stmt->bind_param('is', $pageant_id, $div);
             $stmt->execute();
@@ -397,7 +406,14 @@ try {
                          JOIN round_criteria rc ON rc.round_id=s.round_id AND rc.criterion_id=s.criterion_id
                          WHERE p.is_active=1 AND d.name=?
                          GROUP BY p.id
-                         ORDER BY SUM(COALESCE(s.override_score, s.raw_score) * (CASE WHEN rc.weight>1 THEN rc.weight/100.0 ELSE rc.weight END)) DESC, MAX(p.full_name) ASC
+                         ORDER BY SUM(
+                                   CASE WHEN rc.max_score IS NOT NULL AND rc.max_score > 0
+                                       THEN (COALESCE(s.override_score, s.raw_score) / rc.max_score) *
+                                            (CASE WHEN rc.weight>1 THEN rc.weight/100.0 ELSE rc.weight END)
+                                       ELSE 0
+                                   END
+                                 ) * 100.0 DESC,
+                                  MAX(p.full_name) ASC
                          LIMIT 1"
                     );
                     $stmtT->bind_param('is', $round_id, $div);
@@ -519,7 +535,14 @@ try {
                      JOIN round_criteria rc ON rc.round_id=s.round_id AND rc.criterion_id=s.criterion_id
                      WHERE p.is_active=1 AND d.name=?
                      GROUP BY p.id
-                     ORDER BY SUM(COALESCE(s.override_score, s.raw_score) * (CASE WHEN rc.weight>1 THEN rc.weight/100.0 ELSE rc.weight END)) DESC, MAX(p.full_name) ASC
+                     ORDER BY SUM(
+                               CASE WHEN rc.max_score IS NOT NULL AND rc.max_score > 0
+                                   THEN (COALESCE(s.override_score, s.raw_score) / rc.max_score) *
+                                        (CASE WHEN rc.weight>1 THEN rc.weight/100.0 ELSE rc.weight END)
+                                   ELSE 0
+                               END
+                             ) * 100.0 DESC,
+                              MAX(p.full_name) ASC
                      LIMIT 1"
                 );
                 $stmtT->bind_param('is', $round_id, $div);

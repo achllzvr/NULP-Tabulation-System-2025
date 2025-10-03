@@ -131,20 +131,25 @@ if ($finalized_rounds > 0) {
         $round_ids_placeholder = implode(',', array_fill(0, count($round_ids), '?'));
         
         // Get participant scores for all finalized rounds
-        $score_query = "SELECT 
-            p.id,
-            p.full_name,
-            p.number_label,
-            d.name as division,
-            COALESCE(SUM(COALESCE(s.override_score, s.raw_score) * rc.weight), 0) as total_score
-        FROM participants p
-        JOIN divisions d ON p.division_id = d.id
-        LEFT JOIN scores s ON p.id = s.participant_id
-        LEFT JOIN round_criteria rc ON s.criterion_id = rc.criterion_id AND rc.round_id IN ($round_ids_placeholder)
-        WHERE p.pageant_id = ? AND p.is_active = 1
-        GROUP BY p.id, p.full_name, p.number_label, d.name
-        HAVING total_score >= 0
-        ORDER BY total_score DESC, p.full_name ASC";
+    $score_query = "SELECT 
+      p.id,
+      p.full_name,
+      p.number_label,
+      d.name as division,
+      COALESCE(SUM(
+        CASE WHEN rc.max_score IS NOT NULL AND rc.max_score > 0
+           THEN (COALESCE(s.override_score, s.raw_score) / rc.max_score) * rc.weight
+           ELSE 0
+        END
+      ), 0) as total_score
+    FROM participants p
+    JOIN divisions d ON p.division_id = d.id
+    LEFT JOIN scores s ON p.id = s.participant_id
+    LEFT JOIN round_criteria rc ON s.criterion_id = rc.criterion_id AND rc.round_id = s.round_id AND rc.round_id IN ($round_ids_placeholder)
+    WHERE p.pageant_id = ? AND p.is_active = 1
+    GROUP BY p.id, p.full_name, p.number_label, d.name
+    HAVING total_score >= 0
+    ORDER BY total_score DESC, p.full_name ASC";
         
         $params = array_merge([$pageant_id], $round_ids);
         $types = str_repeat('i', count($params));
