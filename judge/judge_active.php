@@ -350,6 +350,8 @@ $current_participant = null;
 $is_pair_scoring = false;
 $duos = [];
 $current_duo = null;
+// Map duo_id => ["#<number> — <full_name>", ...]
+$duoMembersById = [];
 // Progress helpers
 $criteria_count = 0;
 $completedCountsByPid = [];
@@ -489,6 +491,23 @@ if ($tie_group) {
             $resD = $stmt->get_result();
             while ($d = $resD->fetch_assoc()) { $duos[] = $d; }
             $stmt->close();
+
+            // Load duo members for display (names and numbers)
+            if (!empty($duos)) {
+              $duoIds = array_map(fn($d)=> (int)$d['id'], $duos);
+              $placeholders = implode(',', array_fill(0, count($duoIds), '?'));
+              $typesDm = str_repeat('i', count($duoIds));
+              $sqlDm = "SELECT dm.duo_id, p.number_label, p.full_name\n                          FROM duo_members dm\n                          JOIN participants p ON p.id = dm.participant_id\n                          WHERE dm.duo_id IN ($placeholders)\n                          ORDER BY p.number_label";
+              $stmtDm = $conn->prepare($sqlDm);
+              $stmtDm->bind_param($typesDm, ...$duoIds);
+              $stmtDm->execute();
+              $resDm = $stmtDm->get_result();
+              while ($row = $resDm->fetch_assoc()) {
+                $label = '#' . (string)$row['number_label'] . ' — ' . (string)$row['full_name'];
+                $duoMembersById[(int)$row['duo_id']][] = $label;
+              }
+              $stmtDm->close();
+            }
 
       // Compute completion counts for duos
       if (!empty($duos) && $criteria_count > 0) {
@@ -830,8 +849,15 @@ function confirmLogout() {
             $unselectedClass = $finished ? 'bg-emerald-600/20 text-white border-2 border-emerald-400' : $unselectedBase;
           ?>
             <a href="?duo=<?= $index ?>" class="<?= $baseClass . ' ' . ($isSelected ? $selectedClass : $unselectedClass) ?>">
-              <div class="font-semibold"><?= htmlspecialchars($duo['name'], ENT_QUOTES, 'UTF-8') ?></div>
-              <div class="text-xs mt-1 text-slate-200">Duo</div>
+              <div class="font-semibold text-white"><?= htmlspecialchars($duo['name'], ENT_QUOTES, 'UTF-8') ?></div>
+              <?php $m = $duoMembersById[(int)$duo['id']] ?? []; ?>
+              <?php if (!empty($m)): ?>
+                <div class="text-[11px] mt-1 text-slate-200 line-clamp-2">
+                  <?= htmlspecialchars(implode(' • ', $m), ENT_QUOTES, 'UTF-8') ?>
+                </div>
+              <?php else: ?>
+                <div class="text-xs mt-1 text-slate-200">Duo</div>
+              <?php endif; ?>
               <?php if ($criteria_count > 0): ?>
               <?php $percent = (int)floor(($done / max(1,$criteria_count)) * 100); ?>
               <div class="mt-2 h-1.5 rounded bg-white/10 overflow-hidden">
@@ -903,10 +929,13 @@ function confirmLogout() {
         <div class="flex items-center justify-between mb-6">
           <div>
             <h3 class="text-lg font-semibold text-white">Scoring: Duo <?= htmlspecialchars($current_duo['name'], ENT_QUOTES, 'UTF-8') ?></h3>
+            <?php $mHdr = $duoMembersById[(int)$current_duo['id']] ?? []; if (!empty($mHdr)): ?>
+              <div class="text-slate-300 text-sm mt-1">Members: <?= htmlspecialchars(implode(' • ', $mHdr), ENT_QUOTES, 'UTF-8') ?></div>
+            <?php endif; ?>
           </div>
           <div class="text-sm text-slate-300">Duo <?= $duo_index + 1 ?> of <?= count($duos) ?></div>
         </div>
-        <?php $duo = $current_duo; include __DIR__ . '/../components/score_form_duo.php'; ?>
+        <?php $duo = $current_duo; $duo_members = $duoMembersById[(int)$current_duo['id']] ?? []; include __DIR__ . '/../components/score_form_duo.php'; ?>
       </div>
     <?php elseif ($current_participant): ?>
       <!-- Scoring Form -->
