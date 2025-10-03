@@ -250,17 +250,34 @@ if (isset($_POST['assign_judges_to_round'])) {
   $judge_ids = array_map('intval', $_POST['judge_ids'] ?? []);
   try {
     $conn->begin_transaction();
-    $stmt = $conn->prepare("DELETE FROM round_judges WHERE round_id=?");
-    $stmt->bind_param("i", $round_id);
+    // Remove existing assignments for this pageant+round to avoid cross-pageant side effects
+    $stmt = $conn->prepare("DELETE FROM round_judges WHERE pageant_id=? AND round_id=?");
+    $stmt->bind_param("ii", $pageant_id, $round_id);
     $stmt->execute();
     $stmt->close();
+    // Whitelist posted judges to valid pageant judges and de-duplicate
     if (!empty($judge_ids)) {
-      $stmt = $conn->prepare("INSERT INTO round_judges(pageant_id, round_id, judge_user_id) VALUES(?,?,?)");
-      foreach ($judge_ids as $jid) {
-        $stmt->bind_param("iii", $pageant_id, $round_id, $jid);
-        $stmt->execute();
-      }
+      $allowed = [];
+      $stmt = $conn->prepare("SELECT DISTINCT u.id FROM users u JOIN pageant_users pu ON pu.user_id=u.id WHERE pu.pageant_id=? AND LOWER(TRIM(pu.role))='judge' AND u.is_active=1");
+      $stmt->bind_param("i", $pageant_id);
+      $stmt->execute();
+      $res = $stmt->get_result();
+      while ($row = $res->fetch_assoc()) { $allowed[] = (int)$row['id']; }
       $stmt->close();
+      $allowedSet = array_flip($allowed);
+      $clean = [];
+      foreach ($judge_ids as $jid) {
+        if (isset($allowedSet[$jid])) { $clean[$jid] = true; }
+      }
+      $final_ids = array_keys($clean);
+      if (!empty($final_ids)) {
+        $stmt = $conn->prepare("INSERT INTO round_judges(pageant_id, round_id, judge_user_id) VALUES(?,?,?)");
+        foreach ($final_ids as $jid) {
+          $stmt->bind_param("iii", $pageant_id, $round_id, $jid);
+          $stmt->execute();
+        }
+        $stmt->close();
+      }
     }
     $conn->commit();
     $show_success_alert = true;
