@@ -45,7 +45,7 @@ function saveUploadedPhoto($fileInfo, $pageant_id) {
   if (!isset($allowed[$mime])) {
     return ['error' => 'Unsupported image type. Allowed: JPG, PNG, WEBP.'];
   }
-  $maxBytes = 5 * 1024 * 1024; // 5MB
+  $maxBytes = 20 * 1024 * 1024; // 5MB
   if (($fileInfo['size'] ?? 0) > $maxBytes) {
     return ['error' => 'Image too large. Max size is 5MB.'];
   }
