@@ -516,8 +516,16 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                     // If round has a signing session active and not all judges confirmed, block finalization action
                     $signing_blocked = false;
                     $signing_tooltip = '';
+                    $has_active_signing_session = false;
                     // Dynamic gating: require confirmations from currently assigned judges only
                     $connChk = $con->opencon();
+                    // Check if a signing session is currently active
+                    $stmtSig0 = $connChk->prepare("SELECT id FROM round_signing WHERE round_id = ? AND is_active = 1 LIMIT 1");
+                    $stmtSig0->bind_param("i", $round['id']);
+                    $stmtSig0->execute();
+                    $sigRow0 = $stmtSig0->get_result()->fetch_assoc();
+                    $stmtSig0->close();
+                    $has_active_signing_session = (bool)$sigRow0;
                     // Count active assigned judges for this round
                     $stmtA = $connChk->prepare("SELECT COUNT(*) AS assigned
                                                  FROM round_judges rj
@@ -530,17 +538,11 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                     $assigned = (int)($stmtA->get_result()->fetch_assoc()['assigned'] ?? 0);
                     $stmtA->close();
                     if ($assigned > 0) {
-                      // Get active signing session id
-                      $stmtSig = $connChk->prepare("SELECT id FROM round_signing WHERE round_id = ? AND is_active = 1 LIMIT 1");
-                      $stmtSig->bind_param("i", $round['id']);
-                      $stmtSig->execute();
-                      $sigRow = $stmtSig->get_result()->fetch_assoc();
-                      $stmtSig->close();
-                      if (!$sigRow) {
+                      if (!$has_active_signing_session) {
                         $signing_blocked = true;
                         $signing_tooltip = 'Start signing: assigned judges must confirm before finalization.';
                       } else {
-                        $signing_id_chk = (int)$sigRow['id'];
+                        $signing_id_chk = (int)$sigRow0['id'];
                         // Count how many assigned judges have confirmed in this signing session
                         $stmtC = $connChk->prepare("SELECT SUM(CASE WHEN rjs.confirmed = 1 THEN 1 ELSE 0 END) AS confirmed
                                                      FROM round_judges rj
@@ -737,7 +739,7 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                             Reopen Round
                           </button>
                         </form>
-                        <?php if (!$resS): ?>
+                        <?php if (!$has_active_signing_session): ?>
                         <form method="POST" class="inline" onsubmit="return confirm('Start round signing so judges can confirm their scores?');">
                           <input type="hidden" name="round_id" value="<?php echo $round['id']; ?>">
                           <button name="start_round_signing" type="submit" class="bg-white bg-opacity-10 hover:bg-white hover:bg-opacity-20 text-white text-sm font-medium px-4 py-2 rounded-lg border border-white border-opacity-20 backdrop-blur-sm transition-colors">
