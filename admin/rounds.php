@@ -136,9 +136,14 @@ if (isset($_POST['toggle_round'])) {
           $stmt3->execute();
           $signing_id = $stmt3->insert_id;
           $stmt3->close();
-          // Seed judge confirmations
-          $stmtJ = $conn->prepare("SELECT u.id FROM users u JOIN pageant_users pu ON pu.user_id = u.id JOIN rounds r ON r.pageant_id = pu.pageant_id WHERE r.id = ? AND pu.role='judge' AND u.is_active=1");
-          $stmtJ->bind_param("i", $round_id);
+          // Seed judge confirmations from assigned judges only
+          $stmtJ = $conn->prepare("SELECT u.id
+                                   FROM round_judges rj
+                                   JOIN users u ON u.id = rj.judge_user_id
+                                   WHERE rj.pageant_id = (SELECT pageant_id FROM rounds WHERE id = ?)
+                                     AND rj.round_id = ?
+                                     AND u.is_active = 1");
+          $stmtJ->bind_param("ii", $round_id, $round_id);
           $stmtJ->execute();
           $resJ = $stmtJ->get_result();
           $judgeIds = [];
@@ -220,9 +225,14 @@ if (isset($_POST['start_round_signing'])) {
     $stmt->execute();
     $signing_id = $stmt->insert_id;
     $stmt->close();
-    // Seed judge confirmations
-  $stmtJ = $conn->prepare("SELECT u.id FROM users u JOIN pageant_users pu ON pu.user_id = u.id JOIN rounds r ON r.pageant_id = pu.pageant_id WHERE r.id = ? AND pu.role='judge' AND u.is_active=1");
-    $stmtJ->bind_param("i", $round_id);
+    // Seed judge confirmations from assigned judges only
+    $stmtJ = $conn->prepare("SELECT u.id
+                             FROM round_judges rj
+                             JOIN users u ON u.id = rj.judge_user_id
+                             WHERE rj.pageant_id = (SELECT pageant_id FROM rounds WHERE id = ?)
+                               AND rj.round_id = ?
+                               AND u.is_active = 1");
+    $stmtJ->bind_param("ii", $round_id, $round_id);
     $stmtJ->execute();
     $resJ = $stmtJ->get_result();
     $judgeIds = [];
