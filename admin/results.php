@@ -261,11 +261,14 @@ include __DIR__ . '/../partials/sidebar_admin.php';
         <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20">
           <div class="px-6 py-4 border-b border-white border-opacity-10 flex items-center justify-between">
             <h3 class="text-lg font-semibold text-white"><?php echo $div; ?> Division</h3>
-            <span class="px-2 py-1 text-xs rounded-full <?php echo $div==='Ambassador' ? 'bg-blue-400/20 text-blue-200' : 'bg-pink-400/20 text-pink-200'; ?>"><?php echo count($rows); ?> entries</span>
+            <div class="flex items-center gap-2">
+              <button onclick="toggleSortLB('<?php echo $div; ?>')" class="text-xs px-2 py-1 rounded bg-white/10 hover:bg-white/20 text-white border border-white/20">Sort: <span id="lbSortLabel_<?php echo $div; ?>">High→Low</span></button>
+              <span class="px-2 py-1 text-xs rounded-full <?php echo $div==='Ambassador' ? 'bg-blue-400/20 text-blue-200' : 'bg-pink-400/20 text-pink-200'; ?>"><?php echo count($rows); ?> entries</span>
+            </div>
           </div>
           <div class="overflow-x-auto">
             <?php if (!empty($rows)): ?>
-            <table class="w-full">
+            <table id="lbTable_<?php echo $div; ?>" class="w-full">
               <thead class="bg-white bg-opacity-10 border-b border-white border-opacity-10">
                 <tr>
                   <th class="px-6 py-3 text-left text-sm font-semibold text-white">Rank</th>
@@ -704,13 +707,18 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                 $critIds = array_map(fn($c)=> (int)$c['criterion_id'], $criteria);
                 $inCrt = implode(',', array_fill(0, count($critIds), '?'));
                 // Build dynamic bind
-              $typesS = str_repeat('i', count($participantIds) + count($critIds)) . ($selected_judge ? 'i' : '');
-              $sqlS = "SELECT participant_id, criterion_id, ".($selected_judge? 'raw_score':'COALESCE(override_score, raw_score)')." as score
-                   FROM scores
-                   WHERE participant_id IN ($inIds) AND criterion_id IN ($inCrt)" . ($selected_judge? " AND judge_user_id = ?" : "");
-        $stmtS = $conn->prepare($sqlS);
-              $bindVals = array_merge($participantIds, $critIds);
-              if ($selected_judge) { $bindVals[] = $selected_judge; }
+                if ($selected_judge) {
+                  // Raw view for a single judge: use raw_score for that judge only
+                  $typesS = str_repeat('i', count($participantIds) + count($critIds)) . 'i';
+                  $sqlS = "SELECT participant_id, criterion_id, raw_score AS score\n                           FROM scores\n                           WHERE participant_id IN ($inIds) AND criterion_id IN ($inCrt) AND judge_user_id = ?";
+                  $bindVals = array_merge($participantIds, $critIds, [$selected_judge]);
+                } else {
+                  // All Judges (Weighted): average across all judges using override when present
+                  $typesS = str_repeat('i', count($participantIds) + count($critIds));
+                  $sqlS = "SELECT participant_id, criterion_id, AVG(COALESCE(override_score, raw_score)) AS score\n                           FROM scores\n                           WHERE participant_id IN ($inIds) AND criterion_id IN ($inCrt)\n                           GROUP BY participant_id, criterion_id";
+                  $bindVals = array_merge($participantIds, $critIds);
+                }
+                $stmtS = $conn->prepare($sqlS);
                 $stmtS->bind_param($typesS, ...$bindVals);
                 $stmtS->execute();
                 $rsS = $stmtS->get_result();
@@ -765,6 +773,7 @@ include __DIR__ . '/../partials/sidebar_admin.php';
             <p class="text-sm text-slate-200 mt-1">Per-criterion breakdown for a selected round</p>
           </div>
           <div class="flex gap-2">
+            <button onclick="toggleTabSort()" class="bg-white bg-opacity-10 hover:bg-white hover:bg-opacity-20 text-white font-medium px-4 py-2 rounded-lg border border-white border-opacity-20 backdrop-blur-sm transition-colors text-sm">Sort Total: <span id="tabSortLabel">High→Low</span></button>
             <button onclick="exportCSV()" class="bg-white bg-opacity-10 hover:bg-white hover:bg-opacity-20 text-white font-medium px-4 py-2 rounded-lg border border-white border-opacity-20 backdrop-blur-sm transition-colors text-sm">Export CSV</button>
           </div>
         </div>
@@ -950,6 +959,70 @@ function exportCSV() {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+// Sorting utilities
+function parseNumeric(text) {
+  if (!text) return 0;
+  const n = parseFloat(String(text).replace(/[^0-9.\-]/g, ''));
+  return isNaN(n) ? 0 : n;
+}
+
+// Leaderboard sorting
+const lbSortDir = { 'Ambassador': 'desc', 'Ambassadress': 'desc' };
+function toggleSortLB(div) {
+  lbSortDir[div] = lbSortDir[div] === 'desc' ? 'asc' : 'desc';
+  const label = document.getElementById('lbSortLabel_' + div);
+  if (label) label.textContent = lbSortDir[div] === 'desc' ? 'High→Low' : 'Low→High';
+  sortLeaderboardTable(div, lbSortDir[div]);
+}
+
+function sortLeaderboardTable(div, dir) {
+  const table = document.getElementById('lbTable_' + div);
+  if (!table) return;
+  const tbody = table.querySelector('tbody');
+  if (!tbody) return;
+  const rows = Array.from(tbody.querySelectorAll('tr'));
+  // Score is the 4th column (index 3)
+  rows.sort((a,b) => {
+    const av = parseNumeric(a.children[3]?.innerText);
+    const bv = parseNumeric(b.children[3]?.innerText);
+    return dir === 'desc' ? (bv - av) : (av - bv);
+  });
+  // Re-attach rows and re-number Rank (#1..)
+  rows.forEach((tr, idx) => {
+    const rankCell = tr.children[0];
+    if (rankCell) rankCell.textContent = '#' + (idx + 1);
+    tbody.appendChild(tr);
+  });
+}
+
+// Tabulated Total sorting
+let tabSortDir = 'desc';
+function toggleTabSort() {
+  tabSortDir = tabSortDir === 'desc' ? 'asc' : 'desc';
+  const label = document.getElementById('tabSortLabel');
+  if (label) label.textContent = tabSortDir === 'desc' ? 'High→Low' : 'Low→High';
+  sortTabulatedByTotal(tabSortDir);
+}
+
+function sortTabulatedByTotal(dir) {
+  // Find the main table under Tabulated Data card
+  const container = document.querySelector('div.bg-white.bg-opacity-15.backdrop-blur-md.rounded-xl.shadow-sm.border.border-white.border-opacity-20 > div.overflow-x-auto');
+  const table = container ? container.querySelector('table') : null;
+  if (!table) return;
+  const thead = table.querySelector('thead');
+  const tbody = table.querySelector('tbody');
+  if (!thead || !tbody) return;
+  const ths = Array.from(thead.querySelectorAll('th'));
+  const totalIdx = ths.length - 1; // last column is Total
+  const rows = Array.from(tbody.querySelectorAll('tr'));
+  rows.sort((a,b) => {
+    const av = parseNumeric(a.children[totalIdx]?.innerText);
+    const bv = parseNumeric(b.children[totalIdx]?.innerText);
+    return dir === 'desc' ? (bv - av) : (av - bv);
+  });
+  rows.forEach(tr => tbody.appendChild(tr));
 }
 </script>
 
