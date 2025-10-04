@@ -73,54 +73,76 @@ $stmtPre->execute();
 $rPre = $stmtPre->get_result()->fetch_assoc();
 $stmtPre->close();
 $prelim_rounds_closed = (int)($rPre['c'] ?? 0);
-$awards_prelim_ready = ($prelim_rounds_closed >= 6);
+$awards_prelim_ready = ($prelim_rounds_closed >= 7); // Updated threshold: now requires seven prelim rounds
 
 // 3) Leaderboard datasets per division based on stage filter
+// Leaderboard computation with round-level weighting
 $leaderboardRows = ['Ambassador'=>[], 'Ambassadress'=>[]];
 $stageFilter = ($selected_stage === 'final') ? 'FINAL' : 'PRELIM';
-// Determine number of rounds in this stage to normalize totals to 100%
-$stmtCnt = $conn->prepare("SELECT COUNT(*) AS c FROM rounds WHERE pageant_id=? AND scoring_mode=? AND state IN ('CLOSED','FINALIZED')");
-$stmtCnt->bind_param('is', $pageant_id, $stageFilter);
-$stmtCnt->execute();
-$cntRow = $stmtCnt->get_result()->fetch_assoc();
-$stmtCnt->close();
-$roundCount = max(1, (int)($cntRow['c'] ?? 0));
-$stageScale = 100.0 / $roundCount;
+
+// Fetch sum of overall_weight for closed/finalized rounds in this stage (fallback equal if NULLs)
+$stmtW = $conn->prepare("SELECT id, COALESCE(overall_weight,0) AS w FROM rounds WHERE pageant_id=? AND scoring_mode=? AND state IN ('CLOSED','FINALIZED')");
+$stmtW->bind_param('is', $pageant_id, $stageFilter);
+$stmtW->execute();
+$resW = $stmtW->get_result();
+$roundWeights = []; $sumWeights = 0.0; $allZero = true;
+while ($rw = $resW->fetch_assoc()) {
+  $roundWeights[(int)$rw['id']] = (float)$rw['w'];
+  if ((float)$rw['w'] > 0) { $sumWeights += (float)$rw['w']; $allZero = false; }
+}
+$stmtW->close();
+
+// If all weights are zero (unset), treat each closed round equally.
+if ($allZero) {
+  $count = count($roundWeights) ?: 1;
+  foreach ($roundWeights as $rid => $_) { $roundWeights[$rid] = 100.0 / $count; }
+  $sumWeights = 100.0;
+}
+
 foreach (['Ambassador','Ambassadress'] as $div) {
-    $stmtLb = $conn->prepare(
-    "SELECT p.id, p.full_name AS name, p.number_label,
-            SUM(
-              CASE WHEN rc.max_score IS NOT NULL AND rc.max_score > 0
-                   THEN (COALESCE(s.override_score, s.raw_score) / rc.max_score) * (CASE WHEN rc.weight>1 THEN rc.weight/100.0 ELSE rc.weight END)
-                   ELSE 0
-              END
-            ) * 100.0 AS total
-     FROM participants p
-     JOIN divisions d ON p.division_id=d.id
-     JOIN scores s ON s.participant_id=p.id
-     JOIN round_criteria rc ON rc.criterion_id=s.criterion_id AND rc.round_id = s.round_id
-     JOIN rounds r ON r.id=rc.round_id
-     WHERE p.pageant_id=? AND p.is_active=1 AND d.name=?
-       AND r.scoring_mode=? AND r.state IN ('CLOSED','FINALIZED')
-     GROUP BY p.id, p.full_name, p.number_label
-     ORDER BY total DESC, p.full_name ASC"
+  // Per-round normalized scores first
+  $stmtLb = $conn->prepare(
+    "WITH per_round AS (
+        SELECT p.id AS participant_id, p.full_name, p.number_label, r.id AS round_id,
+               SUM(CASE WHEN rc.max_score>0 THEN (COALESCE(s.override_score, s.raw_score)/rc.max_score) * (CASE WHEN rc.weight>1 THEN rc.weight/100.0 ELSE rc.weight END) ELSE 0 END) AS round_norm
+        FROM participants p
+        JOIN divisions d ON p.division_id=d.id
+        JOIN scores s ON s.participant_id=p.id
+        JOIN round_criteria rc ON rc.criterion_id=s.criterion_id AND rc.round_id = s.round_id
+        JOIN rounds r ON r.id=rc.round_id
+        WHERE p.pageant_id=? AND p.is_active=1 AND d.name=?
+          AND r.scoring_mode=? AND r.state IN ('CLOSED','FINALIZED')
+        GROUP BY p.id, p.full_name, p.number_label, r.id
+    )
+    SELECT pr.participant_id AS id, pr.full_name AS name, pr.number_label,
+           SUM(pr.round_norm * (? / NULLIF(?,0)) * (CASE WHEN r.overall_weight IS NULL OR r.overall_weight=0 THEN 1 ELSE r.overall_weight END)) AS weighted_sum,
+           SUM(CASE WHEN r.overall_weight IS NULL OR r.overall_weight=0 THEN 0 ELSE r.overall_weight END) AS used_weights
+    FROM per_round pr
+    JOIN rounds r ON r.id = pr.round_id
+    GROUP BY pr.participant_id, pr.full_name, pr.number_label"
   );
-  // Bind ONLY 3 params now: pageant_id (i), division (s), scoring_mode (s)
-  $stmtLb->bind_param('iss', $pageant_id, $selected_division, $selected_stage_mode);
+  // We pass a scaling factor so that if weights are defined they normalize to 100; if they were all zero, we already substituted equal distribution.
+  // Factor logic: we want (round_norm * round_weight / sumWeights)*100. We'll pass 100 and sumWeights as params, and inside query multiply by round_weight.
+  $hundred = 100.0; $sumParam = $sumWeights ?: 100.0;
+  $stmtLb->bind_param('issdd', $pageant_id, $div, $stageFilter, $hundred, $sumParam);
   $stmtLb->execute();
   $resLb = $stmtLb->get_result();
-  $rank = 1; $rows = [];
+  $rowsTmp = [];
   while ($row = $resLb->fetch_assoc()) {
-    $rows[] = [
+    $total = (float)($row['weighted_sum'] ?? 0);
+    // If allZero we scaled manually by equal distribution but the query multiplies by raw weights (which were set to equal 100/count); we still divided by sumWeights (100) and multiplied by 100 -> correct 0..100.
+    $rowsTmp[] = [
       'id' => (int)$row['id'],
       'name' => $row['name'],
       'number_label' => $row['number_label'],
-      'total_score' => number_format((float)($row['total'] ?? 0), 2),
-      'rank' => $rank++
+      'total_score' => number_format($total, 2)
     ];
   }
   $stmtLb->close();
-  $leaderboardRows[$div] = $rows;
+  // Sort (descending) and assign ranks
+  usort($rowsTmp, function($a,$b){ return (float)$b['total_score'] <=> (float)$a['total_score']; });
+  $ranked = []; $rk=1; foreach ($rowsTmp as $r) { $r['rank']=$rk++; $ranked[]=$r; }
+  $leaderboardRows[$div] = $ranked;
 }
 
 // 4) Current leader overall
@@ -242,10 +264,10 @@ include __DIR__ . '/../partials/sidebar_admin.php';
         </div>
         <div class="p-6 grid md:grid-cols-3 gap-6">
           <div>
-            <label class="block text-sm font-medium text-slate-200 mb-2">Round</label>
+            <label class="block text-sm font-medium text-slate-200 mb-2">Stage</label>
             <select id="stageFilter" name="stage" class="w-full bg-white bg-opacity-20 backdrop-blur-sm border border-white border-opacity-30 rounded-lg px-4 py-3 text-sm text-white focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-colors" onchange="updateFilters()">
-              <option value="prelim" <?php echo $selected_stage === 'prelim' ? 'selected' : ''; ?>>Pageant (Pre-Q&A Overall)</option>
-              <option value="final" <?php echo $selected_stage === 'final' ? 'selected' : ''; ?>>Final Q&A Round</option>
+              <option value="prelim" <?php echo $selected_stage === 'prelim' ? 'selected' : ''; ?>>Pre-QnA / Prelims (Weighted)</option>
+              <option value="final" <?php echo $selected_stage === 'final' ? 'selected' : ''; ?>>Finals (Weighted)</option>
             </select>
           </div>
           <div class="hidden md:block"></div>
@@ -334,7 +356,7 @@ include __DIR__ . '/../partials/sidebar_admin.php';
             <svg class="w-5 h-5 text-yellow-600 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
             <div>
               <h4 class="text-sm font-medium text-yellow-300">Awards Not Ready</h4>
-              <p class="text-sm text-yellow-200 mt-1">Awards become available after at least six Pre-Q&A (Prelim) rounds are closed.<br/>Currently <?php echo $prelim_rounds_closed; ?> prelim round(s) closed.</p>
+              <p class="text-sm text-yellow-200 mt-1">Awards become available after at least seven Pre-Q&A (Prelim) rounds are closed.<br/>Currently <?php echo $prelim_rounds_closed; ?> prelim round(s) closed.</p>
             </div>
           </div>
         </div>

@@ -160,7 +160,7 @@ $stmt = $conn->prepare("SELECT u.id, u.username, u.full_name, u.email, u.is_acti
                         FROM users u 
                         JOIN pageant_users pu ON u.id = pu.user_id 
                         WHERE pu.pageant_id = ? AND pu.role = 'judge' 
-                        ORDER BY u.full_name");
+                        ORDER BY u.id");
 $stmt->bind_param("i", $pageant_id);
 $stmt->execute();
 $result = $stmt->get_result();
