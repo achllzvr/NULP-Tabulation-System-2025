@@ -5,63 +5,67 @@ $isInAdminDir = strpos($_SERVER['PHP_SELF'], '/admin/') !== false;
 $prefix = $isInAdminDir ? '' : 'admin/';
 
 $navItems = [
-    [
-        'label' => 'Dashboard',
-        'href' => $prefix . 'dashboard.php',
-        'icon' => 'M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z M8 5a2 2 0 012-2h2a2 2 0 012 2v0H8v0z'
-    ],
-    [
-        'label' => 'Participants',
-        'href' => $prefix . 'participants.php',
-        'icon' => 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z'
-    ],
-    [
-        'label' => 'Judges',
-        'href' => $prefix . 'judges.php',
-        'icon' => 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z'
-    ],
-    [
-        'label' => 'Rounds & Criteria',
-        'href' => $prefix . 'rounds.php',
-        'icon' => 'M9 5H7a2 2 0 00-2 2v4a2 2 0 002 2h2m2-6h6a2 2 0 012 2v4a2 2 0 01-2 2h-6m2-6V4a2 2 0 00-2-2H9a2 2 0 00-2 2v1m2 0h4'
-    ],
+  // Section 1
+  ['type' => 'section', 'label' => 'Panel'],
+  [
+    'label' => 'Judges',
+    'href' => $prefix . 'judges.php',
+    'icon' => 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z'
+  ],
+  [
+    'label' => 'Participants',
+    'href' => $prefix . 'participants.php',
+    'icon' => 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z'
+  ],
   [
     'label' => 'Duos / Pairs',
     'href' => $prefix . 'duos.php',
     'icon' => 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m8-9a3 3 0 11-6 0 3 3 0 016 0z'
   ],
-    [
-        'label' => 'Live Control',
-        'href' => $prefix . 'live_control.php',
-        'icon' => 'M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z'
-    ],
-  // Leaderboard removed; centralized under Results / public pages
+
+  // Section 2
+  ['type' => 'section', 'label' => 'Operations'],
+  [
+    'label' => 'Live Control',
+    'href' => $prefix . 'live_control.php',
+    'icon' => 'M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z'
+  ],
+  [
+    'label' => 'Rounds & Criteria',
+    'href' => $prefix . 'rounds.php',
+    'icon' => 'M9 5H7a2 2 0 00-2 2v4a2 2 0 002 2h2m2-6h6a2 2 0 012 2v4a2 2 0 01-2 2h-6m2-6V4a2 2 0 00-2-2H9a2 2 0 00-2 2v1m2 0h4'
+  ],
+  [
+    'label' => 'Advancement',
+    'href' => $prefix . 'advancement.php',
+    'icon' => 'M13 10V3L4 14h7v7l9-11h-7z'
+  ],
+  [
+    'label' => 'Tie Resolution',
+    'href' => $prefix . 'tie_resolution.php',
+    'icon' => 'M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zM21 5a2 2 0 00-2-2h-4a2 2 0 00-2 2v12a4 4 0 004 4 4 4 0 004-4V5z'
+  ],
+
+  // Section 3
+  ['type' => 'section', 'label' => 'Results'],
   [
     'label' => 'Results',
     'href' => $prefix . 'results.php',
     'icon' => 'M5 13l4 4L19 7M9 5H7a2 2 0 00-2 2v4a2 2 0 002 2h2m2-6h6a2 2 0 012 2v4a2 2 0 01-2 2h-6'
   ],
+
+  // Section 4
+  ['type' => 'section', 'label' => 'System'],
   [
-    'label' => 'Reset Simulation',
-    'href' => $prefix . 'reset_simulation.php',
-    'icon' => 'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15'
+    'label' => 'Dashboard',
+    'href' => $prefix . 'dashboard.php',
+    'icon' => 'M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z M8 5a2 2 0 012-2h2a2 2 0 012 2v0H8v0z'
   ],
-    [
-        'label' => 'Advancement',
-        'href' => $prefix . 'advancement.php',
-        'icon' => 'M13 10V3L4 14h7v7l9-11h-7z'
-    ],
-  // Awards link removed: awards management is centralized under Results
-    [
-        'label' => 'Tie Resolution',
-        'href' => $prefix . 'tie_resolution.php',
-        'icon' => 'M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zM21 5a2 2 0 00-2-2h-4a2 2 0 00-2 2v12a4 4 0 004 4 4 4 0 004-4V5z'
-    ],
-    [
-        'label' => 'Settings',
-        'href' => $prefix . 'settings.php',
-        'icon' => 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z'
-    ]
+  [
+    'label' => 'Settings',
+    'href' => $prefix . 'settings.php',
+    'icon' => 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z'
+  ]
 ];
 
 $current = basename($_SERVER['PHP_SELF']);
@@ -88,7 +92,10 @@ $current = basename($_SERVER['PHP_SELF']);
       <!-- Navigation -->
       <nav class="mt-2 flex-1 px-3 space-y-1">
         <?php foreach ($navItems as $item): 
-          $active = ($item['href'] === $current || str_ends_with($item['href'], $current)); 
+          if (($item['type'] ?? '') === 'section') { ?>
+            <div class="mt-4 mb-1 px-3 text-xs font-semibold uppercase tracking-wide text-slate-400/80"><?= htmlspecialchars($item['label'], ENT_QUOTES, 'UTF-8') ?></div>
+          <?php continue; }
+          $active = (isset($item['href']) && ($item['href'] === $current || str_ends_with($item['href'], $current))); 
         ?>
           <a href="<?= $item['href'] ?>" 
              class="<?= $active ? 'bg-blue-500 bg-opacity-30 border-r-4 border-blue-300 text-white backdrop-blur-sm' : 'text-slate-200 hover:bg-white hover:bg-opacity-10 hover:text-white hover:backdrop-blur-sm' ?> group flex items-center px-3 py-2 text-sm font-medium rounded-l-lg transition-all duration-150 ease-in-out">
@@ -159,7 +166,10 @@ $current = basename($_SERVER['PHP_SELF']);
         </div>
         <nav class="mt-5 px-2 space-y-1">
           <?php foreach ($navItems as $item): 
-            $active = ($item['href'] === $current || str_ends_with($item['href'], $current)); 
+            if (($item['type'] ?? '') === 'section') { ?>
+              <div class="mt-6 mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-slate-400/80"><?= htmlspecialchars($item['label'], ENT_QUOTES, 'UTF-8') ?></div>
+            <?php continue; }
+            $active = (isset($item['href']) && ($item['href'] === $current || str_ends_with($item['href'], $current))); 
           ?>
             <a href="<?= $item['href'] ?>" 
                class="<?= $active ? 'bg-blue-500 bg-opacity-30 text-white backdrop-blur-sm' : 'text-slate-200 hover:bg-white hover:bg-opacity-10 hover:text-white hover:backdrop-blur-sm' ?> group flex items-center px-2 py-2 text-base font-medium rounded-md transition-all duration-150">
