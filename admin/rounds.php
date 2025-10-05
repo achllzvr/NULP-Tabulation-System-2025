@@ -137,13 +137,14 @@ if (isset($_POST['toggle_round'])) {
           $signing_id = $stmt3->insert_id;
           $stmt3->close();
           // Seed judge confirmations from assigned judges only
+          // Use known $pageant_id instead of subquery to prevent 'Subquery returns more than 1 row' when duplicate id=0 rows exist
           $stmtJ = $conn->prepare("SELECT u.id
                                    FROM round_judges rj
                                    JOIN users u ON u.id = rj.judge_user_id
-                                   WHERE rj.pageant_id = (SELECT pageant_id FROM rounds WHERE id = ?)
+                                   WHERE rj.pageant_id = ?
                                      AND rj.round_id = ?
                                      AND u.is_active = 1");
-          $stmtJ->bind_param("ii", $round_id, $round_id);
+          $stmtJ->bind_param("ii", $pageant_id, $round_id);
           $stmtJ->execute();
           $resJ = $stmtJ->get_result();
           $judgeIds = [];
@@ -178,21 +179,21 @@ if (isset($_POST['toggle_round'])) {
         }
         $sid = (int)$sigRow['id'];
         // Assigned active judges
-        $stmtA = $conn->prepare("SELECT COUNT(*) AS assigned
-                                 FROM round_judges rj
-                                 JOIN users u ON u.id = rj.judge_user_id AND u.is_active = 1
-                                 WHERE rj.round_id = ? AND rj.pageant_id = (SELECT pageant_id FROM rounds WHERE id = ?)");
-        $stmtA->bind_param("ii", $round_id, $round_id);
+  $stmtA = $conn->prepare("SELECT COUNT(*) AS assigned
+         FROM round_judges rj
+         JOIN users u ON u.id = rj.judge_user_id AND u.is_active = 1
+         WHERE rj.round_id = ? AND rj.pageant_id = ?");
+  $stmtA->bind_param("ii", $round_id, $pageant_id);
         $stmtA->execute();
         $assigned = (int)($stmtA->get_result()->fetch_assoc()['assigned'] ?? 0);
         $stmtA->close();
         // Confirmed among assigned
-        $stmtC = $conn->prepare("SELECT SUM(CASE WHEN rjs.confirmed=1 THEN 1 ELSE 0 END) AS confirmed
-                                 FROM round_judges rj
-                                 JOIN users u ON u.id = rj.judge_user_id AND u.is_active = 1
-                                 LEFT JOIN round_signing_judges rjs ON rjs.judge_user_id = rj.judge_user_id AND rjs.round_signing_id = ?
-                                 WHERE rj.round_id = ? AND rj.pageant_id = (SELECT pageant_id FROM rounds WHERE id = ?)");
-        $stmtC->bind_param("iii", $sid, $round_id, $round_id);
+  $stmtC = $conn->prepare("SELECT SUM(CASE WHEN rjs.confirmed=1 THEN 1 ELSE 0 END) AS confirmed
+         FROM round_judges rj
+         JOIN users u ON u.id = rj.judge_user_id AND u.is_active = 1
+         LEFT JOIN round_signing_judges rjs ON rjs.judge_user_id = rj.judge_user_id AND rjs.round_signing_id = ?
+         WHERE rj.round_id = ? AND rj.pageant_id = ?");
+  $stmtC->bind_param("iii", $sid, $round_id, $pageant_id);
         $stmtC->execute();
         $confirmed = (int)($stmtC->get_result()->fetch_assoc()['confirmed'] ?? 0);
         $stmtC->close();
@@ -256,10 +257,10 @@ if (isset($_POST['start_round_signing'])) {
     $stmtJ = $conn->prepare("SELECT u.id
                              FROM round_judges rj
                              JOIN users u ON u.id = rj.judge_user_id
-                             WHERE rj.pageant_id = (SELECT pageant_id FROM rounds WHERE id = ?)
+                             WHERE rj.pageant_id = ?
                                AND rj.round_id = ?
                                AND u.is_active = 1");
-    $stmtJ->bind_param("ii", $round_id, $round_id);
+    $stmtJ->bind_param("ii", $pageant_id, $round_id);
     $stmtJ->execute();
     $resJ = $stmtJ->get_result();
     $judgeIds = [];
@@ -531,9 +532,9 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                                                  FROM round_judges rj
                                                  JOIN users u ON u.id = rj.judge_user_id
                                                  WHERE rj.round_id = ?
-                                                   AND rj.pageant_id = (SELECT pageant_id FROM rounds WHERE id = ?)
+                                                   AND rj.pageant_id = ?
                                                    AND u.is_active = 1");
-                    $stmtA->bind_param("ii", $round['id'], $round['id']);
+                    $stmtA->bind_param("ii", $round['id'], $pageant_id);
                     $stmtA->execute();
                     $assigned = (int)($stmtA->get_result()->fetch_assoc()['assigned'] ?? 0);
                     $stmtA->close();
@@ -549,9 +550,9 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                                                      JOIN users u ON u.id = rj.judge_user_id AND u.is_active = 1
                                                      LEFT JOIN round_signing_judges rjs ON rjs.judge_user_id = rj.judge_user_id AND rjs.round_signing_id = ?
                                                      WHERE rj.round_id = ?
-                                                       AND rj.pageant_id = (SELECT pageant_id FROM rounds WHERE id = ?)
+                                                       AND rj.pageant_id = ?
                                                     ");
-                        $stmtC->bind_param("iii", $signing_id_chk, $round['id'], $round['id']);
+                        $stmtC->bind_param("iii", $signing_id_chk, $round['id'], $pageant_id);
                         $stmtC->execute();
                         $confirmed = (int)($stmtC->get_result()->fetch_assoc()['confirmed'] ?? 0);
                         $stmtC->close();
@@ -638,8 +639,8 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                                                         FROM round_judges rj
                                                         JOIN users u ON u.id = rj.judge_user_id AND u.is_active = 1
                                                         WHERE rj.round_id = ?
-                                                          AND rj.pageant_id = (SELECT pageant_id FROM rounds WHERE id = ?)");
-                          $stmtPA->bind_param("ii", $round['id'], $round['id']);
+                                                          AND rj.pageant_id = ?");
+                          $stmtPA->bind_param("ii", $round['id'], $pageant_id);
                           $stmtPA->execute();
                           $assignedProg = (int)($stmtPA->get_result()->fetch_assoc()['assigned'] ?? 0);
                           $stmtPA->close();
@@ -657,8 +658,8 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                                                           JOIN users u ON u.id = rj.judge_user_id AND u.is_active = 1
                                                           LEFT JOIN round_signing_judges rjs ON rjs.judge_user_id = rj.judge_user_id AND rjs.round_signing_id = ?
                                                           WHERE rj.round_id = ?
-                                                            AND rj.pageant_id = (SELECT pageant_id FROM rounds WHERE id = ?)");
-                            $stmtPC->bind_param("iii", $sid, $round['id'], $round['id']);
+                                                            AND rj.pageant_id = ?");
+                            $stmtPC->bind_param("iii", $sid, $round['id'], $pageant_id);
                             $stmtPC->execute();
                             $doneProg = (int)($stmtPC->get_result()->fetch_assoc()['confirmed'] ?? 0);
                             $stmtPC->close();
