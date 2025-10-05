@@ -164,14 +164,14 @@ $advancement_count = isset($_GET['count']) ? max(1, min(20, (int)$_GET['count'])
 // Helpers for auto-advancement
 function findAdvancementRounds($con, $pageant_id) {
   $conn = $con->opencon();
-  $stmt = $conn->prepare("SELECT id, name, sequence FROM rounds WHERE pageant_id = ? AND state IN ('CLOSED','FINALIZED') ORDER BY sequence DESC LIMIT 1");
+  $stmt = $conn->prepare("SELECT id, name, sequence, scoring_mode FROM rounds WHERE pageant_id = ? AND state IN ('CLOSED','FINALIZED') ORDER BY sequence DESC LIMIT 1");
   $stmt->bind_param("i", $pageant_id);
   $stmt->execute();
   $from = $stmt->get_result()->fetch_assoc();
   $stmt->close();
   $to = null;
   if ($from) {
-    $stmt = $conn->prepare("SELECT id, name FROM rounds WHERE pageant_id = ? AND sequence > ? ORDER BY sequence ASC LIMIT 1");
+    $stmt = $conn->prepare("SELECT id, name, scoring_mode FROM rounds WHERE pageant_id = ? AND sequence > ? ORDER BY sequence ASC LIMIT 1");
     $stmt->bind_param("ii", $pageant_id, $from['sequence']);
     $stmt->execute();
     $to = $stmt->get_result()->fetch_assoc();
@@ -179,6 +179,76 @@ function findAdvancementRounds($con, $pageant_id) {
   }
   $conn->close();
   return [$from, $to];
+}
+
+// Compute stage (scoring_mode) weighted leaderboard consistent with results.php logic
+function computeStageWeightedLeaderboard($con, $pageant_id, $division, $scoring_mode, $limit = null) {
+  $conn = $con->opencon();
+
+  // 1. Fetch closed/finalized rounds for this stage with weights
+  $stmt = $conn->prepare("SELECT id, COALESCE(overall_weight,0) AS w FROM rounds WHERE pageant_id=? AND scoring_mode=? AND state IN ('CLOSED','FINALIZED')");
+  $stmt->bind_param('is', $pageant_id, $scoring_mode);
+  $stmt->execute();
+  $res = $stmt->get_result();
+  $roundWeights = []; $sumPos = 0.0; $allZero = true;
+  while ($r = $res->fetch_assoc()) {
+    $rid = (int)$r['id'];
+    $w = (float)$r['w'];
+    $roundWeights[$rid] = $w; if ($w > 0) { $sumPos += $w; $allZero = false; }
+  }
+  $stmt->close();
+  if (empty($roundWeights)) { $conn->close(); return []; }
+
+  // Normalize weights: if all zero distribute equally; else scale to percent sum 100
+  if ($allZero) {
+    $count = count($roundWeights);
+    $eq = 100.0 / max(1,$count);
+    foreach ($roundWeights as $rid => $_) { $roundWeights[$rid] = $eq; }
+  } else {
+    foreach ($roundWeights as $rid => $w) { $roundWeights[$rid] = ($w / $sumPos) * 100.0; }
+  }
+
+  // 2. Per-round normalized scores
+  $stmt = $conn->prepare(
+    "SELECT p.id AS participant_id, p.full_name, p.number_label, r.id AS round_id,
+            SUM(CASE WHEN rc.max_score>0 THEN (COALESCE(s.override_score, s.raw_score)/rc.max_score) * (CASE WHEN rc.weight>1 THEN rc.weight/100.0 ELSE rc.weight END) ELSE 0 END) AS round_norm
+       FROM participants p
+       JOIN divisions d ON p.division_id=d.id
+       JOIN scores s ON s.participant_id=p.id
+       JOIN round_criteria rc ON rc.criterion_id=s.criterion_id AND rc.round_id = s.round_id
+       JOIN rounds r ON r.id = rc.round_id
+      WHERE p.pageant_id=? AND p.is_active=1 AND d.name=? AND r.scoring_mode=? AND r.state IN ('CLOSED','FINALIZED')
+      GROUP BY p.id, p.full_name, p.number_label, r.id"
+  );
+  $stmt->bind_param('iss', $pageant_id, $division, $scoring_mode);
+  $stmt->execute();
+  $res = $stmt->get_result();
+  $byParticipant = [];
+  while ($row = $res->fetch_assoc()) {
+    $pid = (int)$row['participant_id'];
+    if (!isset($byParticipant[$pid])) {
+      $byParticipant[$pid] = [
+        'id' => $pid,
+        'name' => $row['full_name'],
+        'number_label' => $row['number_label'],
+        'total_score' => 0.0
+      ];
+    }
+    $rid = (int)$row['round_id'];
+    $rn = (float)$row['round_norm'];
+    $weightPct = $roundWeights[$rid] ?? 0.0; // already normalized to percent
+    // round_norm is already a weighted fraction 0..1 of the round (because criterion weights sum to 1). Multiply by round stage weight percentage.
+    $byParticipant[$pid]['total_score'] += $rn * $weightPct;
+  }
+  $stmt->close();
+  $conn->close();
+
+  // 3. Sort & rank
+  $list = array_values($byParticipant);
+  usort($list, function($a,$b){ return $b['total_score'] <=> $a['total_score']; });
+  $rank = 1; foreach ($list as &$row) { $row['rank'] = $rank++; $row['total_score'] = number_format($row['total_score'], 2); }
+  if ($limit !== null) { $list = array_slice($list, 0, (int)$limit); }
+  return $list;
 }
 
 function getTopForRound($con, $round_id, $division, $limit) {
@@ -337,9 +407,7 @@ if (isset($_POST['confirm_advancement'])) {
 
 // advancement_count is already set above
 
-// Get top participants for each division
-$mr_top = $con->getTopParticipants($pageant_id, 'Ambassador', $advancement_count);
-$ms_top = $con->getTopParticipants($pageant_id, 'Ambassadress', $advancement_count);
+// Legacy per-round top arrays removed; advancement now uses stage-weighted aggregation consistent with Results page.
 
 // Check if advancements have already been confirmed
 $conn = $con->opencon();
@@ -481,16 +549,15 @@ include __DIR__ . '/../partials/sidebar_admin.php';
 
     <!-- Auto-Advancement Preview (replaces manual selection) -->
     <?php 
-      [$fromRound, $toRound] = findAdvancementRounds($con, $pageant_id);
-  $previewMr = $fromRound ? getTopForRound($con, (int)$fromRound['id'], 'Ambassador', $advancement_count) : [];
-  $previewMs = $fromRound ? getTopForRound($con, (int)$fromRound['id'], 'Ambassadress', $advancement_count) : [];
+    [$fromRound, $toRound] = findAdvancementRounds($con, $pageant_id);
+    $stageMode = $fromRound['scoring_mode'] ?? 'PRELIM';
+    $previewMr = $fromRound ? computeStageWeightedLeaderboard($con, $pageant_id, 'Ambassador', $stageMode, $advancement_count) : [];
+    $previewMs = $fromRound ? computeStageWeightedLeaderboard($con, $pageant_id, 'Ambassadress', $stageMode, $advancement_count) : [];
     ?>
     <div class="bg-white bg-opacity-15 backdrop-blur-md rounded-xl shadow-sm border border-white border-opacity-20 p-6 mb-8">
       <div class="flex items-center justify-between mb-4">
         <h3 class="text-lg font-semibold text-white">Auto-Advancement Preview <span class="text-sm text-slate-300">(Top <?= (int)$advancement_count ?> per division)</span></h3>
-        <?php if ($fromRound && $toRound): ?>
-          <span class="text-xs text-slate-300">From: <strong class="text-slate-100"><?= htmlspecialchars($fromRound['name'], ENT_QUOTES, 'UTF-8') ?></strong> → To: <strong class="text-slate-100"><?= htmlspecialchars($toRound['name'], ENT_QUOTES, 'UTF-8') ?></strong></span>
-        <?php endif; ?>
+        <?php /* From->To label removed per request */ ?>
       </div>
       <?php if (!$fromRound): ?>
         <p class="text-slate-200">No closed round found. Close a round to enable auto-advancement.</p>
@@ -514,7 +581,7 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                     <tr class="hover:bg-blue-900/10">
                       <td class="px-3 py-2 font-semibold text-blue-200"><?= htmlspecialchars($row['number_label'] ?? '', ENT_QUOTES, 'UTF-8') ?></td>
                       <td class="px-3 py-2 text-slate-100"><?= htmlspecialchars($row['name'] ?? '', ENT_QUOTES, 'UTF-8') ?></td>
-                      <td class="px-3 py-2 text-blue-100 font-medium"><?= htmlspecialchars(number_format((float)($row['raw_score'] ?? 0), 2), ENT_QUOTES, 'UTF-8') ?></td>
+                      <td class="px-3 py-2 text-blue-100 font-medium"><?= htmlspecialchars($row['total_score'] ?? '0.00', ENT_QUOTES, 'UTF-8') ?></td>
                     </tr>
                   <?php endforeach; else: ?>
                     <tr><td colspan="3" class="px-3 py-3 text-slate-300">No data</td></tr>
@@ -539,7 +606,7 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                     <tr class="hover:bg-pink-900/10">
                       <td class="px-3 py-2 font-semibold text-pink-200"><?= htmlspecialchars($row['number_label'] ?? '', ENT_QUOTES, 'UTF-8') ?></td>
                       <td class="px-3 py-2 text-slate-100"><?= htmlspecialchars($row['name'] ?? '', ENT_QUOTES, 'UTF-8') ?></td>
-                      <td class="px-3 py-2 text-pink-100 font-medium"><?= htmlspecialchars(number_format((float)($row['raw_score'] ?? 0), 2), ENT_QUOTES, 'UTF-8') ?></td>
+                      <td class="px-3 py-2 text-pink-100 font-medium"><?= htmlspecialchars($row['total_score'] ?? '0.00', ENT_QUOTES, 'UTF-8') ?></td>
                     </tr>
                   <?php endforeach; else: ?>
                     <tr><td colspan="3" class="px-3 py-3 text-slate-300">No data</td></tr>

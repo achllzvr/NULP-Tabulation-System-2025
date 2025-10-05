@@ -347,7 +347,7 @@ $stmt = $conn->prepare("SELECT u.id, u.full_name, u.username
                         FROM users u 
                         JOIN pageant_users pu ON pu.user_id = u.id 
                         WHERE pu.pageant_id = ? AND pu.role='judge' AND u.is_active=1
-                        ORDER BY u.full_name");
+                        ORDER BY u.id");
 $stmt->bind_param("i", $pageant_id);
 $stmt->execute();
 $res = $stmt->get_result();
@@ -503,17 +503,27 @@ include __DIR__ . '/../partials/sidebar_admin.php';
           <div class="p-6">
             <?php if (!empty($rounds)): ?>
               <div class="space-y-4">
-                <?php foreach ($rounds as $round):
-                  // Check if this is the Final Round (last in sequence)
-                  $is_final_round = false;
-                  if (!empty($rounds)) {
-                    $max_seq = max(array_column($rounds, 'sequence'));
-                    $is_final_round = ($round['sequence'] == $max_seq);
+                <?php
+                  // Pre-compute gating sequences (final and second-to-last) once
+                  $sequences = array_column($rounds, 'sequence');
+                  $max_seq = !empty($sequences) ? max($sequences) : null;
+                  $second_last_seq = null;
+                  if (count($sequences) > 1) {
+                    $uniqueSeq = array_values(array_unique($sequences));
+                    sort($uniqueSeq, SORT_NUMERIC);
+                    $second_last_seq = $uniqueSeq[count($uniqueSeq) - 2];
+                  }
+                  foreach ($rounds as $round):
+                  // Gate applies to final and second-to-last rounds
+                  $is_gate_round = false;
+                  if ($max_seq !== null) {
+                    $is_gate_round = ($round['sequence'] == $max_seq) || ($second_last_seq !== null && $round['sequence'] == $second_last_seq);
                   }
                   $advancements = $advancements_by_round[$round['id']] ?? [];
                 ?>
                   <?php
-                    $final_blocked = $is_final_round && count($advancements) === 0;
+                    // Block gated rounds (final + second-to-last) until advancements exist
+                    $final_blocked = $is_gate_round && count($advancements) === 0;
                     // If round has a signing session active and not all judges confirmed, block finalization action
                     $signing_blocked = false;
                     $signing_tooltip = '';
@@ -563,7 +573,9 @@ include __DIR__ . '/../partials/sidebar_admin.php';
                       }
                     }
                     $connChk->close();
-                    $tooltip = $final_blocked ? 'Cannot open/close/finalize Final Round until advancements are set.' : ($signing_blocked ? $signing_tooltip : '');
+                    $tooltip = $final_blocked
+                      ? 'Cannot open/close/finalize these gated Final rounds until advancements are set.'
+                      : ($signing_blocked ? $signing_tooltip : '');
                   ?>
                   <div class="border border-white border-opacity-10 rounded-lg p-6 bg-white bg-opacity-10 relative group"<?php if($final_blocked || $signing_blocked) echo ' data-tooltip="' . htmlspecialchars($tooltip) . '"'; ?>>
                     <div class="flex items-center justify-between mb-4">
@@ -785,7 +797,6 @@ include __DIR__ . '/../partials/sidebar_admin.php';
           <h4 class="font-semibold text-blue-300 mb-2">Round Management Guide</h4>
           <div class="text-sm text-blue-200 space-y-2">
             <p>• <strong>Manage Criteria:</strong> Assign scoring criteria to rounds before opening them</p>
-            <p>• <strong>Weight Validation:</strong> Criteria weights must sum to exactly 1.0 (100%)</p>
             <p>• <strong>Opening Rounds:</strong> Rounds can only be opened if they have criteria assigned</p>
             <p>• <strong>State Flow:</strong> PENDING → OPEN → CLOSED → FINALIZED</p>
             <p>• Use the <strong>"Manage Criteria"</strong> button to assign and configure scoring criteria for each round</p>
